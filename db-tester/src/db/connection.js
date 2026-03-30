@@ -8,14 +8,14 @@ dotenv.config();
  * Utiliza variables de entorno para mayor seguridad.
  */
 const pool = new Pool({
-  host: 'localhost',
-  port: 5432,
-  database: 'localhost', // Tu base de datos se llama localhost
-  user: 'postgres',
-  password: 'C4rn4g304',
-  // Esto hace que todas las consultas busquen en tu schema por defecto
-  options: '-c search_path=Palabras_De_Esperanza'
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  options: `-c search_path=${process.env.DB_SCHEMA}`
 });
+
 // Prueba de conexión inmediata
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {

@@ -9,14 +9,18 @@ const { Pool } = pg;
 const app = express();
 const port = process.env.PORT || 3001;
 
+const SCHEMA = process.env.DB_SCHEMA || 'public';
+
 // Configuración de la base de datos
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'C4rn4g304',
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'localhost',
+  host: process.env.DB_HOST,
+  port: parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  options: `-c search_path=${SCHEMA}`
 });
+
 
 // Diagnóstico profundo de la base de datos
 async function diagnoseDB() {
@@ -27,14 +31,14 @@ async function diagnoseDB() {
     const tables = await pool.query(`
       SELECT table_name 
       FROM information_schema.tables 
-      WHERE table_schema = 'Palabras_De_Esperanza'
-    `);
-    console.log('📊 Tablas en Palabras_De_Esperanza:', tables.rows.map(r => r.table_name).join(', '));
+      WHERE table_schema = $1
+    `, [SCHEMA]);
+    console.log(`📊 Tablas en ${SCHEMA}:`, tables.rows.map(r => r.table_name).join(', '));
     
     if (tables.rows.some(t => t.table_name === 'paciente')) {
       console.log('✅ Tabla "paciente" detectada.');
     } else {
-      console.error('❌ ERROR: La tabla "paciente" NO existe en el esquema Palabras_De_Esperanza.');
+      console.error(`❌ ERROR: La tabla "paciente" NO existe en el esquema ${SCHEMA}.`);
     }
 
     if (tables.rows.some(t => t.table_name === 'auditoria')) {
@@ -63,7 +67,7 @@ async function recordAudit(data) {
     const { usuario_id, nombre_usuario, rol, accion, detalles, ciudad } = data;
     const idValue = `aud${Date.now()}-${Math.floor(Math.random()*10000)}`;
     await pool.query(
-      'INSERT INTO "Palabras_De_Esperanza".auditoria (id, usuario_id, nombre_usuario, rol, accion, detalles, fecha_hora, ciudad) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      `INSERT INTO "${SCHEMA}".auditoria (id, usuario_id, nombre_usuario, rol, accion, detalles, fecha_hora, ciudad) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [idValue, usuario_id || '', nombre_usuario || 'Sistema', rol || '---', accion, detalles || '', new Date(), ciudad || 'Sonoyta']
     );
   } catch (err) {
@@ -100,7 +104,7 @@ const calculateAge = (birthday) => {
 // --- Rutas de Pacientes ---
 app.get('/api/pacientes', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".paciente ORDER BY id_paciente DESC');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".paciente ORDER BY id_paciente DESC`);
     console.log(`📦 Enviando ${result.rows.length} pacientes al frontend.`);
     res.json(result.rows.map(mapPaciente));
   } catch (err) {
@@ -118,7 +122,7 @@ app.post('/api/pacientes', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'INSERT INTO "Palabras_De_Esperanza".paciente (nombre, apellido, fecha_de_nacimiento, sexo, telefono, numero_expediente, ciudad, fecha_registro, imagen) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+      `INSERT INTO "${SCHEMA}".paciente (nombre, apellido, fecha_de_nacimiento, sexo, telefono, numero_expediente, ciudad, fecha_registro, imagen) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [nombre, apellido, p.fechaNacimiento, p.sexo, p.telefono, p.numeroExpediente, p.ciudad, p.fechaRegistro, p.imagen || null]
     );
 
@@ -147,7 +151,7 @@ app.put('/api/pacientes/:id', async (req, res) => {
     const apellido = names.slice(1).join(' ');
     
     await pool.query(
-      'UPDATE "Palabras_De_Esperanza".paciente SET nombre = $1, apellido = $2, fecha_de_nacimiento = $3, sexo = $4, telefono = $5, ciudad = $6, imagen = $7 WHERE id_paciente = $8',
+      `UPDATE "${SCHEMA}".paciente SET nombre = $1, apellido = $2, fecha_de_nacimiento = $3, sexo = $4, telefono = $5, ciudad = $6, imagen = $7 WHERE id_paciente = $8`,
       [nombre, apellido, p.fechaNacimiento, p.sexo, p.telefono, p.ciudad, p.imagen || null, parseInt(id)]
     );
 
@@ -223,8 +227,8 @@ app.get('/api/citas', async (req, res) => {
     // JOIN con triaje para saber si el paciente ya pasó por ahí
     const query = `
       SELECT c.*, t.id_triaje 
-      FROM "Palabras_De_Esperanza".citas c
-      LEFT JOIN "Palabras_De_Esperanza".triaje t ON c.id_cita = t.id_cita
+      FROM "${SCHEMA}".citas c
+      LEFT JOIN "${SCHEMA}".triaje t ON c.id_cita = t.id_cita
       ORDER BY c.id_cita DESC
     `;
     const result = await pool.query(query);
@@ -237,7 +241,7 @@ app.get('/api/citas', async (req, res) => {
 app.post('/api/citas', async (req, res) => {
   const c = req.body;
   try {
-    const tableInfo = await pool.query('SELECT * FROM "Palabras_De_Esperanza".citas LIMIT 0');
+    const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".citas LIMIT 0`);
     const dbCols = tableInfo.fields.map(f => f.name);
 
     const incomingData = {
@@ -269,7 +273,7 @@ app.post('/api/citas', async (req, res) => {
     const placeholders = Object.keys(finalData).map((_, i) => `$${i + 1}`).join(', ');
     const values = Object.values(finalData);
 
-    const query = `INSERT INTO "Palabras_De_Esperanza".citas (${queryCols}) VALUES (${placeholders}) RETURNING *`;
+    const query = `INSERT INTO "${SCHEMA}".citas (${queryCols}) VALUES (${placeholders}) RETURNING *`;
     const result = await pool.query(query, values);
 
     await recordAudit({
@@ -291,7 +295,7 @@ app.put('/api/citas/:id', async (req, res) => {
   const { estado } = req.body;
   try {
     const result = await pool.query(
-      'UPDATE "Palabras_De_Esperanza".citas SET estado = $1::"Palabras_De_Esperanza".estado_cita WHERE id_cita = $2 RETURNING *',
+      `UPDATE "${SCHEMA}".citas SET estado = $1::"${SCHEMA}".estado_cita WHERE id_cita = $2 RETURNING *`,
       [toDBEstado(estado), parseInt(id)]
     );
     if (!result.rows.length) {
@@ -309,7 +313,7 @@ app.post('/api/login', async (req, res) => {
   const { usuario, password } = req.body;
   try {
     const result = await pool.query(
-      'SELECT id, nombre, usuario, rol, ciudad FROM "Palabras_De_Esperanza".usuarios WHERE usuario = $1 AND password = $2',
+      `SELECT id, nombre, usuario, rol, ciudad FROM "${SCHEMA}".usuarios WHERE usuario = $1 AND password = $2`,
       [usuario, password]
     );
     
@@ -325,7 +329,7 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/usuarios', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".usuarios');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".usuarios`);
     res.json(result.rows.map(u => ({
       ...u,
       id: String(u.id),
@@ -341,10 +345,10 @@ app.post('/api/usuarios', async (req, res) => {
   const u = req.body;
   try {
     // Obtenemos el ID máximo actual para generar el siguiente (ya que no es SERIAL)
-    const maxIdRes = await pool.query('SELECT MAX(CAST(id AS INTEGER)) as max_id FROM "Palabras_De_Esperanza".usuarios');
+    const maxIdRes = await pool.query(`SELECT MAX(CAST(id AS INTEGER)) as max_id FROM "${SCHEMA}".usuarios`);
     const nextId = (maxIdRes.rows[0].max_id || 0) + 1;
 
-    const tableInfo = await pool.query('SELECT * FROM "Palabras_De_Esperanza".usuarios LIMIT 0');
+    const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".usuarios LIMIT 0`);
     const dbCols = tableInfo.fields.map(f => f.name);
 
     const incomingData = {
@@ -371,7 +375,7 @@ app.post('/api/usuarios', async (req, res) => {
     const placeholders = Object.keys(finalData).map((_, i) => `$${i + 1}`).join(', ');
     const values = Object.values(finalData);
 
-    const query = `INSERT INTO "Palabras_De_Esperanza".usuarios (${queryCols}) VALUES (${placeholders}) RETURNING *`;
+    const query = `INSERT INTO "${SCHEMA}".usuarios (${queryCols}) VALUES (${placeholders}) RETURNING *`;
     const result = await pool.query(query, values);
     const created = result.rows[0];
 
@@ -393,7 +397,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
   const { id } = req.params;
   const u = req.body;
   try {
-    const tableInfo = await pool.query('SELECT * FROM "Palabras_De_Esperanza".usuarios LIMIT 0');
+    const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".usuarios LIMIT 0`);
     const dbCols = tableInfo.fields.map(f => f.name);
 
     const incomingData = {
@@ -420,7 +424,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
     }
     
     values.push(parseInt(id) || id);
-    const query = `UPDATE "Palabras_De_Esperanza".usuarios SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`;
+    const query = `UPDATE "${SCHEMA}".usuarios SET ${sets.join(', ')} WHERE id = $${i} RETURNING *`;
     const result = await pool.query(query, values);
     if (!result.rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     const updated = result.rows[0];
@@ -434,7 +438,7 @@ app.put('/api/usuarios/:id', async (req, res) => {
 app.delete('/api/usuarios/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await pool.query('DELETE FROM "Palabras_De_Esperanza".usuarios WHERE id = $1', [parseInt(id) || id]);
+    await pool.query(`DELETE FROM "${SCHEMA}".usuarios WHERE id = $1`, [parseInt(id) || id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -443,7 +447,7 @@ app.delete('/api/usuarios/:id', async (req, res) => {
 
 app.get('/api/auditoria', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".auditoria ORDER BY fecha_hora DESC LIMIT 100');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".auditoria ORDER BY fecha_hora DESC LIMIT 100`);
     // Mapeo para el front (camelCase)
     const mapped = result.rows.map(r => ({
       id: String(r.id_auditoria || r.id || ''),
@@ -465,7 +469,7 @@ app.post('/api/auditoria', async (req, res) => {
   const a = req.body;
   console.log('📝 Auditoría recibida:', a.accion);
   try {
-    const tableInfo = await pool.query('SELECT * FROM "Palabras_De_Esperanza".auditoria LIMIT 0');
+    const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".auditoria LIMIT 0`);
     const dbCols = tableInfo.fields.map(f => f.name);
     console.log('DB COLS:', JSON.stringify(dbCols));
     
@@ -505,7 +509,7 @@ app.post('/api/auditoria', async (req, res) => {
     const placeholders = Object.keys(finalData).map((_, i) => `$${i + 1}`).join(', ');
     const values = Object.values(finalData);
 
-    const query = `INSERT INTO "Palabras_De_Esperanza".auditoria (${queryCols}) VALUES (${placeholders})`;
+    const query = `INSERT INTO "${SCHEMA}".auditoria (${queryCols}) VALUES (${placeholders})`;
     try {
       await pool.query(query, values);
     } catch (auditErr) {
@@ -540,7 +544,7 @@ const mapTriage = (t) => ({
 
 app.get('/api/triage', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".triaje ORDER BY id_triaje DESC');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".triaje ORDER BY id_triaje DESC`);
     res.json(result.rows.map(mapTriage));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -553,7 +557,7 @@ app.post('/api/triage', async (req, res) => {
   console.log('🤒 Triage recibido:', t.citaId);
   
   try {
-    const tableInfo = await pool.query('SELECT * FROM "Palabras_De_Esperanza".triaje LIMIT 0');
+    const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".triaje LIMIT 0`);
     const dbCols = tableInfo.fields.map(f => f.name);
     
     const incomingData = {
@@ -583,12 +587,12 @@ app.post('/api/triage', async (req, res) => {
     const placeholders = Object.keys(finalData).map((_, i) => `$${i + 1}`).join(', ');
     const values = Object.values(finalData);
 
-    const query = `INSERT INTO "Palabras_De_Esperanza".triaje (${queryCols}) VALUES (${placeholders}) RETURNING *`;
+    const query = `INSERT INTO "${SCHEMA}".triaje (${queryCols}) VALUES (${placeholders}) RETURNING *`;
     const result = await pool.query(query, values);
 
     // AUTOMATIZACIÓN: Actualizar estado de la cita a 'confirmada' (que el front mapeará a en_consulta si hay registrosTriage)
     if (t.citaId) {
-      await pool.query('UPDATE "Palabras_De_Esperanza".citas SET estado = $1 WHERE id_cita = $2', ['confirmada', parseInt(t.citaId)]);
+      await pool.query(`UPDATE "${SCHEMA}".citas SET estado = $1 WHERE id_cita = $2`, ['confirmada', parseInt(t.citaId)]);
       console.log('✅ Cita actualizada a confirmada:', t.citaId);
     }
 
@@ -612,7 +616,7 @@ app.post('/api/consultas', async (req, res) => {
   const c = req.body;
   console.log('📝 Consulta recibida para paciente:', c.pacienteId);
   try {
-    const tableInfo = await pool.query('SELECT * FROM "Palabras_De_Esperanza".nota_medica LIMIT 0');
+    const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".nota_medica LIMIT 0`);
     const dbCols = tableInfo.fields.map(f => f.name);
 
     const incomingData = {
@@ -642,12 +646,12 @@ app.post('/api/consultas', async (req, res) => {
     const placeholders = Object.keys(finalData).map((_, i) => `$${i + 1}`).join(', ');
     const values = Object.values(finalData);
 
-    const query = `INSERT INTO "Palabras_De_Esperanza".nota_medica (${queryCols}) VALUES (${placeholders}) RETURNING *`;
+    const query = `INSERT INTO "${SCHEMA}".nota_medica (${queryCols}) VALUES (${placeholders}) RETURNING *`;
     const result = await pool.query(query, values);
     
     // Auditoría automática
     const idValue = `aud${Date.now()}-${Math.floor(Math.random()*10000)}`;
-    await pool.query('INSERT INTO "Palabras_De_Esperanza".auditoria (id, nombre_usuario, rol, accion, detalles, fecha_hora, ciudad) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    await pool.query(`INSERT INTO "${SCHEMA}".auditoria (id, nombre_usuario, rol, accion, detalles, fecha_hora, ciudad) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
        [idValue, c.medicoEncargado || 'Medico', 'medico', 'Consulta Médica', `Completó consulta para paciente ID: ${c.pacienteId}`, new Date(), 'Sonoyta']);
 
     res.status(201).json(result.rows[0]);
@@ -659,7 +663,7 @@ app.post('/api/consultas', async (req, res) => {
 
 app.get('/api/consultas', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".nota_medica ORDER BY id_nota DESC');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".nota_medica ORDER BY id_nota DESC`);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -671,7 +675,7 @@ app.post('/api/cirugias', async (req, res) => {
   const c = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO "Palabras_De_Esperanza".agenda_cirugias (id_paciente, procedimiento, fecha_cirugia, hora_cirugia, consultorio, estado, costo_total) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      `INSERT INTO "${SCHEMA}".agenda_cirugias (id_paciente, procedimiento, fecha_cirugia, hora_cirugia, consultorio, estado, costo_total) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [parseInt(c.pacienteId), c.id_procedimiento || 1, c.fecha, c.hora, c.sala || 'Quirofano 1', c.estado || 'programada', c.costoTotal || 0]
     );
     res.status(201).json(result.rows[0]);
@@ -682,7 +686,7 @@ app.post('/api/cirugias', async (req, res) => {
 
 app.get('/api/cirugias', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".agenda_cirugias ORDER BY id_agenda DESC');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".agenda_cirugias ORDER BY id_agenda DESC`);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -693,7 +697,7 @@ app.get('/api/cirugias', async (req, res) => {
 app.get('/api/seguimientos', async (req, res) => {
   try {
     // Intentamos buscar por 'nota' o 'motivo' si 'descripcion' no existe
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".nota_medica ORDER BY id_nota DESC LIMIT 20');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".nota_medica ORDER BY id_nota DESC LIMIT 20`);
     res.json(result.rows);
   } catch (err) {
     console.error('❌ Error en GET /api/seguimientos:', err.message);
@@ -704,7 +708,7 @@ app.get('/api/seguimientos', async (req, res) => {
 // --- Rutas de Estudios ---
 app.get('/api/estudios', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".expediente ORDER BY id_expediente DESC');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".expediente ORDER BY id_expediente DESC`);
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -727,7 +731,7 @@ app.post('/api/eventos', async (req, res) => {
   const e = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO "Palabras_De_Esperanza".eventos (titulo, descripcion, ubicacion, fecha_inicio, fecha_fin, estado, especialidades) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      `INSERT INTO "${SCHEMA}".eventos (titulo, descripcion, ubicacion, fecha_inicio, fecha_fin, estado, especialidades) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [e.nombre, e.descripcion || '', e.ciudad || 'Sonoyta', e.fechaInicio, e.fechaFin, e.estado || 'activo', JSON.stringify(e.especialidades || [])]
     );
     res.status(201).json(mapEvento(result.rows[0]));
@@ -741,7 +745,7 @@ app.put('/api/eventos/:id', async (req, res) => {
   const e = req.body;
   try {
     const result = await pool.query(
-      'UPDATE "Palabras_De_Esperanza".eventos SET titulo = $1, ubicacion = $2, fecha_inicio = $3, fecha_fin = $4, estado = $5, especialidades = $6 WHERE id = $7 RETURNING *',
+      `UPDATE "${SCHEMA}".eventos SET titulo = $1, ubicacion = $2, fecha_inicio = $3, fecha_fin = $4, estado = $5, especialidades = $6 WHERE id = $7 RETURNING *`,
       [e.nombre, e.ciudad, e.fechaInicio, e.fechaFin, e.estado, JSON.stringify(e.especialidades || []), id]
     );
     res.json(mapEvento(result.rows[0]));
@@ -752,7 +756,7 @@ app.put('/api/eventos/:id', async (req, res) => {
 
 app.get('/api/eventos', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM "Palabras_De_Esperanza".eventos');
+    const result = await pool.query(`SELECT * FROM "${SCHEMA}".eventos`);
     res.json(result.rows.map(mapEvento));
   } catch (err) {
     res.status(500).json({ error: err.message });
