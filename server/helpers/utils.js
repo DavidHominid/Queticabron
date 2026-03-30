@@ -1,0 +1,125 @@
+import pool, { SCHEMA } from '../config/db.js';
+
+// Helper para registrar auditoría de forma centralizada
+export async function recordAudit(data) {
+  try {
+    const { usuario_id, nombre_usuario, rol, accion, detalles, ciudad } = data;
+    const idValue = `aud${Date.now()}-${Math.floor(Math.random()*10000)}`;
+    await pool.query(
+      `INSERT INTO "${SCHEMA}".auditoria (id, usuario_id, nombre_usuario, rol, accion, detalles, fecha_hora, ciudad) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [idValue, usuario_id || '', nombre_usuario || 'Sistema', rol || '---', accion, detalles || '', new Date(), ciudad || 'Sonoyta']
+    );
+  } catch (err) {
+    console.error('⚠️ Fallo al registrar auditoría:', err.message);
+  }
+}
+
+// Helper para mapear columnas de paciente DB -> Frontend
+export const formatDate = (date) => {
+  if (!date) return null;
+  const d = new Date(date);
+  return d.toISOString().split('T')[0];
+};
+
+export const calculateAge = (birthday) => {
+  if (!birthday) return 0;
+  const ageDifMs = Date.now() - new Date(birthday).getTime();
+  const ageDate = new Date(ageDifMs);
+  return Math.abs(ageDate.getUTCFullYear() - 1970);
+};
+
+export const mapPaciente = (p) => ({
+  id: String(p.id_paciente),
+  nombre: `${p.nombre} ${p.apellido || ''}`.trim(),
+  fechaNacimiento: formatDate(p.fecha_de_nacimiento),
+  sexo: p.sexo,
+  telefono: p.telefono,
+  numeroExpediente: p.numero_expediente,
+  ciudad: p.ciudad,
+  fechaRegistro: formatDate(p.fecha_registro),
+  edad: p.edad || (p.fecha_de_nacimiento ? calculateAge(p.fecha_de_nacimiento) : 0),
+  imagen: p.imagen
+});
+
+// La BD usa un ENUM con valores: pendiente, confirmada, cancelada, completada
+export const toFEEstado = (dbEstado) => {
+  const map = {
+    'pendiente':  'programada',
+    'confirmada': 'en_triage',
+    'completada': 'completada',
+    'cancelada':  'cancelada',
+    // valores legacy
+    'atendida':   'completada',
+    'noshow':     'no_asistio',
+    'en_triage':  'en_triage',
+    'en_consulta':'en_consulta',
+  };
+  return map[dbEstado] ?? dbEstado;
+};
+
+export const toDBEstado = (feEstado) => {
+  const map = {
+    'programada':  'pendiente',
+    'en_triage':   'confirmada',
+    'en_consulta': 'confirmada',
+    'completada':  'completada',
+    'cancelada':   'cancelada',
+    'cancelado':   'cancelada',
+    'no_asistio':  'cancelada',
+  };
+  return map[feEstado] ?? 'pendiente';
+};
+
+export const mapCita = (c) => {
+  let feEstado = toFEEstado(c.estado);
+  
+  // LOGICA DINAMICA: Si el estado en DB es 'confirmada', 
+  // pero ya TIENE un registro de triaje (id_triaje no es null), 
+  // entonces para el frontend es 'en_consulta'
+  if (c.estado === 'confirmada' && c.id_triaje) {
+    feEstado = 'en_consulta';
+  }
+
+  return {
+    id: String(c.id_cita || c.id || ''),
+    pacienteId: String(c.id_paciente || ''),
+    eventoId: c.evento_id,
+    fecha: c.fecha_cita || c.fecha,
+    hora: c.hora || '08:00',
+    especialidad: c.especialidad,
+    medicoEncargado: c.medico_encargado,
+    consultorio: c.consultorio,
+    estado: feEstado,
+    costoPagado: c.costo_pagado || 0
+  };
+};
+
+export const mapTriage = (t) => ({
+  id: String(t.id_triaje),
+  citaId: String(t.id_cita),
+  pacienteId: String(t.id_paciente),
+  fechaHora: t.fecha_triaje,
+  signosVitales: {
+    temperatura: t.temperatura,
+    presionArterial: t.presion_arterial,
+    ritmoCardiaco: t.ritmo_cardiaco,
+    frecuenciaRespiratoria: t.frecuencia_respiratoria,
+    altura: t.altura,
+    peso: t.peso,
+    saturacionOxigeno: t.saturacion_oxigeno || 98,
+    azucarEnSangre: t.azucar_en_sangre || 100
+  },
+  observaciones: t.observaciones,
+  realizadoPor: t.realizado_por || 'Sistema'
+});
+
+export const mapEvento = (e) => ({
+  id: String(e.id || ''),
+  nombre: e.titulo || '',
+  ciudad: e.ubicacion || 'sonoyta',
+  fechaInicio: e.fecha_inicio,
+  fechaFin: e.fecha_fin,
+  fechaLimiteInscripcion: e.fecha_inicio, // Fallback
+  especialidades: e.especialidades || [],
+  estado: e.estado || 'activo'
+});

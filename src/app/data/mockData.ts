@@ -574,7 +574,7 @@ export const cirugias: Cirugia[] = [
     resultadoCirugia: '',
     seguimientos: ['seg6'],
     notas: 'Paciente candidata para facoemulsificación con implante de lente intraocular. Cirugía programada por el Dr. Hernández (Oftalmólogo). Se realizará bajo anestesia local con sedación. Recuperación esperada: 2-4 semanas. Costo total: $25,000 MXN. Con beca del 60% = $10,000 MXN a pagar por la paciente.',
-    duracion: '1-2 horas'
+    // duracion: '1-2 horas'
   },
 ];
 
