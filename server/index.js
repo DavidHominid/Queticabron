@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pool from './config/db.js';
 
 // Importación de rutas
@@ -13,6 +15,9 @@ import seguimientosRoutes from './routes/seguimientos.js';
 import estudiosRoutes from './routes/estudios.js';
 import eventosRoutes from './routes/eventos.js';
 import auditoriaRoutes from './routes/auditoria.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -41,7 +46,7 @@ diagnoseDB();
 // Montaje de rutas
 app.use('/api/pacientes', pacientesRoutes);
 app.use('/api/citas', citasRoutes);
-app.use('/api/usuarios', usuariosRoutes); // Incluye /api/usuarios y /api/usuarios/login
+app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/triage', triageRoutes);
 app.use('/api/consultas', consultasRoutes);
 app.use('/api/cirugias', cirugiasRoutes);
@@ -50,13 +55,21 @@ app.use('/api/estudios', estudiosRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
 
-// Caso especial para el login si el frontend busca directamente /api/login
-// (usuariosRoutes ya tiene un router.post('/login'), así que esto lo redirige)
-app.use('/api', usuariosRoutes); 
+// Caso especial para el login
+app.use('/api', usuariosRoutes);
 
-// Ruta base
-app.get('/', (req, res) => {
-  res.send('🚀 Servidor de Words of Hope corriendo correctamente.');
+// Serve frontend static files in production
+const distPath = path.join(__dirname, '..', 'dist');
+app.use(express.static(distPath));
+
+// Fallback: send index.html for all non-API routes (SPA routing)
+app.get('/{*path}', (req, res) => {
+  const indexPath = path.join(distPath, 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      res.status(500).send('Server error');
+    }
+  });
 });
 
 // Manejo de errores 404
