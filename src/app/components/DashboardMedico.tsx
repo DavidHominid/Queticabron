@@ -10,13 +10,15 @@ import {
   UserPlus,
   Users,
 } from 'lucide-react';
-import { citas, pacientes, seguimientos, cirugias } from '../data/mockData';
 import { StatCard } from './dashboard/StatCard';
 import { WelcomeCard } from './dashboard/WelcomeCard';
+import { useData } from '../context/DataContext';
 
 export function DashboardMedico() {
   const navigate = useNavigate();
-  const citasHoy = citas.filter((c) => c.fecha === '2026-03-09');
+  const { citas, pacientes, seguimientos, cirugias } = useData();
+  const hoy = new Date().toISOString().split('T')[0];
+  const citasHoy = citas.filter((c) => c.fecha && new Date(c.fecha).toISOString().split('T')[0] === hoy);
   const seguimientosPendientes = seguimientos.filter((s) => s.estado === 'pendiente');
   const seguimientosAgendados = seguimientos.filter((s) => s.estado === 'agendada');
 

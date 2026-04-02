@@ -28,12 +28,57 @@ import {
 import { Seguimiento } from '../types';
 
 export function Seguimientos() {
-  const { seguimientos, pacientes } = useData();
+  const { seguimientos, pacientes, addSeguimiento } = useData();
   const [selectedSeguimiento, setSelectedSeguimiento] = useState<Seguimiento | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [estadoFilter, setEstadoFilter] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState('');
+  const [formData, setFormData] = useState({
+    pacienteId: '',
+    diagnostico: '',
+    observaciones: '',
+    fechaCita: '',
+  });
+  const [guardando, setGuardando] = useState(false);
+
+  const handleOpenNew = (seg?: Seguimiento) => {
+    if (seg) {
+      setSelectedSeguimiento(seg);
+      setFormData({
+        pacienteId: seg.pacienteId || '',
+        diagnostico: seg.diagnostico || '',
+        observaciones: seg.observaciones || '',
+        fechaCita: seg.fechaCita || '',
+      });
+    } else {
+      setSelectedSeguimiento(null);
+      setFormData({ pacienteId: '', diagnostico: '', observaciones: '', fechaCita: '' });
+    }
+    setShowNewModal(true);
+  };
+
+  const handleGuardar = async () => {
+    if (!formData.diagnostico) return;
+    setGuardando(true);
+    try {
+      const nuevo: Seguimiento = {
+        id: selectedSeguimiento?.id || String(Date.now()),
+        pacienteId: formData.pacienteId,
+        citaId: selectedSeguimiento?.citaId || '',
+        diagnostico: formData.diagnostico,
+        observaciones: formData.observaciones,
+        fechaCita: formData.fechaCita || null,
+        fechaCreacion: selectedSeguimiento?.fechaCreacion || new Date().toISOString(),
+        medicoEncargado: selectedSeguimiento?.medicoEncargado || null,
+        estado: formData.fechaCita ? 'agendada' : 'pendiente',
+      };
+      await addSeguimiento(nuevo);
+      setShowNewModal(false);
+    } finally {
+      setGuardando(false);
+    }
+  };
 
   // Filtrar seguimientos
   const seguimientosFiltrados = seguimientos.filter((seg) => {
@@ -106,7 +151,7 @@ export function Seguimientos() {
             <h1 className="text-3xl font-semibold text-gray-900">Seguimientos Médicos</h1>
             <p className="text-gray-600 mt-1">Gestión y control de seguimientos de pacientes</p>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setShowNewModal(true)}>
+          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => handleOpenNew()}>
             <Plus className="w-4 h-4 mr-2" />
             Nuevo Seguimiento
           </Button>
@@ -329,10 +374,7 @@ export function Seguimientos() {
                     <Button
                       variant="outline"
                       className="flex-1"
-                      onClick={() => {
-                        setSelectedSeguimiento(seguimiento);
-                        setShowNewModal(true);
-                      }}
+                      onClick={() => handleOpenNew(seguimiento)}
                     >
                       <Edit className="w-4 h-4 mr-2" />
                       Editar
@@ -563,14 +605,61 @@ export function Seguimientos() {
               <DialogTitle>{selectedSeguimiento ? 'Editar Seguimiento' : 'Nuevo Seguimiento'}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Esta funcionalidad está disponible. En producción, aquí podrías crear o editar seguimientos médicos.
-              </p>
-              <div className="flex justify-end gap-2">
+              <div className="space-y-1">
+                <Label htmlFor="seg-paciente">Paciente</Label>
+                <select
+                  id="seg-paciente"
+                  className="w-full border rounded-md px-3 py-2 text-sm"
+                  value={formData.pacienteId}
+                  onChange={(e) => setFormData({ ...formData, pacienteId: e.target.value })}
+                >
+                  <option value="">Seleccionar paciente...</option>
+                  {pacientes.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre} {p.apellido}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="seg-diagnostico">Diagnóstico *</Label>
+                <Input
+                  id="seg-diagnostico"
+                  value={formData.diagnostico}
+                  onChange={(e) => setFormData({ ...formData, diagnostico: e.target.value })}
+                  placeholder="Ingrese el diagnóstico"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="seg-observaciones">Observaciones / Indicaciones</Label>
+                <Textarea
+                  id="seg-observaciones"
+                  value={formData.observaciones}
+                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                  placeholder="Indicaciones o notas adicionales"
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="seg-fecha">Próxima cita</Label>
+                <Input
+                  id="seg-fecha"
+                  type="date"
+                  value={formData.fechaCita}
+                  onChange={(e) => setFormData({ ...formData, fechaCita: e.target.value })}
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setShowNewModal(false)}>
                   Cancelar
                 </Button>
-                <Button className="bg-blue-600 hover:bg-blue-700">Guardar Seguimiento</Button>
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={handleGuardar}
+                  disabled={guardando || !formData.diagnostico}
+                >
+                  {guardando ? 'Guardando...' : 'Guardar Seguimiento'}
+                </Button>
               </div>
             </div>
           </DialogContent>

@@ -140,7 +140,7 @@ export function DashboardTriage() {
                 <div
                   className="h-full bg-blue-600 rounded-full"
                   style={{
-                    width: `${((citasCompletadas.length + citasEnTriage.length) / citasHoy.length) * 100}%`,
+                    width: `${citasHoy.length > 0 ? ((citasCompletadas.length + citasEnTriage.length) / citasHoy.length) * 100 : 0}%`,
                   }}
                 />
               </div>

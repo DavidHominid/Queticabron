@@ -15,6 +15,7 @@ import seguimientosRoutes from './routes/seguimientos.js';
 import estudiosRoutes from './routes/estudios.js';
 import eventosRoutes from './routes/eventos.js';
 import auditoriaRoutes from './routes/auditoria.js';
+import informacionMedicaRoutes from './routes/informacion-medica.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,6 +55,7 @@ app.use('/api/seguimientos', seguimientosRoutes);
 app.use('/api/estudios', estudiosRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
+app.use('/api/informacion-medica', informacionMedicaRoutes);
 
 // Caso especial para el login
 app.use('/api', usuariosRoutes);

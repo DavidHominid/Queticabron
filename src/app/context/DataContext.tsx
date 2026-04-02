@@ -263,8 +263,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addInformacionMedica = (info: InformacionMedica) => {
-    setInformacionMedica([...informacionMedica, info]);
+  const addInformacionMedica = async (info: InformacionMedica) => {
+    try {
+      const res = await fetch('/api/informacion-medica', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(info),
+      });
+      if (res.ok) {
+        const nuevo = await res.json();
+        setInformacionMedica((prev) => {
+          const filtered = prev.filter((i) => i.pacienteId !== info.pacienteId);
+          return [...filtered, nuevo];
+        });
+      } else {
+        setInformacionMedica((prev) => {
+          const filtered = prev.filter((i) => i.pacienteId !== info.pacienteId);
+          return [...filtered, info];
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setInformacionMedica((prev) => {
+        const filtered = prev.filter((i) => i.pacienteId !== info.pacienteId);
+        return [...filtered, info];
+      });
+    }
   };
 
   const updateInformacionMedica = async (pacienteId: string, infoUpdate: Partial<InformacionMedica>) => {
