@@ -15,6 +15,7 @@ router.get('/', async (req, res) => {
     const result = await pool.query(query);
     res.json(result.rows.map(mapCita));
   } catch (err) {
+    console.error('❌ Error en GET /api/citas:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -22,46 +23,28 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const c = req.body;
   try {
-    const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".citas LIMIT 0`);
-    const dbCols = tableInfo.fields.map(f => f.name);
-
-    const incomingData = {
-      id_paciente: parseInt(c.pacienteId),
-      pacienteId: parseInt(c.pacienteId),
-      evento_id: c.eventoId ?? null,
-      eventoId: c.eventoId ?? null,
-      fecha_cita: c.fecha,
-      fecha: c.fecha,
-      hora: c.hora ?? '08:00',
-      estado: toDBEstado(c.estado || 'programada'),
-      especialidad: c.especialidad ?? 'medicina_familiar',
-      medico_encargado: c.medicoEncargado ?? null,
-      medicoEncargado: c.medicoEncargado ?? null,
-      consultorio: c.consultorio ?? 'Consultorio 1',
-      costo_pagado: c.costoPagado ?? 0,
-      costoPagado: c.costoPagado ?? 0
-    };
-
-    const finalData = {};
-    for (const key in incomingData) {
-      const dbColName = dbCols.find(col => col.trim().toLowerCase() === key.toLowerCase());
-      if (dbColName && finalData[dbColName] === undefined) {
-        finalData[dbColName] = incomingData[key];
-      }
-    }
-
-    const queryCols = Object.keys(finalData).map(col => `"${col}"`).join(', ');
-    const placeholders = Object.keys(finalData).map((_, i) => `$${i + 1}`).join(', ');
-    const values = Object.values(finalData);
-
-    const query = `INSERT INTO "${SCHEMA}".citas (${queryCols}) VALUES (${placeholders}) RETURNING *`;
-    const result = await pool.query(query, values);
+    const result = await pool.query(
+      `INSERT INTO "${SCHEMA}".citas (id_paciente, evento_id, fecha_cita, hora, estado, especialidad, medico_encargado, consultorio, costo_pagado) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [
+        parseInt(c.pacienteId) || null,
+        c.eventoId || null,
+        c.fecha || null,
+        c.hora || '08:00',
+        toDBEstado(c.estado || 'programada'),
+        c.especialidad || 'medicina_familiar',
+        c.medicoEncargado || null,
+        c.consultorio || 'Consultorio 1',
+        c.costoPagado || 0
+      ]
+    );
 
     await recordAudit({
+      usuario_id: c.usuarioId || null,
+      nombre_usuario: c.usuario_solicitante || 'Sistema',
+      rol: c.rol_solicitante || 'recepcion',
       accion: 'Nueva Cita',
       detalles: `Cita programada para paciente ID: ${c.pacienteId} el ${c.fecha}`,
-      rol: c.rol_solicitante || 'recepcion',
-      nombre_usuario: c.usuario_solicitante || 'Administrador'
+      ciudad: c.ciudad || 'sonoyta'
     });
 
     res.status(201).json(mapCita(result.rows[0]));
@@ -76,7 +59,7 @@ router.put('/:id', async (req, res) => {
   const { estado } = req.body;
   try {
     const result = await pool.query(
-      `UPDATE "${SCHEMA}".citas SET estado = $1::"${SCHEMA}".estado_cita WHERE id_cita = $2 RETURNING *`,
+      `UPDATE "${SCHEMA}".citas SET estado = $1 WHERE id_cita = $2 RETURNING *`,
       [toDBEstado(estado), parseInt(id)]
     );
     if (!result.rows.length) {

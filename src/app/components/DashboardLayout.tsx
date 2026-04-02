@@ -1,6 +1,7 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import {
@@ -14,12 +15,11 @@ import {
   LayoutDashboard,
   ChevronLeft,
   Bell,
-  Search,
   Heart,
   Stethoscope,
-  Settings,
 } from 'lucide-react';
 import { Card } from './ui/card';
+import { Badge } from './ui/badge';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -27,8 +27,39 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
+  const { registrosAuditoria } = useData();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [lastSeen, setLastSeen] = useState<string>(() => localStorage.getItem('notif_last_seen') || '');
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const recientes = [...registrosAuditoria]
+    .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime())
+    .slice(0, 10);
+
+  const unread = recientes.filter((r) => !lastSeen || new Date(r.fechaHora).toISOString() > lastSeen).length;
+
+  const handleOpenNotif = () => {
+    setNotifOpen((prev) => {
+      if (!prev) {
+        const now = new Date().toISOString();
+        setLastSeen(now);
+        localStorage.setItem('notif_last_seen', now);
+      }
+      return !prev;
+    });
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -73,8 +104,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
   };
 
-
-
   const menuItems = getMenuItems();
   const initials = user?.nombre
     .split(' ')
@@ -99,6 +128,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const isActive = (path: string) => {
     return window.location.pathname === path;
+  };
+
+  const accionColor = (accion: string) => {
+    if (accion.toLowerCase().includes('error') || accion.toLowerCase().includes('fallo')) return 'bg-red-100 text-red-700';
+    if (accion.toLowerCase().includes('login') || accion.toLowerCase().includes('acceso')) return 'bg-yellow-100 text-yellow-700';
+    if (accion.toLowerCase().includes('crear') || accion.toLowerCase().includes('registro') || accion.toLowerCase().includes('nuevo')) return 'bg-green-100 text-green-700';
+    if (accion.toLowerCase().includes('actualiz') || accion.toLowerCase().includes('editar')) return 'bg-blue-100 text-blue-700';
+    return 'bg-gray-100 text-gray-700';
   };
 
   return (
@@ -150,17 +187,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="mt-auto p-4 border-t border-blue-700/50">
           {sidebarOpen ? (
             <div className="flex items-center gap-3 mb-3">
-              <Avatar className={`w-10 h-10 ${user?.rol ? roleColors[user.rol] : 'bg-gray-500'}`}>
+              <Avatar className={`w-10 h-10 ${user?.rol ? roleColors[user.rol as keyof typeof roleColors] : 'bg-gray-500'}`}>
                 <AvatarFallback className="text-white text-sm">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user?.nombre}</p>
-                <p className="text-xs text-blue-200">{user?.rol ? roleLabels[user.rol] : ''}</p>
+                <p className="text-xs text-blue-200">{user?.rol ? roleLabels[user.rol as keyof typeof roleLabels] : ''}</p>
               </div>
             </div>
           ) : (
             <div className="flex justify-center mb-3">
-              <Avatar className={`w-10 h-10 ${user?.rol ? roleColors[user.rol] : 'bg-gray-500'}`}>
+              <Avatar className={`w-10 h-10 ${user?.rol ? roleColors[user.rol as keyof typeof roleColors] : 'bg-gray-500'}`}>
                 <AvatarFallback className="text-white text-sm">{initials}</AvatarFallback>
               </Avatar>
             </div>
@@ -201,13 +238,62 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <button className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors">
-                <Search className="w-5 h-5 text-gray-600" />
-              </button>
-              <button className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors relative">
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              {/* Notifications */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={handleOpenNotif}
+                  className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors relative"
+                >
+                  <Bell className="w-5 h-5 text-gray-600" />
+                  {unread > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold">
+                      {unread > 9 ? '9+' : unread}
+                    </span>
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 top-12 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
+                    <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                      <div>
+                        <h3 className="font-semibold text-gray-900">Actividad Reciente</h3>
+                        <p className="text-xs text-gray-500">Últimas acciones en el sistema</p>
+                      </div>
+                      <button
+                        onClick={() => { navigate('/auditoria'); setNotifOpen(false); }}
+                        className="text-xs text-blue-600 hover:underline font-medium"
+                      >
+                        Ver todo
+                      </button>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+                      {recientes.length === 0 ? (
+                        <div className="p-6 text-center text-gray-400 text-sm">Sin actividad reciente</div>
+                      ) : (
+                        recientes.map((r) => (
+                          <div key={r.id} className="p-3 hover:bg-gray-50 transition-colors">
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <FileText className="w-4 h-4 text-blue-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-sm font-medium text-gray-900 truncate">{r.nombreUsuario}</span>
+                                  <Badge className={`text-[10px] px-1.5 py-0 ${accionColor(r.accion)}`}>{r.accion}</Badge>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{r.detalles}</p>
+                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                  {new Date(r.fechaHora).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>

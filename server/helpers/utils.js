@@ -7,7 +7,7 @@ export async function recordAudit(data) {
     const idValue = `aud${Date.now()}-${Math.floor(Math.random()*10000)}`;
     await pool.query(
       `INSERT INTO "${SCHEMA}".auditoria (id, usuario_id, nombre_usuario, rol, accion, detalles, fecha_hora, ciudad) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [idValue, usuario_id || '', nombre_usuario || 'Sistema', rol || '---', accion, detalles || '', new Date(), ciudad || 'Sonoyta']
+      [idValue, usuario_id || null, nombre_usuario || 'Sistema', rol || '---', accion, detalles || '', new Date(), ciudad || 'Sonoyta']
     );
   } catch (err) {
     console.error('⚠️ Fallo al registrar auditoría:', err.message);
@@ -41,14 +41,13 @@ export const mapPaciente = (p) => ({
   imagen: p.imagen
 });
 
-// La BD usa un ENUM con valores: pendiente, confirmada, cancelada, completada
+// La BD usa texto libre para estado de citas
 export const toFEEstado = (dbEstado) => {
   const map = {
     'pendiente':  'programada',
     'confirmada': 'en_triage',
     'completada': 'completada',
     'cancelada':  'cancelada',
-    // valores legacy
     'atendida':   'completada',
     'noshow':     'no_asistio',
     'en_triage':  'en_triage',
@@ -73,9 +72,6 @@ export const toDBEstado = (feEstado) => {
 export const mapCita = (c) => {
   let feEstado = toFEEstado(c.estado);
   
-  // LOGICA DINAMICA: Si el estado en DB es 'confirmada', 
-  // pero ya TIENE un registro de triaje (id_triaje no es null), 
-  // entonces para el frontend es 'en_consulta'
   if (c.estado === 'confirmada' && c.id_triaje) {
     feEstado = 'en_consulta';
   }
@@ -84,7 +80,7 @@ export const mapCita = (c) => {
     id: String(c.id_cita || c.id || ''),
     pacienteId: String(c.id_paciente || ''),
     eventoId: c.evento_id,
-    fecha: c.fecha_cita || c.fecha,
+    fecha: c.fecha_cita ? formatDate(c.fecha_cita) : c.fecha,
     hora: c.hora || '08:00',
     especialidad: c.especialidad,
     medicoEncargado: c.medico_encargado,
@@ -96,30 +92,30 @@ export const mapCita = (c) => {
 
 export const mapTriage = (t) => ({
   id: String(t.id_triaje),
-  citaId: String(t.id_cita),
-  pacienteId: String(t.id_paciente),
-  fechaHora: t.fecha_triaje,
+  citaId: String(t.id_cita || ''),
+  pacienteId: String(t.id_paciente || ''),
+  fechaHora: t.fecha_triaje || new Date().toISOString(),
   signosVitales: {
     temperatura: t.temperatura,
     presionArterial: t.presion_arterial,
     ritmoCardiaco: t.ritmo_cardiaco,
-    frecuenciaRespiratoria: t.frecuencia_respiratoria,
+    frecuenciaRespiratoria: t.frec_respiratoria || t.frecuencia_respiratoria,
     altura: t.altura,
     peso: t.peso,
-    saturacionOxigeno: t.saturacion_oxigeno || 98,
-    azucarEnSangre: t.azucar_en_sangre || 100
+    saturacionOxigeno: t.saturacion_oxigeno || t.oxigenacion || 98,
+    azucarEnSangre: t.azucar_en_sangre || t.glucosa || 100
   },
   observaciones: t.observaciones,
-  realizadoPor: t.realizado_por || 'Sistema'
+  realizadoPor: t.realizado_por || t.encargado_triaje || 'Sistema'
 });
 
 export const mapEvento = (e) => ({
   id: String(e.id || ''),
   nombre: e.titulo || '',
   ciudad: e.ubicacion || 'sonoyta',
-  fechaInicio: e.fecha_inicio,
-  fechaFin: e.fecha_fin,
-  fechaLimiteInscripcion: e.fecha_inicio, // Fallback
+  fechaInicio: e.fecha_inicio ? formatDate(e.fecha_inicio) : null,
+  fechaFin: e.fecha_fin ? formatDate(e.fecha_fin) : null,
+  fechaLimiteInscripcion: e.fecha_inicio ? formatDate(e.fecha_inicio) : null,
   especialidades: e.especialidades || [],
   estado: e.estado || 'activo'
 });

@@ -169,7 +169,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const nuevo = await res.json();
-        setEventos([...eventos, nuevo]);
+        setEventos((prev) => [...prev, nuevo]);
+      } else {
+        const err = await res.json();
+        console.error('❌ Error al crear evento:', err.error);
       }
     } catch (err) {
       console.error(err);
@@ -201,7 +204,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const nuevo = await res.json();
-        setPacientes([...pacientes, nuevo]);
+        setPacientes((prev) => [...prev, nuevo]);
       }
     } catch (err) {
       console.error(err);
@@ -394,7 +397,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(registro),
       });
       if (res.ok) {
-        setRegistrosAuditoria([...registrosAuditoria, registro]);
+        setRegistrosAuditoria((prev) => [...prev, registro]);
       }
     } catch (err) {
       console.error(err);

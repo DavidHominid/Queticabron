@@ -18,7 +18,9 @@ export function DashboardAdmin() {
   const navigate = useNavigate();
   const { usuarios, pacientes, registrosAuditoria } = useData();
 
-  const usuariosActivos = usuarios.filter((u) => u.activo);
+  const usuariosActivos = usuarios.filter((u) => (u as any).activo !== false);
+  const totalUsuarios = usuarios.length;
+
   const usuariosPorRol = {
     recepcion: usuarios.filter((u) => u.rol === 'recepcion').length,
     triage: usuarios.filter((u) => u.rol === 'triage').length,
@@ -44,7 +46,12 @@ export function DashboardAdmin() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Usuarios Activos" value={usuariosActivos.length.toString()} icon={Users} color="bg-blue-500" />
+        <StatCard
+          title="Usuarios Activos"
+          value={usuariosActivos.length.toString()}
+          icon={Users}
+          color="bg-blue-500"
+        />
         <StatCard title="Total Pacientes" value={pacientes.length.toString()} icon={Users} color="bg-green-500" />
         <StatCard title="Registros Auditoría" value={registrosAuditoria.length.toString()} icon={FileText} color="bg-purple-500" />
         <StatCard title="Roles Configurados" value="4" icon={Shield} color="bg-orange-500" />
@@ -56,7 +63,7 @@ export function DashboardAdmin() {
           <CardHeader className="border-b bg-gray-50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Usuarios del Sistema</CardTitle>
-              <Badge variant="secondary">{usuarios.length} usuarios</Badge>
+              <Badge variant="secondary">{totalUsuarios} usuarios</Badge>
             </div>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
@@ -69,7 +76,7 @@ export function DashboardAdmin() {
                 <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-blue-600 rounded-full"
-                    style={{ width: `${usuarios.length > 0 ? (usuariosPorRol.recepcion / usuarios.length) * 100 : 0}%` }}
+                    style={{ width: `${totalUsuarios > 0 ? (usuariosPorRol.recepcion / totalUsuarios) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -82,7 +89,7 @@ export function DashboardAdmin() {
                 <div className="h-2 bg-green-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-green-600 rounded-full"
-                    style={{ width: `${usuarios.length > 0 ? (usuariosPorRol.triage / usuarios.length) * 100 : 0}%` }}
+                    style={{ width: `${totalUsuarios > 0 ? (usuariosPorRol.triage / totalUsuarios) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -95,7 +102,7 @@ export function DashboardAdmin() {
                 <div className="h-2 bg-purple-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-purple-600 rounded-full"
-                    style={{ width: `${usuarios.length > 0 ? (usuariosPorRol.medico / usuarios.length) * 100 : 0}%` }}
+                    style={{ width: `${totalUsuarios > 0 ? (usuariosPorRol.medico / totalUsuarios) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -108,7 +115,7 @@ export function DashboardAdmin() {
                 <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-orange-600 rounded-full"
-                    style={{ width: `${usuarios.length > 0 ? (usuariosPorRol.administrador / usuarios.length) * 100 : 0}%` }}
+                    style={{ width: `${totalUsuarios > 0 ? (usuariosPorRol.administrador / totalUsuarios) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -123,9 +130,8 @@ export function DashboardAdmin() {
           </CardContent>
         </Card>
 
-        {/* Acciones y Auditoría */}
+        {/* Acciones y Estado */}
         <div className="space-y-6">
-          {/* Acciones Rápidas */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50">
               <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
@@ -146,7 +152,6 @@ export function DashboardAdmin() {
             </CardContent>
           </Card>
 
-          {/* Estado del Sistema */}
           <Card className="shadow-sm">
             <CardHeader className="border-b bg-gray-50">
               <CardTitle className="text-lg">Estado del Sistema</CardTitle>
@@ -239,4 +244,3 @@ export function DashboardAdmin() {
     </div>
   );
 }
-
