@@ -1,12 +1,12 @@
 # Words of Hope - Medical Management System
 
 ## Overview
-A full-stack healthcare management platform for managing patient records, appointments, triage, surgeries, consultations, and administrative auditing. Built for Centro Comunitario Nueva Esperanza (Sonoyta & Puerto Peñasco).
+A full-stack healthcare management platform for managing patient records, appointments, triage, surgeries, consultations, and administrative auditing.
 
 ## Architecture
 - **Frontend:** React 18 + TypeScript + Vite + Tailwind CSS 4 + Radix UI / shadcn/ui
 - **Backend:** Node.js + Express.js (ES Modules) on port 3001
-- **Database:** Replit built-in PostgreSQL (schema: `palabras_de_esperanza`)
+- **Database:** PostgreSQL (external hosted at `tilinescraft.serveminecraft.net`)
 - **Build tool:** Vite 6
 - **Package manager:** npm
 
@@ -41,31 +41,13 @@ root/
 - Build: `npm run build` (Vite builds to `dist/`)
 - Run: `PORT=5000 node server/index.js` (Express serves built frontend + API on port 5000)
 
-## Environment Variables
-- `DATABASE_URL` — Replit's built-in PostgreSQL connection string (auto-provided)
-- `DB_SCHEMA` — set to `palabras_de_esperanza`
-
-## Database Schema
-Schema: `palabras_de_esperanza` with tables:
-- `paciente` — patient records
-- `usuarios` — system users (login)
-- `citas` — appointments
-- `triaje` — triage records
-- `nota_medica` — medical consultation notes
-- `agenda_cirugias` — surgery scheduling
-- `expediente` — medical records/files
-- `antecedentes` — patient medical history
-- `eventos` — medical events/campaigns
-- `auditoria` — audit log
-
-## Default Login
-- **admin** / admin123 (role: administrador)
-- Other test users can be created via the admin panel
+## Environment Variables (.env)
+- `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_SCHEMA`
 
 ## Key Features
 - Patient management (Pacientes / Expedientes)
 - Appointment scheduling (Citas + FullCalendar)
 - Triage, consultations, surgeries, follow-ups
 - Study/lab results management
-- User management + login (role-based: recepcion, triage, medico, administrador)
+- User management + login
 - Audit logging
