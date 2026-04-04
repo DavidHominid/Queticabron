@@ -204,7 +204,7 @@ export function Citas() {
     if (!especialidadEvento) return { total: 0, ocupados: 0, disponibles: 0 };
 
     // Obtener el día de la semana
-    const diaSemana = new Date(fecha).toLocaleDateString('es-MX', { weekday: 'long' });
+    const diaSemana = new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
     const diaCapitalizado = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
 
     // Buscar horario para ese día
@@ -502,25 +502,15 @@ export function Citas() {
                   <div className="bg-white p-3 rounded-lg shadow-sm">
                     <p className="text-gray-600 mb-1">📅 Inscripciones hasta</p>
                     <p className="font-semibold text-gray-900">
-                      {new Date(evento.fechaLimiteInscripcion).toLocaleDateString('es-MX', {
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {new Date(evento.fechaLimiteInscripcion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                     </p>
                   </div>
                   <div className="bg-white p-3 rounded-lg shadow-sm">
                     <p className="text-gray-600 mb-1">🏥 Fecha del evento</p>
                     <p className="font-semibold text-gray-900">
-                      {new Date(evento.fechaInicio).toLocaleDateString('es-MX', {
-                        month: 'long',
-                        day: 'numeric'
-                      })}
+                      {new Date(evento.fechaInicio).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       {' - '}
-                      {new Date(evento.fechaFin).toLocaleDateString('es-MX', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
+                      {new Date(evento.fechaFin).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                     </p>
                   </div>
                   <div className="bg-white p-3 rounded-lg shadow-sm">
@@ -822,12 +812,7 @@ export function Citas() {
               <div>
                 <p className="text-sm text-gray-600">Fecha</p>
                 <p className="font-medium">
-                  {new Date(selectedCita.fecha).toLocaleDateString('es-MX', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
+                  {new Date(selectedCita.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                 </p>
               </div>
               <div>
@@ -900,7 +885,7 @@ export function Citas() {
                 <div>
                   <span className="text-gray-600">Fecha: </span>
                   <span className="font-semibold">
-                    {new Date(citaACeder.fecha).toLocaleDateString()}
+                    {new Date(citaACeder.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                   </span>
                 </div>
                 <div>

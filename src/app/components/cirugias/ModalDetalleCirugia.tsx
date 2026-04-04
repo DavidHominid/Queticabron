@@ -95,7 +95,7 @@ export function ModalDetalleCirugia({
                   <p className="text-sm text-gray-600">Fecha Programada</p>
                   <p className="font-medium text-gray-900">
                     {cirugia.fechaCirugia
-                      ? new Date(cirugia.fechaCirugia).toLocaleDateString('es-MX')
+                      ? new Date(cirugia.fechaCirugia).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
                       : 'No programada'}
                   </p>
                 </div>
@@ -188,7 +188,7 @@ export function ModalDetalleCirugia({
                         <div>
                           <p className="font-medium text-gray-900">{seg.medicoEncargado}</p>
                           <p className="text-sm text-gray-600">
-                            {seg.fecha ? new Date(seg.fecha).toLocaleDateString('es-MX') : 'N/A'}
+                            {seg.fecha ? new Date(seg.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}
                           </p>
                         </div>
                       </div>
@@ -207,7 +207,7 @@ export function ModalDetalleCirugia({
                               Próximo seguimiento:
                             </p>
                             <p className="text-sm">
-                              {seg.proximoSeguimiento ? new Date(seg.proximoSeguimiento).toLocaleDateString('es-MX') : 'N/A'}
+                              {seg.proximoSeguimiento ? new Date(seg.proximoSeguimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}
                             </p>
                           </div>
                         )}

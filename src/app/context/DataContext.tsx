@@ -73,15 +73,16 @@ interface DataContextType {
   updateUsuario: (id: string, usuario: Partial<Usuario>) => void;
   deleteUsuario: (id: string) => void;
 
-  // Estudios Socioeconómicos
   estudios: EstudioSocioeconomico[];
   addEstudioSocioeconomico: (estudio: EstudioSocioeconomico) => void;
   fetchAllData: () => Promise<void>;
+  isInitialized: boolean;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const [isInitialized, setIsInitialized] = useState(false);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [citas, setCitas] = useState<Cita[]>([]);
@@ -155,9 +156,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Fetch all data on mount
+  // Fetch all data on mount and poll
   useEffect(() => {
-    fetchAllData();
+    let isMounted = true;
+    
+    fetchAllData().finally(() => {
+      if (isMounted) {
+        setIsInitialized(true);
+      }
+    });
+
+    const interval = setInterval(() => {
+      fetchAllData();
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const addEvento = async (evento: Evento) => {
@@ -528,6 +544,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         estudios,
         addEstudioSocioeconomico,
         fetchAllData,
+        isInitialized,
       }}
     >
       {children}

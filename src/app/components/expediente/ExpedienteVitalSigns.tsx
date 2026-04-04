@@ -77,7 +77,7 @@ export function ExpedienteVitalSigns({ triages, calcularIMC }: ExpedienteVitalSi
           </div>
         </div>
         <div className="pt-2 text-xs text-gray-500">
-          Actualizado: {new Date(ultimoTriage.fechaHora).toLocaleDateString('es-MX')}
+          Actualizado: {new Date(ultimoTriage.fechaHora).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
         </div>
       </CardContent>
     </Card>

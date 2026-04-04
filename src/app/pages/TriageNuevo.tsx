@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { format } from 'date-fns';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -40,8 +41,7 @@ export function TriageNuevo() {
   const [selectedPaciente, setSelectedPaciente] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [triageEnProceso, setTriageEnProceso] = useState<{ [key: string]: Partial<SignosVitales> }>({});
-  const [showAddPacienteModal, setShowAddPacienteModal] = useState(false);
-  const [pacienteSearch, setPacienteSearch] = useState('');
+
 
 
   const [signosForm, setSignosForm] = useState<SignosVitales>({
@@ -60,7 +60,7 @@ export function TriageNuevo() {
   // Obtener el evento activo del usuario (simplificado: toma el primer evento activo)
   const eventoActivo = eventos.find((e) => e.estado === 'activo' && e.ciudad === user?.ciudad);
 
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = format(new Date(), 'yyyy-MM-dd');
 
   // Comparación de fechas segura contra zona horaria:
   // c.fecha viene como "2026-03-22" o "2026-03-22T07:00:00.000Z"
@@ -72,7 +72,7 @@ export function TriageNuevo() {
     (c) =>
       c.eventoId === eventoActivo?.id &&
       normalizarFecha(c.fecha) === hoy &&
-      (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
+      (c.estado === 'programada' || c.estado === 'en_triage')
   );
 
   // Obtener pacientes con citas hoy
@@ -96,11 +96,12 @@ export function TriageNuevo() {
     };
   });
 
-  // Filtrar pacientes por búsqueda
+  // Filtrar pacientes por búsqueda y ocultar los completados
   const pacientesFiltrados = pacientesDisponibles.filter(
     (p) =>
-      p?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p?.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase())
+      p.estado !== 'completado' &&
+      (p?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p?.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleSeleccionarPaciente = (paciente: any) => {
@@ -130,43 +131,7 @@ export function TriageNuevo() {
     setShowModal(true);
   };
 
-  const handleQuickAddCita = async (idPaciente: string) => {
-    if (!eventoActivo) return;
 
-    try {
-      const hoyStr = new Date().toISOString().split('T')[0];
-      const horaStr = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-      await addCita({
-        id: `cita${Date.now()}`,
-        eventoId: eventoActivo.id,
-        pacienteId: idPaciente,
-        fecha: hoyStr,
-        hora: horaStr,
-        estado: 'programada',
-        especialidad: 'medicina_familiar', // Default
-        consultorio: 'Consultorio 1',
-        costoPagado: 0,
-        fechaCreacion: new Date().toISOString()
-      });
-
-      setShowAddPacienteModal(false);
-      setPacienteSearch('');
-      
-      addRegistroAuditoria({
-        id: `aud${Date.now()}`,
-        usuarioId: user?.id || '',
-        nombreUsuario: user?.nombre || '',
-        rol: user?.rol || 'triage',
-        accion: 'Cita Rápida',
-        detalles: `Agregó paciente a lista de hoy desde triage`,
-        fechaHora: new Date().toISOString(),
-        ciudad: user?.ciudad || 'puerto_penasco',
-      });
-    } catch (err) {
-      console.error('Error al agregar cita rápida:', err);
-    }
-  };
 
   const handleGuardarEnProceso = () => {
     if (!selectedPaciente) return;
@@ -247,20 +212,55 @@ export function TriageNuevo() {
     return { texto: 'Obesidad', color: 'text-red-600' };
   };
 
-  const evaluarSignosVitales = (signos: SignosVitales) => {
+  const evaluarSignosVitales = (signos: SignosVitales, edad: number = 30) => {
     const alertas = [];
 
+    // Temperatura (general)
     if (signos.temperatura < 36 || signos.temperatura > 37.5) {
-      alertas.push('Temperatura fuera de rango');
+      alertas.push(`Temperatura fuera de rango (Actual: ${signos.temperatura}°C)`);
     }
-    if (signos.ritmoCardiaco < 60 || signos.ritmoCardiaco > 100) {
-      alertas.push('Ritmo cardíaco anormal');
+
+    // Ritmo Cardíaco por edad
+    let minCardio = 60, maxCardio = 100;
+    if (edad < 1) { minCardio = 100; maxCardio = 160; }
+    else if (edad < 12) { minCardio = 70; maxCardio = 120; }
+    if (signos.ritmoCardiaco < minCardio || signos.ritmoCardiaco > maxCardio) {
+      alertas.push(`Ritmo cardíaco anormal para su edad (${minCardio}-${maxCardio} bpm)`);
     }
+
+    // Frecuencia Respiratoria por edad
+    let minResp = 12, maxResp = 20;
+    if (edad < 1) { minResp = 30; maxResp = 60; }
+    else if (edad < 12) { minResp = 18; maxResp = 30; }
+    if (signos.frecuenciaRespiratoria < minResp || signos.frecuenciaRespiratoria > maxResp) {
+      alertas.push(`Frecuencia respiratoria anormal para su edad (${minResp}-${maxResp} rpm)`);
+    }
+
+    // Presión Arterial por edad
+    if (signos.presionArterial && signos.presionArterial.includes('/')) {
+      const parts = signos.presionArterial.split('/');
+      const sys = parseInt(parts[0]);
+      const dia = parseInt(parts[1]);
+      if (!isNaN(sys) && !isNaN(dia)) {
+        let maxSys = 120, maxDia = 80;
+        let minSys = 90, minDia = 60;
+        
+        if (edad < 12) { maxSys = 110; maxDia = 75; minSys = 80; minDia = 50; }
+        
+        if (sys < minSys || sys > maxSys || dia < minDia || dia > maxDia) {
+          alertas.push(`Presión arterial anormal para su edad (Esperada: ~${minSys}-${maxSys} / ${minDia}-${maxDia})`);
+        }
+      }
+    }
+
+    // Saturación O2
     if (signos.saturacionOxigeno && signos.saturacionOxigeno < 95) {
-      alertas.push('Saturación de oxígeno baja');
+      alertas.push(`Saturación de oxígeno baja (<95%)`);
     }
+
+    // Glucosa
     if (signos.azucarEnSangre && (signos.azucarEnSangre < 70 || signos.azucarEnSangre > 140)) {
-      alertas.push('Glucosa fuera de rango');
+      alertas.push(`Glucosa fuera de rango normal (70-140 mg/dL)`);
     }
 
     return alertas;
@@ -380,13 +380,6 @@ export function TriageNuevo() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button 
-                onClick={() => setShowAddPacienteModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Registrar Paciente a Triaje
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -691,7 +684,7 @@ export function TriageNuevo() {
 
                 {/* Alertas */}
                 {(() => {
-                  const alertas = evaluarSignosVitales(signosForm);
+                  const alertas = evaluarSignosVitales(signosForm, selectedPaciente?.edad);
                   if (alertas.length > 0) {
                     return (
                       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -760,69 +753,6 @@ export function TriageNuevo() {
                   </div>
                 )}
               </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-      {/* Modal: Agregar Paciente a Lista de Hoy */}
-      {showAddPacienteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] flex flex-col gap-0">
-            <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0">
-              <h2 className="text-lg font-semibold text-gray-900">Agregar Paciente a Triaje</h2>
-              <button
-                onClick={() => setShowAddPacienteModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <CardContent className="p-6 overflow-hidden flex flex-col">
-              <p className="text-gray-600 mb-4">
-                Busca un paciente registrado para agregarlo a la lista de atención de hoy.
-              </p>
-              
-              <div className="relative mb-6">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Nombre o número de expediente..."
-                  className="pl-10"
-                  value={pacienteSearch}
-                  onChange={(e) => setPacienteSearch(e.target.value)}
-                />
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-                {pacientes
-                  .filter(p => !pacientesDisponibles.some(pd => pd.id === p.id)) // Solo pacientes que NO estén ya en la lista
-                  .filter(p => 
-                    p.nombre.toLowerCase().includes(pacienteSearch.toLowerCase()) || 
-                    p.numeroExpediente.toLowerCase().includes(pacienteSearch.toLowerCase())
-                  )
-                  .slice(0, 50)
-                  .map(p => (
-                    <div 
-                      key={p.id} 
-                      className="p-3 border rounded-lg hover:bg-blue-50 cursor-pointer flex items-center justify-between group transition-colors"
-                      onClick={() => handleQuickAddCita(p.id)}
-                    >
-                      <div>
-                        <p className="font-medium text-gray-900">{p.nombre}</p>
-                        <p className="text-sm text-gray-500">{p.numeroExpediente}</p>
-                      </div>
-                      <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Agregar
-                      </Button>
-                    </div>
-                  ))
-                }
-                {pacienteSearch && pacientes.filter(p => p.nombre.toLowerCase().includes(pacienteSearch.toLowerCase())).length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No se encontraron pacientes que coincidan con la búsqueda.
-                  </div>
-                )}
-              </div>
             </CardContent>
           </Card>
         </div>

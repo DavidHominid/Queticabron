@@ -20,7 +20,7 @@ export function ExpedientePersonalInfo({ paciente }: ExpedientePersonalInfoProps
         <div>
           <p className="text-sm text-gray-600">Fecha de Nacimiento</p>
           <p className="font-medium text-gray-900">
-            {new Date(paciente.fechaNacimiento).toLocaleDateString('es-MX')}
+            {new Date(paciente.fechaNacimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </p>
         </div>
         <div>
@@ -42,7 +42,7 @@ export function ExpedientePersonalInfo({ paciente }: ExpedientePersonalInfoProps
         <div>
           <p className="text-sm text-gray-600">Fecha de Registro</p>
           <p className="font-medium text-gray-900">
-            {new Date(paciente.fechaRegistro).toLocaleDateString('es-MX')}
+            {new Date(paciente.fechaRegistro).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
           </p>
         </div>
       </CardContent>

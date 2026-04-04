@@ -69,7 +69,7 @@ export function ExpedienteSurgeryHistory({
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-gray-600">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-4 h-4" />
-                    <span>{new Date(cirugia.fechaCirugia).toLocaleDateString('es-MX')}</span>
+                    <span>{new Date(cirugia.fechaCirugia).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                   </div>
                   {cirugia.horaCirugia && (
                     <div className="flex items-center gap-1">

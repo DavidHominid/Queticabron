@@ -321,7 +321,7 @@ export function Cirugias() {
                                 <span>•</span>
                                 <div className="flex items-center gap-1">
                                   <Calendar className="w-4 h-4" />
-                                  <span>{new Date(cirugia.fechaCirugia).toLocaleDateString('es-MX')}</span>
+                                  <span>{new Date(cirugia.fechaCirugia).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                                 </div>
                               </>
                             )}

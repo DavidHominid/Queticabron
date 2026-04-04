@@ -7,18 +7,27 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { ExpedienteCompleto } from '../components/ExpedienteCompleto';
 import { PacienteCard } from '../components/PacienteCard';
+import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
+import { Calendar as CalendarUI } from '../components/ui/calendar';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '../components/ui/utils';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, User, Phone, Calendar, MapPin, FileText, X } from 'lucide-react';
+import { Plus, Search, User, Phone, Calendar as CalendarIcon, MapPin, FileText, X, Activity } from 'lucide-react';
 import { Paciente, Ciudad } from '../types';
 
 export function Pacientes() {
-  const { pacientes, citas, consultasMedicas, addPaciente, addRegistroAuditoria } = useData();
+  const { pacientes, citas, consultasMedicas, addPaciente, addRegistroAuditoria, addCita, eventos } = useData();
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPaciente, setSelectedPaciente] = useState<Paciente | null>(null);
   const [showExpediente, setShowExpediente] = useState(false);
+  const [showAgendarModal, setShowAgendarModal] = useState(false);
+  const [showCalendarUI, setShowCalendarUI] = useState(false);
+  const [citaForm, setCitaForm] = useState({ fecha: '', hora: '08:00' });
   const [filterType, setFilterType] = useState<'todos' | 'agendados' | 'atendidos'>('todos');
   const [formData, setFormData] = useState<Partial<Paciente>>({
     nombre: '',
@@ -93,6 +102,47 @@ export function Pacientes() {
       ciudad: user?.ciudad || 'sonoyta',
       imagen: '',
     });
+  };
+
+  const handleAgendarCita = async () => {
+    if (!selectedPaciente || !citaForm.fecha) return;
+    const eventoActivo = eventos.find(e => e.estado === 'activo' && e.ciudad === user?.ciudad);
+    if (!eventoActivo) {
+      alert("No hay un evento activo para esta cita.");
+      return;
+    }
+
+    try {
+      await addCita({
+        id: `cita${Date.now()}`,
+        eventoId: eventoActivo.id,
+        pacienteId: selectedPaciente.id,
+        fecha: citaForm.fecha,
+        hora: citaForm.hora,
+        estado: 'programada',
+        especialidad: 'medicina_familiar',
+        consultorio: 'Consultorio 1',
+        costoPagado: 0,
+        fechaCreacion: new Date().toISOString()
+      } as any);
+
+      addRegistroAuditoria({
+        id: `aud${Date.now()}`,
+        usuarioId: user?.id || '',
+        nombreUsuario: user?.nombre || '',
+        rol: user?.rol || 'recepcion',
+        accion: 'Agendó Cita',
+        detalles: `Agendó cita para ${selectedPaciente.nombre} el día ${citaForm.fecha}`,
+        fechaHora: new Date().toISOString(),
+        ciudad: user?.ciudad || 'sonoyta',
+      } as any);
+
+      setShowAgendarModal(false);
+      setSelectedPaciente(null);
+      setCitaForm({ fecha: '', hora: '08:00' });
+    } catch (err) {
+      console.error('Error al agendar cita:', err);
+    }
   };
 
   // Filtrar pacientes según rol y búsqueda
@@ -176,7 +226,11 @@ export function Pacientes() {
             <div key={paciente.id} className="relative group">
               <PacienteCard
                 paciente={paciente}
-                onClick={() => setSelectedPaciente(paciente)}
+                onClick={() => {
+                  setSelectedPaciente(paciente);
+                  setShowExpediente(false);
+                  setShowAgendarModal(false);
+                }}
               />
               {isMedico && (
                 <div className="absolute bottom-4 right-4 flex gap-2 pointer-events-none">
@@ -318,84 +372,151 @@ export function Pacientes() {
         </div>
       )}
 
-      {/* Modal de detalles del paciente */}
-      {selectedPaciente && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <Card className="w-full max-w-2xl my-8">
-            <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-white pb-6 pt-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  {selectedPaciente.imagen ? (
-                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-sm flex-shrink-0 bg-white">
-                      <img src={selectedPaciente.imagen} alt={selectedPaciente.nombre} className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center border-2 border-white shadow-sm flex-shrink-0">
-                      <User className="w-8 h-8 text-blue-600" />
-                    </div>
-                  )}
-                  <div>
-                    <CardTitle className="text-xl">{selectedPaciente.nombre}</CardTitle>
-                    <div className="mt-2">
-                       <Badge variant="outline">{selectedPaciente.numeroExpediente}</Badge>
+      {/* Drawer de detalles del paciente */}
+      <Sheet open={!!selectedPaciente && !showExpediente} onOpenChange={(open) => {
+        if (!open && !showExpediente) setSelectedPaciente(null);
+      }}>
+        <SheetContent side="right" className="w-full sm:w-[500px] sm:max-w-md p-0 flex flex-col h-full bg-slate-50 border-l border-gray-200">
+          {selectedPaciente && (
+            <>
+              <SheetHeader className="border-b bg-gradient-to-r from-blue-50 to-white pb-6 pt-6 px-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    {selectedPaciente.imagen ? (
+                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-sm flex-shrink-0 bg-white">
+                        <img src={selectedPaciente.imagen} alt={selectedPaciente.nombre} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center border-2 border-white shadow-sm flex-shrink-0">
+                        <User className="w-8 h-8 text-blue-600" />
+                      </div>
+                    )}
+                    <div className="text-left">
+                      <SheetTitle className="text-xl">{selectedPaciente.nombre}</SheetTitle>
+                      <div className="mt-2 text-left">
+                         <Badge variant="outline">{selectedPaciente.numeroExpediente}</Badge>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setSelectedPaciente(null)} className="p-2 bg-white rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-700 shadow-sm transition-colors -mt-2 -mr-2">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-gray-600">Edad</p>
-                  <p className="text-lg font-semibold text-gray-900">{selectedPaciente.edad} años</p>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="grid grid-cols-2 gap-6 bg-white p-5 rounded-xl border border-gray-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+                  <div>
+                    <p className="text-sm text-gray-500">Edad</p>
+                    <p className="text-base font-semibold text-gray-900">{selectedPaciente.edad} años</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Sexo</p>
+                    <p className="text-base font-semibold text-gray-900">{selectedPaciente.sexo}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Nacimiento</p>
+                    <p className="text-base font-semibold text-gray-900">
+                      {new Date(selectedPaciente.fechaNacimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Teléfono</p>
+                    <p className="text-base font-semibold text-gray-900">{selectedPaciente.telefono}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Ciudad</p>
+                    <p className="text-base font-semibold text-gray-900 capitalize">
+                      {selectedPaciente.ciudad.replace('_', ' ')}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Registro</p>
+                    <p className="text-base font-semibold text-gray-900">
+                      {new Date(selectedPaciente.fechaRegistro).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Sexo</p>
-                  <p className="text-lg font-semibold text-gray-900">{selectedPaciente.sexo}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Fecha de Nacimiento</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {new Date(selectedPaciente.fechaNacimiento).toLocaleDateString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Teléfono</p>
-                  <p className="text-lg font-semibold text-gray-900">{selectedPaciente.telefono}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Ciudad</p>
-                  <p className="text-lg font-semibold text-gray-900 capitalize">
-                    {selectedPaciente.ciudad.replace('_', ' ')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Fecha de Registro</p>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {new Date(selectedPaciente.fechaRegistro).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
 
-              <div className="mt-6 pt-6 border-t">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => setShowExpediente(true)}>
-                  <FileText className="w-4 h-4 mr-2" />
-                  Ver Expediente Completo
-                </Button>
+                <div className="mt-8 flex flex-col gap-3">
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 h-11" onClick={() => setShowExpediente(true)}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Ver Expediente Completo
+                  </Button>
+                  {user?.rol === 'recepcion' && citas.some(c => c.pacienteId === selectedPaciente.id && c.fecha && c.fecha.startsWith(new Date().toISOString().split('T')[0]) && ['programada', 'en_triage', 'en_consulta'].includes(c.estado)) ? (
+                    <Button className="w-full bg-gray-400 cursor-not-allowed h-11" disabled>
+                      <Activity className="w-4 h-4 mr-2" />
+                      Paciente ya en fila (hoy)
+                    </Button>
+                  ) : (user?.rol === 'recepcion' || user?.rol === 'administrador') && (
+                    <div className="w-full">
+                      {!showAgendarModal ? (
+                        <Button className="w-full bg-green-600 hover:bg-green-700 h-11" onClick={() => setShowAgendarModal(true)}>
+                          <CalendarIcon className="w-4 h-4 mr-2" />
+                          Agendar Cita
+                        </Button>
+                      ) : (
+                        <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100 space-y-4 shadow-sm animate-in fade-in slide-in-from-top-2">
+                          <h4 className="font-semibold text-blue-900 border-b border-blue-100 pb-2">Programar Nueva Cita</h4>
+                          <div className="relative">
+                            <Label htmlFor="fechaCita" className="text-blue-800">Fecha de Cita</Label>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full justify-start text-left font-normal mt-1 border-white bg-white shadow-sm",
+                                !citaForm.fecha && "text-muted-foreground"
+                              )}
+                              onClick={() => setShowCalendarUI(!showCalendarUI)}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {citaForm.fecha ? format(new Date(citaForm.fecha + 'T12:00:00'), "dd/MM/yyyy") : <span>Seleccionar día...</span>}
+                            </Button>
+
+                            {showCalendarUI && (
+                              <div className="absolute top-[65px] left-0 right-0 max-w-max mx-auto md:mx-0 z-[1000] bg-white border border-gray-200 rounded-lg shadow-2xl animate-in fade-in zoom-in-95">
+                                <CalendarUI
+                                  mode="single"
+                                  selected={citaForm.fecha ? new Date(citaForm.fecha + 'T12:00:00') : undefined}
+                                  onSelect={(date) => { 
+                                    setCitaForm({ ...citaForm, fecha: date ? format(date, "yyyy-MM-dd") : '' });
+                                    setShowCalendarUI(false);
+                                  }}
+                                  initialFocus
+                                  locale={es}
+                                  className="p-3 pointer-events-auto"
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <Label htmlFor="horaCita" className="text-blue-800">Hora de Cita</Label>
+                            <Input 
+                              type="time" 
+                              id="horaCita" 
+                              value={citaForm.hora} 
+                              onChange={(e) => setCitaForm({ ...citaForm, hora: e.target.value })}
+                              className="mt-1 border-white bg-white shadow-sm"
+                            />
+                          </div>
+                          <div className="flex gap-3 pt-2">
+                            <Button variant="outline" onClick={() => setShowAgendarModal(false)} className="flex-1 bg-white hover:bg-gray-50 border-gray-200">
+                              Cancelar
+                            </Button>
+                            <Button onClick={handleAgendarCita} className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={!citaForm.fecha}>
+                              Confirmar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Modal de expediente completo */}
       {showExpediente && selectedPaciente && (
         <ExpedienteCompleto paciente={selectedPaciente} onClose={() => {
           setShowExpediente(false);
-          setSelectedPaciente(null);
         }} />
       )}
     </DashboardLayout>

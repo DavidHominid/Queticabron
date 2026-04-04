@@ -141,12 +141,13 @@ export function Login() {
               <div className="mt-8 pt-6 border-t border-gray-100 text-center text-xs text-gray-500">
                 <p>Centro Comunitario Nueva Esperanza</p>
                 <p className="mt-1">Sonoyta, Sonora • Puerto Peñasco</p>
-                
+
                 <div className="mt-4 p-3 bg-blue-50/50 rounded-lg text-blue-800 text-[10px] text-left">
                   <strong>Pista para pruebas:</strong><br />
                   recepcion / 123<br />
                   medico / 123<br />
-                  admin / 123
+                  admin / 123<br />
+                  triage / 123
                 </div>
               </div>
             </CardContent>

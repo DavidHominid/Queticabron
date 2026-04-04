@@ -339,12 +339,7 @@ export function Seguimientos() {
                         <div>
                           <p className="text-xs text-green-700 font-medium">Próxima cita</p>
                           <p className="text-sm font-semibold text-green-900">
-                            {new Date(seguimiento.fechaCita).toLocaleDateString('es-MX', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}{' '}
+                            {new Date(seguimiento.fechaCita).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}{' '}
                             - {seguimiento.horaCita}
                           </p>
                         </div>
@@ -572,12 +567,7 @@ export function Seguimientos() {
                         <Calendar className="w-5 h-5 text-green-600" />
                         <div>
                           <p className="font-medium text-gray-900">
-                            {new Date(selectedSeguimiento.fechaCita).toLocaleDateString('es-MX', {
-                              weekday: 'long',
-                              year: 'numeric',
-                              month: 'long',
-                              day: 'numeric',
-                            })}
+                            {new Date(selectedSeguimiento.fechaCita).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                           </p>
                           <p className="text-sm text-gray-600">Hora: {selectedSeguimiento.horaCita}</p>
                         </div>

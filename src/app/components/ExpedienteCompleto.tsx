@@ -77,8 +77,8 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
   const seguimientosActuales = cirugiaActual ? seguimientos.filter(s => s.cirugiaId === cirugiaActual.id) : [];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <Card className="w-full max-w-6xl my-8 shadow-2xl">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[100] p-4 overflow-y-auto">
+      <Card className="w-full max-w-6xl my-8 shadow-2xl overflow-hidden flex flex-col">
         <ExpedienteHeader paciente={paciente} onClose={onClose} />
 
         <CardContent className="p-6">

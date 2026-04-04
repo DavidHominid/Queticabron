@@ -27,7 +27,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
-  const { registrosAuditoria } = useData();
+  const { registrosAuditoria, isInitialized } = useData();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -72,7 +72,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         return [
           { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
           { icon: Calendar, label: 'Eventos', path: '/eventos' },
-          { icon: ClipboardList, label: 'Triaje Nuevo', path: '/triage' },
           { icon: Users, label: 'Pacientes', path: '/pacientes' },
           { icon: Calendar, label: 'Citas', path: '/citas' },
           { icon: Activity, label: 'Cirugías', path: '/cirugias' },
@@ -80,7 +79,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       case 'triage':
         return [
           { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-          { icon: ClipboardList, label: 'Citas de Hoy', path: '/triage' },
+          { icon: ClipboardList, label: 'Triages Pendientes', path: '/triage' },
         ];
       case 'medico':
         return [
@@ -142,9 +141,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-all duration-300 z-30 flex flex-col ${
-          sidebarOpen ? 'w-64' : 'w-20'
-        }`}
+        className={`fixed top-0 left-0 h-full bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-all duration-300 z-30 flex flex-col ${sidebarOpen ? 'w-64' : 'w-20'
+          }`}
       >
         {/* Logo */}
         <div className="h-20 flex items-center px-6 border-b border-blue-700/50">
@@ -172,9 +170,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <button
                 key={index}
                 onClick={() => navigate(item.path)}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-white/10 transition-colors mb-1 text-left ${
-                  isActive(item.path) ? 'bg-white/10' : ''
-                }`}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-white/10 transition-colors mb-1 text-left ${isActive(item.path) ? 'bg-white/10' : ''
+                  }`}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
@@ -234,7 +231,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {user?.rol === 'administrador' && 'Panel de Administración'}
               </h2>
               <p className="text-sm text-gray-500">
-                {new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                {new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -299,7 +296,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Content */}
-        <main className="p-8">{children}</main>
+        <main className="p-8 relative min-h-[calc(100vh-80px)]">
+          {!isInitialized ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-12 bg-gray-50/50 backdrop-blur-sm z-50">
+              <div className="relative w-24 h-24 flex items-center justify-center">
+                <div className="absolute inset-0 border-4 border-blue-100 rounded-full animate-ping opacity-75"></div>
+                <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
+                <Activity className="w-8 h-8 text-blue-600 animate-pulse" />
+              </div>
+              <h2 className="mt-6 text-xl font-semibold text-gray-800">Sincronizando Sistema...</h2>
+              <p className="text-gray-500 text-sm mt-2">Cargando datos de forma segura</p>
+            </div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
     </div>
   );

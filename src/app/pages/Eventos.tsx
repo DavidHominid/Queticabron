@@ -271,14 +271,7 @@ export function Eventos() {
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           <span>
-                            {new Date(evento.fechaInicio).toLocaleDateString('es-MX', { 
-                              day: 'numeric', 
-                              month: 'short' 
-                            })} - {new Date(evento.fechaFin).toLocaleDateString('es-MX', { 
-                              day: 'numeric', 
-                              month: 'short',
-                              year: 'numeric'
-                            })}
+                            {new Date(evento.fechaInicio).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {new Date(evento.fechaFin).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                           </span>
                         </div>
                       </div>
@@ -306,7 +299,7 @@ export function Eventos() {
                         )}
                         <div className="flex-1">
                           <p className={`text-sm font-medium ${diasRestantes <= 3 ? 'text-red-900' : 'text-blue-900'}`}>
-                            Límite de inscripción: {new Date(evento.fechaLimiteInscripcion).toLocaleDateString('es-MX')}
+                            Límite de inscripción: {new Date(evento.fechaLimiteInscripcion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                           </p>
                           <p className={`text-xs ${diasRestantes <= 3 ? 'text-red-700' : 'text-blue-700'}`}>
                             {diasRestantes > 0 ? `${diasRestantes} días restantes` : 'Plazo vencido'}
@@ -806,20 +799,20 @@ export function Eventos() {
                           <div>
                             <p className="text-sm text-gray-600">Fecha de Inicio</p>
                             <p className="font-medium text-gray-900">
-                              {formData.fechaInicio && new Date(formData.fechaInicio).toLocaleDateString('es-MX')}
+                              {formData.fechaInicio && new Date(formData.fechaInicio).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </p>
                           </div>
                           <div>
                             <p className="text-sm text-gray-600">Fecha de Fin</p>
                             <p className="font-medium text-gray-900">
-                              {formData.fechaFin && new Date(formData.fechaFin).toLocaleDateString('es-MX')}
+                              {formData.fechaFin && new Date(formData.fechaFin).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </p>
                           </div>
                           <div className="col-span-2">
                             <p className="text-sm text-gray-600">Límite de Inscripción</p>
                             <p className="font-medium text-gray-900">
                               {formData.fechaLimiteInscripcion &&
-                                new Date(formData.fechaLimiteInscripcion).toLocaleDateString('es-MX')}
+                                new Date(formData.fechaLimiteInscripcion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </p>
                           </div>
                         </div>
@@ -904,7 +897,7 @@ export function Eventos() {
                     <CardContent className="p-4">
                       <p className="text-sm text-gray-600">Fecha de Inicio</p>
                       <p className="text-lg font-semibold text-gray-900">
-                        {new Date(selectedEvento.fechaInicio).toLocaleDateString('es-MX')}
+                        {new Date(selectedEvento.fechaInicio).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </p>
                     </CardContent>
                   </Card>
@@ -912,7 +905,7 @@ export function Eventos() {
                     <CardContent className="p-4">
                       <p className="text-sm text-gray-600">Fecha de Fin</p>
                       <p className="text-lg font-semibold text-gray-900">
-                        {new Date(selectedEvento.fechaFin).toLocaleDateString('es-MX')}
+                        {new Date(selectedEvento.fechaFin).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </p>
                     </CardContent>
                   </Card>
@@ -920,7 +913,7 @@ export function Eventos() {
                     <CardContent className="p-4">
                       <p className="text-sm text-gray-600">Límite de Inscripción</p>
                       <p className="text-lg font-semibold text-gray-900">
-                        {new Date(selectedEvento.fechaLimiteInscripcion).toLocaleDateString('es-MX')}
+                        {new Date(selectedEvento.fechaLimiteInscripcion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                       </p>
                     </CardContent>
                   </Card>

@@ -41,7 +41,7 @@ export function PacienteCard({ paciente, onClick, className = '' }: PacienteCard
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
-                <span>{new Date(paciente.fechaNacimiento).toLocaleDateString('es-MX')}</span>
+                <span>{new Date(paciente.fechaNacimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />

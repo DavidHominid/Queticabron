@@ -3,6 +3,7 @@ import { DashboardLayout } from '../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { useData } from '../context/DataContext';
@@ -291,10 +292,28 @@ export function Medico() {
                 const paciente = pacientes.find((p) => p.id === cita.pacienteId);
                 const triage = registrosTriage.find((t) => t.citaId === cita.id);
 
+                let stateClasses = "border-purple-200";
+                let clockColor = "text-gray-600";
+                
+                if (cita.hora) {
+                  const [citaH, citaM] = cita.hora.split(':').map(Number);
+                  const now = new Date();
+                  const citaTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), citaH, citaM);
+                  const diffMinutos = (citaTime.getTime() - now.getTime()) / 60000;
+
+                  if (diffMinutos < -10) {
+                    stateClasses = "border-red-400 bg-red-50/30";
+                    clockColor = "text-red-600 font-semibold animate-pulse";
+                  } else if (diffMinutos <= 15 && diffMinutos >= -10) {
+                    stateClasses = "border-amber-400 bg-amber-50/30";
+                    clockColor = "text-amber-600 font-semibold";
+                  }
+                }
+
                 return (
                   <Card
                     key={cita.id}
-                    className="border-2 border-purple-200 hover:shadow-md transition-shadow"
+                    className={`border-2 transition-shadow hover:shadow-md ${stateClasses}`}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start gap-4">
@@ -316,7 +335,7 @@ export function Medico() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <div className="flex items-center gap-1 text-sm text-gray-600">
+                              <div className={`flex items-center gap-1 text-sm ${clockColor}`}>
                                 <Clock className="w-4 h-4" />
                                 <span>{cita.hora}</span>
                               </div>
@@ -589,8 +608,8 @@ export function Medico() {
                 <div className="col-span-2">
                   <form onSubmit={handleSubmitConsulta} className="space-y-4">
                     {/* SOAP - Subjetivo */}
-                    <Card className="border-2">
-                      <CardHeader className="bg-gray-50 p-3">
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader className="bg-gray-50 p-4 border-b">
                         <h3 className="font-semibold">Motivo de Consulta y Padecimiento Actual</h3>
                       </CardHeader>
                       <CardContent className="p-4 space-y-3">
@@ -608,9 +627,8 @@ export function Medico() {
                         </div>
                         <div>
                           <Label htmlFor="padecimiento">Padecimiento Actual *</Label>
-                          <textarea
+                          <Textarea
                             id="padecimiento"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={3}
                             value={consultaForm.padecimientoActual}
                             onChange={(e) =>
@@ -627,16 +645,15 @@ export function Medico() {
                     </Card>
 
                     {/* SOAP - Objetivo */}
-                    <Card className="border-2">
-                      <CardHeader className="bg-gray-50 p-3">
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader className="bg-gray-50 p-4 border-b">
                         <h3 className="font-semibold">Exploración Física</h3>
                       </CardHeader>
                       <CardContent className="p-4">
                         <div>
                           <Label htmlFor="exploracion">Hallazgos de Exploración Física *</Label>
-                          <textarea
+                          <Textarea
                             id="exploracion"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={3}
                             value={consultaForm.exploracionFisica}
                             onChange={(e) =>
@@ -653,8 +670,8 @@ export function Medico() {
                     </Card>
 
                     {/* SOAP - Evaluación */}
-                    <Card className="border-2">
-                      <CardHeader className="bg-gray-50 p-3">
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader className="bg-gray-50 p-4 border-b">
                         <h3 className="font-semibold">Diagnóstico</h3>
                       </CardHeader>
                       <CardContent className="p-4">
@@ -674,16 +691,15 @@ export function Medico() {
                     </Card>
 
                     {/* SOAP - Plan */}
-                    <Card className="border-2">
-                      <CardHeader className="bg-gray-50 p-3">
+                    <Card className="border-2 shadow-sm">
+                      <CardHeader className="bg-gray-50 p-4 border-b">
                         <h3 className="font-semibold">Plan de Tratamiento</h3>
                       </CardHeader>
                       <CardContent className="p-4 space-y-4">
                         <div>
                           <Label htmlFor="tratamiento">Tratamiento *</Label>
-                          <textarea
+                          <Textarea
                             id="tratamiento"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={2}
                             value={consultaForm.tratamiento}
                             onChange={(e) =>
