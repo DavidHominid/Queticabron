@@ -1,7 +1,7 @@
-import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { User, Calendar, Phone, MapPin } from 'lucide-react';
+import { User, Phone, MapPin } from 'lucide-react';
 import { Paciente } from '../../types';
+import { formatDateSafe } from '../ui/utils';
 
 interface ExpedientePersonalInfoProps {
   paciente: Paciente;
@@ -20,7 +20,7 @@ export function ExpedientePersonalInfo({ paciente }: ExpedientePersonalInfoProps
         <div>
           <p className="text-sm text-gray-600">Fecha de Nacimiento</p>
           <p className="font-medium text-gray-900">
-            {new Date(paciente.fechaNacimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            {formatDateSafe(paciente.fechaNacimiento)}
           </p>
         </div>
         <div>
@@ -42,7 +42,7 @@ export function ExpedientePersonalInfo({ paciente }: ExpedientePersonalInfoProps
         <div>
           <p className="text-sm text-gray-600">Fecha de Registro</p>
           <p className="font-medium text-gray-900">
-            {new Date(paciente.fechaRegistro).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            {formatDateSafe(paciente.fechaRegistro)}
           </p>
         </div>
       </CardContent>

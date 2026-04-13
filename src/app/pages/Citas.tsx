@@ -20,12 +20,12 @@ import { Divider } from 'primereact/divider';
 import { Message } from 'primereact/message';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { AutoComplete } from 'primereact/autocomplete';
-import './citas-calendar-styles.css';
+import { formatDateSafe } from '../components/ui/utils';
 
 export function Citas() {
   const { citas, pacientes, eventos, addCita, updateCita, getPacienteByExpediente, addRegistroAuditoria, addPaciente } = useData();
   const { user } = useAuth();
-  
+
   // Estados para modal de creación/edición
   const [showModal, setShowModal] = useState(false);
   const [showCederModal, setShowCederModal] = useState(false);
@@ -38,11 +38,11 @@ export function Citas() {
   const [citaACeder, setCitaACeder] = useState<Cita | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
-  
+
   // Estados para autocompletado
   const [filteredPacientes, setFilteredPacientes] = useState<any[]>([]);
   const [filteredPacientesCeder, setFilteredPacientesCeder] = useState<any[]>([]);
-  
+
   const [formData, setFormData] = useState<Partial<Cita>>({
     eventoId: '',
     especialidad: 'medicina_familiar',
@@ -66,7 +66,7 @@ export function Citas() {
   const calendarEvents = citas.map((cita) => {
     const paciente = pacientes.find((p) => p.id === cita.pacienteId);
     const especialidadTexto = cita.especialidad.replace('_', ' ');
-    
+
     return {
       id: cita.id,
       title: `${paciente?.nombre || 'Paciente'} - ${especialidadTexto}`,
@@ -97,7 +97,7 @@ export function Citas() {
   const handleDateClick = (info: any) => {
     const clickedDate = new Date(info.dateStr);
     setSelectedDate(clickedDate);
-    
+
     // Si es una vista de tiempo, extraer la hora
     if (info.dateStr.includes('T')) {
       const timeString = info.dateStr.split('T')[1].substring(0, 5);
@@ -115,7 +115,7 @@ export function Citas() {
         hora: '09:00',
       });
     }
-    
+
     setShowModal(true);
   };
 
@@ -128,13 +128,13 @@ export function Citas() {
   // Buscar paciente
   const buscarPaciente = () => {
     let paciente = getPacienteByExpediente(searchExpediente);
-    
+
     if (!paciente) {
-      paciente = pacientes.find(p => 
+      paciente = pacientes.find(p =>
         p.nombre.toLowerCase().includes(searchExpediente.toLowerCase())
       );
     }
-    
+
     if (paciente) {
       setPacienteEncontrado(paciente);
     } else {
@@ -146,8 +146,8 @@ export function Citas() {
   // Función para autocompletar pacientes
   const searchPacientes = (event: any) => {
     const query = event.query.toLowerCase();
-    const filtered = pacientes.filter(p => 
-      p.nombre.toLowerCase().includes(query) || 
+    const filtered = pacientes.filter(p =>
+      p.nombre.toLowerCase().includes(query) ||
       p.numeroExpediente.toLowerCase().includes(query)
     );
     setFilteredPacientes(filtered);
@@ -156,8 +156,8 @@ export function Citas() {
   // Función para autocompletar pacientes al ceder
   const searchPacientesCeder = (event: any) => {
     const query = event.query.toLowerCase();
-    const filtered = pacientes.filter(p => 
-      p.nombre.toLowerCase().includes(query) || 
+    const filtered = pacientes.filter(p =>
+      p.nombre.toLowerCase().includes(query) ||
       p.numeroExpediente.toLowerCase().includes(query)
     );
     setFilteredPacientesCeder(filtered);
@@ -204,7 +204,7 @@ export function Citas() {
     if (!especialidadEvento) return { total: 0, ocupados: 0, disponibles: 0 };
 
     // Obtener el día de la semana
-    const diaSemana = new Date(fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const diaSemana = formatDateSafe(fecha);
     const diaCapitalizado = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
 
     // Buscar horario para ese día
@@ -218,7 +218,7 @@ export function Citas() {
     const totalCupos = Math.floor(minutosDisponibles / horario.intervalo);
 
     // Contar cupos ocupados (citas programadas para esa fecha, especialidad y evento)
-    const citasOcupadas = citas.filter(c => 
+    const citasOcupadas = citas.filter(c =>
       c.eventoId === eventoId &&
       c.especialidad === especialidad &&
       c.fecha === fecha &&
@@ -440,7 +440,7 @@ export function Citas() {
   return (
     <DashboardLayout>
       <ConfirmDialog />
-      
+
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -497,20 +497,20 @@ export function Citas() {
                     severity={evento.estado === 'activo' ? 'success' : 'secondary'}
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
                   <div className="bg-white p-3 rounded-lg shadow-sm">
                     <p className="text-gray-600 mb-1">📅 Inscripciones hasta</p>
                     <p className="font-semibold text-gray-900">
-                      {new Date(evento.fechaLimiteInscripcion).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {formatDateSafe(evento.fechaLimiteInscripcion)}
                     </p>
                   </div>
                   <div className="bg-white p-3 rounded-lg shadow-sm">
                     <p className="text-gray-600 mb-1">🏥 Fecha del evento</p>
                     <p className="font-semibold text-gray-900">
-                      {new Date(evento.fechaInicio).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {formatDateSafe(evento.fechaInicio)}
                       {' - '}
-                      {new Date(evento.fechaFin).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {formatDateSafe(evento.fechaFin)}
                     </p>
                   </div>
                   <div className="bg-white p-3 rounded-lg shadow-sm">
@@ -526,7 +526,7 @@ export function Citas() {
                       // Calcular cupos para hoy o próxima fecha del evento
                       const hoy = new Date().toISOString().split('T')[0];
                       const cuposHoy = calcularCuposDisponibles(evento.id, esp.especialidad, hoy);
-                      
+
                       return (
                         <div key={esp.especialidad} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
                           <div className="flex items-center justify-between mb-2">
@@ -685,8 +685,8 @@ export function Citas() {
                 options={especialidadesOptions}
                 onChange={(e) => {
                   const newEspecialidad = e.value;
-                  setFormData({ 
-                    ...formData, 
+                  setFormData({
+                    ...formData,
                     especialidad: newEspecialidad,
                     consultorio: newEspecialidad === 'dentista' ? 'Consultorio Dentista' : formData.consultorio
                   });
@@ -812,7 +812,7 @@ export function Citas() {
               <div>
                 <p className="text-sm text-gray-600">Fecha</p>
                 <p className="font-medium">
-                  {new Date(selectedCita.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                  {formatDateSafe(selectedCita.fecha)}
                 </p>
               </div>
               <div>
@@ -885,7 +885,7 @@ export function Citas() {
                 <div>
                   <span className="text-gray-600">Fecha: </span>
                   <span className="font-semibold">
-                    {new Date(citaACeder.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    {formatDateSafe(citaACeder.fecha)}
                   </span>
                 </div>
                 <div>
@@ -989,7 +989,7 @@ export function Citas() {
             {tipoCesion === 'nuevo' && (
               <div className="space-y-4">
                 <h3 className="font-medium">Crear Nuevo Paciente</h3>
-                
+
                 <div className="field">
                   <label htmlFor="nombreNuevo" className="block mb-2">Nombre Completo *</label>
                   <InputText

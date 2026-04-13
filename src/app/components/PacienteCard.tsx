@@ -2,6 +2,7 @@ import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { User, Phone, Calendar, MapPin } from 'lucide-react';
 import { Paciente } from '../types';
+import { formatDateSafe } from './ui/utils';
 
 interface PacienteCardProps {
   paciente: Paciente;
@@ -41,7 +42,7 @@ export function PacienteCard({ paciente, onClick, className = '' }: PacienteCard
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
-                <span>{new Date(paciente.fechaNacimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                <span>{formatDateSafe(paciente.fechaNacimiento)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />

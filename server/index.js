@@ -16,6 +16,7 @@ import estudiosRoutes from './routes/estudios.js';
 import eventosRoutes from './routes/eventos.js';
 import auditoriaRoutes from './routes/auditoria.js';
 import informacionMedicaRoutes from './routes/informacion-medica.js';
+import uploadRoutes from './routes/upload.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -56,9 +57,13 @@ app.use('/api/estudios', estudiosRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
 app.use('/api/informacion-medica', informacionMedicaRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Caso especial para el login
 app.use('/api', usuariosRoutes);
+
+// Serve uploads folder
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Serve frontend static files in production
 const distPath = path.join(__dirname, '..', 'dist');

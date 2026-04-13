@@ -1,0 +1,1 @@
+Por ahora la BDD almacena el nombre de lo que se sube, y se guardan aqui en uploads para hacer que funcione el sistema de archivos sin sobrecargar la BDD, entonces tendremos que optar por usar clodinary, AWS S3, o Google Cloud storage por el momento lo voy a dejar asi la proxima vez que le mueve evaluare cual es mejor para el proyecto

@@ -23,8 +23,8 @@ interface DataContextType {
 
   // Pacientes
   pacientes: Paciente[];
-  addPaciente: (paciente: Paciente) => void;
-  updatePaciente: (id: string, paciente: Partial<Paciente>) => void;
+  addPaciente: (paciente: Paciente) => Promise<any> | void;
+  updatePaciente: (id: string, paciente: Partial<Paciente>) => Promise<any> | void;
   getPacienteByExpediente: (numeroExpediente: string) => Paciente | undefined;
 
   // Citas
@@ -166,13 +166,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     });
 
+    // Recargar datos cuando la pestaña recupera el foco
+    const handleFocus = () => fetchAllData();
+    window.addEventListener('focus', handleFocus);
+
+    // Bajar la frecuencia de sondeo automático excesivo a 1 minuto
     const interval = setInterval(() => {
       fetchAllData();
-    }, 5000);
+    }, 60000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
@@ -219,11 +225,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(paciente),
       });
       if (res.ok) {
-        const nuevo = await res.json();
+        const text = await res.text();
+        const nuevo = text ? JSON.parse(text) : {};
         setPacientes((prev) => [...prev, nuevo]);
+        return { success: true, data: nuevo };
+      } else {
+        const text = await res.text();
+        const errorData = text ? JSON.parse(text) : { error: 'Error desconocido' };
+        return { success: false, error: errorData.error, duplicado: errorData.duplicado };
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('❌ Error en addPaciente:', err);
+      return { success: false, error: `Error de red o servidor: ${err.message}` };
     }
   };
 
@@ -235,11 +248,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(pacienteUpdate),
       });
       if (res.ok) {
-        const actualizado = await res.json();
+        const text = await res.text();
+        const actualizado = text ? JSON.parse(text) : { success: true };
         setPacientes(pacientes.map((p) => (p.id === id ? actualizado : p)));
+        return { success: true };
+      } else {
+        const text = await res.text();
+        const errorData = text ? JSON.parse(text) : { error: 'Error desconocido' };
+        return { success: false, error: errorData.error, duplicado: errorData.duplicado };
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error('❌ Error en updatePaciente:', err);
+      return { success: false, error: `Error de red o servidor: ${err.message}` };
     }
   };
 

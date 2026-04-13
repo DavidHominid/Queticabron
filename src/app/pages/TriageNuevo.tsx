@@ -17,6 +17,7 @@ import {
   X,
   CheckCircle2,
   Clock,
+  Calendar,
   AlertTriangle,
   Filter,
   Edit2,
@@ -67,12 +68,11 @@ export function TriageNuevo() {
   // Tomamos solo los primeros 10 caracteres para evitar conversión UTC
   const normalizarFecha = (f: string | undefined) => (f ? String(f).substring(0, 10) : '');
 
-  // Obtener todas las citas del evento activo para hoy
+  // Filtramos por evento activo y estados permitidos, incluyendo las citas futuras
   const citasHoy = citas.filter(
     (c) =>
       c.eventoId === eventoActivo?.id &&
-      normalizarFecha(c.fecha) === hoy &&
-      (c.estado === 'programada' || c.estado === 'en_triage')
+      (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
   );
 
   // Obtener pacientes con citas hoy
@@ -96,12 +96,11 @@ export function TriageNuevo() {
     };
   });
 
-  // Filtrar pacientes por búsqueda y ocultar los completados
+  // Filtrar pacientes por búsqueda (mostrar todos, incluyendo completados)
   const pacientesFiltrados = pacientesDisponibles.filter(
     (p) =>
-      p.estado !== 'completado' &&
-      (p?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p?.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase()))
+      p?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p?.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleSeleccionarPaciente = (paciente: any) => {
@@ -423,9 +422,15 @@ export function TriageNuevo() {
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-gray-900 truncate">{paciente?.nombre}</h3>
                         <p className="text-sm text-gray-600 mt-1">{paciente?.numeroExpediente}</p>
-                        <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
-                          <Clock className="w-3 h-3" />
-                          <span>{paciente.cita.hora}</span>
+                        <div className="flex flex-col gap-1 mt-2 text-sm text-gray-600">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-3 h-3 text-blue-500" />
+                            <span>Agendado para el {new Date(paciente.cita.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-3 h-3 text-purple-500" />
+                            <span>Hora asignada: {paciente.cita.hora}</span>
+                          </div>
                         </div>
                         <div className="mt-2">{getEstadoBadge(paciente.estado)}</div>
                       </div>

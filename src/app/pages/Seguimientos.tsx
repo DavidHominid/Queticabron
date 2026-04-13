@@ -8,6 +8,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import {
   Calendar,
   Activity,
@@ -28,7 +29,8 @@ import {
 import { Seguimiento } from '../types';
 
 export function Seguimientos() {
-  const { seguimientos, pacientes, addSeguimiento } = useData();
+  const { seguimientos, pacientes, addSeguimiento, updateSeguimiento, addCita, eventos, citas } = useData();
+  const { user } = useAuth();
   const [selectedSeguimiento, setSelectedSeguimiento] = useState<Seguimiento | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -41,6 +43,68 @@ export function Seguimientos() {
     fechaCita: '',
   });
   const [guardando, setGuardando] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [targetForManual, setTargetForManual] = useState<Seguimiento | null>(null);
+  const [manualForm, setManualForm] = useState({ fecha: '', hora: '08:00' });
+
+  const handleSolicitarSeguimiento = async (seguimiento: Seguimiento, dias: number) => {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() + dias);
+    const dateStr = fecha.toISOString().split('T')[0];
+    
+    // Evitar empalmes de hora de cita buscando un horario disponible
+    const citasEnFecha = citas.filter((c) => c.fecha === dateStr || String((c as any).fecha_cita).startsWith(dateStr));
+    let horaSugerida = '08:00';
+    for (let h = 8; h <= 20; h++) {
+        const hStr = h.toString().padStart(2, '0');
+        const isOcupado = citasEnFecha.some((c) => c.hora.startsWith(hStr));
+        if (!isOcupado) {
+            horaSugerida = `${hStr}:00`;
+            break;
+        }
+    }
+
+    const nuevaCita = {
+        id: `cit${Date.now()}`,
+        eventoId: eventos.find((e) => e.estado === 'activo')?.id || eventos?.[0]?.id || '',
+        pacienteId: seguimiento.pacienteId,
+        fecha: dateStr,
+        hora: horaSugerida,
+        estado: 'programada',
+        especialidad: user?.especialidad || 'General',
+        medicoEncargado: user?.nombre || '',
+    };
+    if (addCita) await addCita(nuevaCita as any);
+
+    if (updateSeguimiento) {
+      await updateSeguimiento(seguimiento.id, { ...seguimiento, fechaCita: dateStr, estado: 'agendada' });
+    }
+  };
+
+  const handleSubmitManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetForManual || !manualForm.fecha || !manualForm.hora) return;
+
+    setGuardando(true);
+    try {
+      const nuevaCita = {
+          id: `cit${Date.now()}`,
+          eventoId: eventos.find((ev) => ev.estado === 'activo')?.id || eventos?.[0]?.id || '',
+          pacienteId: targetForManual.pacienteId,
+          fecha: manualForm.fecha,
+          hora: manualForm.hora,
+          estado: 'programada',
+          especialidad: user?.especialidad || 'General',
+          medicoEncargado: user?.nombre || '',
+      };
+      if (addCita) await addCita(nuevaCita as any);
+      if (updateSeguimiento) await updateSeguimiento(targetForManual.id, { ...targetForManual, fechaCita: manualForm.fecha, estado: 'agendada' });
+      setShowManualModal(false);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
 
   const handleOpenNew = (seg?: Seguimiento) => {
     if (seg) {
@@ -361,19 +425,52 @@ export function Seguimientos() {
                   )}
 
                   {/* Acciones */}
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" className="flex-1" onClick={() => handleViewDetails(seguimiento)}>
-                      <Eye className="w-4 h-4 mr-2" />
-                      Ver Detalles
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleOpenNew(seguimiento)}
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Editar
-                    </Button>
+                  <div className="flex flex-col gap-2 pt-4 border-t mt-4">
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" onClick={() => handleViewDetails(seguimiento)}>
+                        <Eye className="w-4 h-4 mr-2" />
+                        Ver Detalles
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleOpenNew(seguimiento)}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Editar
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <select 
+                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 bg-white hover:bg-gray-50 cursor-pointer outline-none"
+                        title="Solicitar Seguimiento"
+                        onChange={(e) => {
+                          if (e.target.value) {
+                             handleSolicitarSeguimiento(seguimiento, parseInt(e.target.value));
+                             e.target.value = '';
+                          }
+                        }}
+                      >
+                        <option value="">Seguimiento rápido...</option>
+                        <option value="15">En 15 días</option>
+                        <option value="30">En 1 mes</option>
+                        <option value="90">En 3 meses</option>
+                        <option value="180">En 6 meses</option>
+                      </select>
+
+                      <Button 
+                        variant="outline" 
+                        className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 flex-1 relative gap-2" 
+                        onClick={() => {
+                          setTargetForManual(seguimiento);
+                          setShowManualModal(true);
+                          setManualForm({ fecha: new Date().toISOString().split('T')[0], hora: '08:00' });
+                        }}
+                      >
+                        <Calendar className="w-4 h-4" />
+                        Agendar manual
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -652,6 +749,45 @@ export function Seguimientos() {
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Agendar Manualmente */}
+        <Dialog open={showManualModal} onOpenChange={setShowManualModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Agendar Seguimiento</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmitManual} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="manual-fecha">Fecha *</Label>
+                <Input
+                  id="manual-fecha"
+                  type="date"
+                  value={manualForm.fecha}
+                  onChange={(e) => setManualForm({ ...manualForm, fecha: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="manual-hora">Hora sugerida *</Label>
+                <Input
+                  id="manual-hora"
+                  type="time"
+                  value={manualForm.hora}
+                  onChange={(e) => setManualForm({ ...manualForm, hora: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" type="button" onClick={() => setShowManualModal(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={guardando}>
+                  {guardando ? 'Agendando...' : 'Confirmar Cita'}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>

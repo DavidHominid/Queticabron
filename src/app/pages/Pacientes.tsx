@@ -12,14 +12,14 @@ import { Calendar as CalendarUI } from '../components/ui/calendar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { cn } from '../components/ui/utils';
+import { cn, formatDateSafe } from '../components/ui/utils';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Search, User, Phone, Calendar as CalendarIcon, MapPin, FileText, X, Activity } from 'lucide-react';
 import { Paciente, Ciudad } from '../types';
 
 export function Pacientes() {
-  const { pacientes, citas, consultasMedicas, addPaciente, addRegistroAuditoria, addCita, eventos } = useData();
+  const { pacientes, citas, consultasMedicas, addPaciente, updatePaciente, addRegistroAuditoria, addCita, eventos } = useData();
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,20 +29,35 @@ export function Pacientes() {
   const [showCalendarUI, setShowCalendarUI] = useState(false);
   const [citaForm, setCitaForm] = useState({ fecha: '', hora: '08:00' });
   const [filterType, setFilterType] = useState<'todos' | 'agendados' | 'atendidos'>('todos');
-  const [formData, setFormData] = useState<Partial<Paciente>>({
+  const initialFormData: Partial<Paciente> = {
     nombre: '',
     fechaNacimiento: '',
     sexo: 'Masculino',
     telefono: '',
     ciudad: user?.ciudad || 'sonoyta',
     imagen: '',
-  });
+    nacionalidad: 'Mexicana',
+    identificacion: '',
+  };
+
+  const [formData, setFormData] = useState<Partial<Paciente>>(initialFormData);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const resetForm = () => {
+    setFormData(initialFormData);
+    setImageFile(null);
+    setSelectedPaciente(null);
+  };
 
   const isMedico = user?.rol === 'medico';
 
+
+
   const calcularEdad = (fechaNacimiento: string) => {
+    if (!fechaNacimiento) return 0;
     const hoy = new Date();
-    const nacimiento = new Date(fechaNacimiento);
+    const nacimiento = new Date(fechaNacimiento + 'T12:00:00'); // Forzar mediodía para evitar saltos de día
     let edad = hoy.getFullYear() - nacimiento.getFullYear();
     const mes = hoy.getMonth() - nacimiento.getMonth();
     if (mes < 0 || (mes === 0 && hoy.getDate() < nacimiento.getDate())) {
@@ -66,8 +81,41 @@ export function Pacientes() {
     };
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validaciones de formato
+    const idValue = (formData.identificacion || '').replace(/\s/g, '').toUpperCase();
+    if (formData.nacionalidad === 'Mexicana') {
+      const curpRegex = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{1}[0-9]{1}$/;
+      if (!curpRegex.test(idValue)) {
+        alert("La CURP ingresada no tiene un formato válido (18 caracteres).");
+        return;
+      }
+    } else if (formData.nacionalidad === 'Americana') {
+      const passportRegex = /^[0-9]{9}$/;
+      if (!passportRegex.test(idValue)) {
+        alert("El pasaporte americano debe tener 9 dígitos numéricos.");
+        return;
+      }
+    }
+
+    setSaving(true);
+
+    let uploadedUrl = formData.imagen || '';
+    if (imageFile) {
+       const fd = new FormData();
+       fd.append('imagen', imageFile);
+       try {
+           const res = await fetch('/api/upload', { method: 'POST', body: fd });
+           if (res.ok) {
+              const data = await res.json();
+              uploadedUrl = data.url;
+           }
+       } catch(err) {
+           console.error("Error uploading image", err);
+       }
+    }
 
     // Generar número de expediente
     const año = new Date().getFullYear();
@@ -84,24 +132,38 @@ export function Pacientes() {
       telefono: formData.telefono || '',
       ciudad: (formData.ciudad as Ciudad) || user?.ciudad || 'sonoyta',
       fechaRegistro: new Date().toISOString().split('T')[0],
-      imagen: formData.imagen || '',
+      imagen: uploadedUrl,
+      nacionalidad: formData.nacionalidad || 'Mexicana',
+      identificacion: idValue,
     };
 
-    addPaciente({
-      ...nuevoPaciente,
-      rol_solicitante: user?.rol,
-      usuario_solicitante: user?.nombre
-    } as any);
+    let res;
+    if (selectedPaciente) {
+      // Estamos editando
+      res = await updatePaciente(selectedPaciente.id, {
+        ...formData,
+        imagen: uploadedUrl,
+        nacionalidad: formData.nacionalidad || 'Mexicana',
+        identificacion: idValue,
+      });
+    } else {
+      // Estamos registrando nuevo
+      res = await addPaciente({
+        ...nuevoPaciente,
+        rol_solicitante: user?.rol,
+        usuario_solicitante: user?.nombre
+      } as any);
+    }
+
+    setSaving(false);
+
+    if (res && !res.success) {
+      alert(res.error || 'Hubo un error al guardar el paciente.');
+      return;
+    }
 
     setShowModal(false);
-    setFormData({
-      nombre: '',
-      fechaNacimiento: '',
-      sexo: 'Masculino',
-      telefono: '',
-      ciudad: user?.ciudad || 'sonoyta',
-      imagen: '',
-    });
+    resetForm();
   };
 
   const handleAgendarCita = async () => {
@@ -182,7 +244,7 @@ export function Pacientes() {
             </p>
           </div>
           {!isMedico && (
-            <Button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Paciente
             </Button>
@@ -252,7 +314,7 @@ export function Pacientes() {
                 {searchTerm ? 'Intenta con otro término de búsqueda' : 'Comienza registrando tu primer paciente'}
               </p>
               {!searchTerm && (
-                <Button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-600 hover:bg-blue-700">
                   <Plus className="w-4 h-4 mr-2" />
                   Registrar Primer Paciente
                 </Button>
@@ -341,15 +403,74 @@ export function Pacientes() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="nacionalidad">Nacionalidad</Label>
+                    <select
+                      id="nacionalidad"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={formData.nacionalidad || 'Mexicana'}
+                      onChange={(e) => setFormData({ ...formData, nacionalidad: e.target.value })}
+                    >
+                      <option value="Mexicana">Mexicana</option>
+                      <option value="Americana">Americana</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="identificacion">
+                      {formData.nacionalidad === 'Americana' ? 'Pasaporte Americano' : 'CURP'}
+                    </Label>
+                    <Input
+                      id="identificacion"
+                      type="text"
+                      value={formData.identificacion || ''}
+                      onChange={(e) => setFormData({ ...formData, identificacion: e.target.value.toUpperCase() })}
+                      placeholder={formData.nacionalidad === 'Americana' ? 'Ej. 123456789' : 'Ej. VENG920101HSRLRRA0'}
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <Label htmlFor="imagen">URL de Fotografía (Opcional)</Label>
-                  <Input
-                    id="imagen"
-                    type="url"
-                    value={formData.imagen || ''}
-                    onChange={(e) => setFormData({ ...formData, imagen: e.target.value })}
-                    placeholder="https://ejemplo.com/foto.jpg"
-                  />
+                  <Label>Fotografía del Paciente (Opcional)</Label>
+                  <div className="mt-2 flex items-center gap-4">
+                    {imageFile && (
+                      <img
+                        src={URL.createObjectURL(imageFile)}
+                        alt="Preview"
+                        className="w-16 h-16 object-cover rounded-full border border-gray-200"
+                      />
+                    )}
+                    {!imageFile && formData.imagen && (
+                      <img
+                        src={formData.imagen}
+                        alt="Current"
+                        className="w-16 h-16 object-cover rounded-full border border-gray-200"
+                      />
+                    )}
+                    <div className="flex flex-col gap-1">
+                      <Label
+                        htmlFor="imagen"
+                        className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2 rounded-lg font-semibold text-sm transition-colors border border-blue-200 inline-flex items-center justify-center"
+                      >
+                        Seleccionar Imagen
+                      </Label>
+                      <input
+                        id="imagen"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setImageFile(e.target.files[0]);
+                          }
+                        }}
+                      />
+                      <span className="text-xs text-gray-500">
+                        {imageFile ? imageFile.name : 'Ningún archivo seleccionado'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -359,11 +480,11 @@ export function Pacientes() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="flex-1">
+                  <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="flex-1" disabled={saving}>
                     Cancelar
                   </Button>
-                  <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
-                    Registrar Paciente
+                  <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={saving}>
+                    {saving ? 'Guardando...' : 'Registrar Paciente'}
                   </Button>
                 </div>
               </form>
@@ -413,7 +534,7 @@ export function Pacientes() {
                   <div>
                     <p className="text-sm text-gray-500">Nacimiento</p>
                     <p className="text-base font-semibold text-gray-900">
-                      {new Date(selectedPaciente.fechaNacimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {formatDateSafe(selectedPaciente.fechaNacimiento)}
                     </p>
                   </div>
                   <div>
@@ -429,7 +550,7 @@ export function Pacientes() {
                   <div>
                     <p className="text-sm text-gray-500">Registro</p>
                     <p className="text-base font-semibold text-gray-900">
-                      {new Date(selectedPaciente.fechaRegistro).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {formatDateSafe(selectedPaciente.fechaRegistro)}
                     </p>
                   </div>
                 </div>

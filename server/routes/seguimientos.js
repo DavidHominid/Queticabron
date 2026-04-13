@@ -9,6 +9,15 @@ const mapSeguimiento = (row) => ({
   citaId: null,
   diagnostico: row.diagnostico || '',
   observaciones: row.indicaciones || row.tratamiento || '',
+  // Nuevos campos mapeados completos
+  motivo_consulta: row.motivo_consulta || '',
+  padecimiento_actual: row.padecimiento_actual || '',
+  exploracion_fisica: row.exploracion_fisica || '',
+  tratamiento: row.tratamiento || '',
+  plan_tratamiento: row.plan_tratamiento || '',
+  medicamentos: row.medicamentos || '[]',
+  indicaciones: row.indicaciones || '',
+  
   fechaCita: row.proxima_cita
     ? new Date(row.proxima_cita).toISOString().split('T')[0]
     : null,
@@ -22,10 +31,21 @@ const mapSeguimiento = (row) => ({
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM "${SCHEMA}".nota_medica ORDER BY id_nota DESC LIMIT 50`
+      `SELECT * FROM "${SCHEMA}".nota_medica ORDER BY id_nota DESC LIMIT 200`
     );
 
-    res.json(result.rows.map(mapSeguimiento));
+    // Agrupar para asegurar que un paciente solo tenga 1 seguimiento (el más reciente)
+    const seen = new Set();
+    const rowsUnicos = [];
+    for (const row of result.rows) {
+      if (!row.id_paciente) continue;
+      if (!seen.has(row.id_paciente)) {
+        seen.add(row.id_paciente);
+        rowsUnicos.push(row);
+      }
+    }
+
+    res.json(rowsUnicos.map(mapSeguimiento));
   } catch (err) {
     console.error('❌ Error en GET /api/seguimientos:', err.message);
     res.json([]);

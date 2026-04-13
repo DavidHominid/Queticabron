@@ -38,7 +38,9 @@ export const mapPaciente = (p) => ({
   ciudad: p.ciudad,
   fechaRegistro: formatDate(p.fecha_registro),
   edad: p.edad || (p.fecha_de_nacimiento ? calculateAge(p.fecha_de_nacimiento) : 0),
-  imagen: p.imagen
+  imagen: p.imagen,
+  nacionalidad: p.nacionalidad || 'Mexicana',
+  identificacion: p.identificacion || ''
 });
 
 // La BD usa texto libre para estado de citas
@@ -79,7 +81,7 @@ export const mapCita = (c) => {
   return {
     id: String(c.id_cita || c.id || ''),
     pacienteId: String(c.id_paciente || ''),
-    eventoId: c.evento_id,
+    eventoId: c.evento_id ? String(c.evento_id) : '',
     fecha: c.fecha_cita ? formatDate(c.fecha_cita) : c.fecha,
     hora: c.hora || '08:00',
     especialidad: c.especialidad,

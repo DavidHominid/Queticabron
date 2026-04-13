@@ -34,7 +34,7 @@ export function ModalDetalleConsulta({
                   {cita.especialidad.replace('_', ' ')}
                 </Badge>
                 <Badge className="bg-blue-100 text-blue-700 text-sm">
-                  {new Date(cita.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })} - {cita.hora}
+                  {formatDateSafe(cita.fecha)} - {cita.hora}
                 </Badge>
               </div>
             </div>

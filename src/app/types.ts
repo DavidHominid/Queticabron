@@ -51,6 +51,8 @@ export interface Paciente {
   ciudad: Ciudad;
   fechaRegistro: string;
   imagen?: string;
+  nacionalidad?: string;
+  identificacion?: string;
 }
 
 // Cita
