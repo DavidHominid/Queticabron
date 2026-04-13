@@ -56,15 +56,31 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { estado } = req.body;
+  const { estado, fecha, hora } = req.body;
+
   try {
     const result = await pool.query(
-      `UPDATE "${SCHEMA}".citas SET estado = $1 WHERE id_cita = $2 RETURNING *`,
-      [toDBEstado(estado), parseInt(id)]
+      `
+      UPDATE "${SCHEMA}".citas
+      SET 
+        estado = COALESCE($1, estado),
+        fecha_cita = COALESCE($2, fecha_cita),
+        hora = COALESCE($3, hora)
+      WHERE id_cita = $4
+      RETURNING *
+      `,
+      [
+        estado ? toDBEstado(estado) : null,
+        fecha || null,
+        hora || null,
+        parseInt(id)
+      ]
     );
+
     if (!result.rows.length) {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
+
     res.json(mapCita(result.rows[0]));
   } catch (err) {
     console.error('❌ Error en PUT /api/citas/:id:', err.message);

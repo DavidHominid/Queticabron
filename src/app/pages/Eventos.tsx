@@ -29,7 +29,22 @@ export function Eventos() {
     especialidades: [],
     estado: 'activo',
   });
+const editarEvento = (evento: Evento) => {
+  setSelectedEvento(evento);
 
+  setFormData({
+    nombre: evento.nombre,
+    ciudad: evento.ciudad,
+    fechaInicio: evento.fechaInicio,
+    fechaFin: evento.fechaFin,
+    fechaLimiteInscripcion: evento.fechaLimiteInscripcion,
+    especialidades: evento.especialidades,
+    estado: evento.estado,
+  });
+
+  setStep(1);
+  setShowModal(true);
+};
   const [especialidadForm, setEspecialidadForm] = useState<Partial<EspecialidadEvento>>({
     especialidad: 'medicina_familiar',
     medicoEncargado: '',
@@ -343,10 +358,14 @@ export function Eventos() {
                         <Eye className="w-4 h-4 mr-2" />
                         Ver Detalles
                       </Button>
-                      <Button variant="outline" className="flex-1">
-                        <Edit className="w-4 h-4 mr-2" />
-                        Editar
-                      </Button>
+                      <Button
+  variant="outline"
+  className="flex-1"
+  onClick={() => editarEvento(evento)}
+>
+  <Edit className="w-4 h-4 mr-2" />
+  Editar
+</Button>
                     </div>
                   </div>
                 </CardContent>

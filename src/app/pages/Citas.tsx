@@ -80,7 +80,29 @@ export function Citas() {
       textColor: '#fff',
     };
   });
+// Cuando se arrastra una cita a otra hora o día
+const handleEventDrop = (info: any) => {
+  const cita = info.event.extendedProps.cita;
 
+  const nuevaFecha = info.event.start.toISOString().split('T')[0];
+  const nuevaHora = info.event.start.toTimeString().substring(0,5);
+
+  updateCita(cita.id, {
+    fecha: nuevaFecha,
+    hora: nuevaHora,
+  });
+
+  addRegistroAuditoria({
+    id: `aud${Date.now()}`,
+    usuarioId: user?.id || '',
+    nombreUsuario: user?.nombre || '',
+    rol: user?.rol || 'recepcion',
+    accion: 'Mover Cita',
+    detalles: `Movió cita de ${cita.fecha} ${cita.hora} a ${nuevaFecha} ${nuevaHora}`,
+    fechaHora: new Date().toISOString(),
+    ciudad: user?.ciudad || 'sonoyta',
+  });
+};
   function getColorByEstado(estado: string): string {
     switch (estado) {
       case 'programada': return '#3B82F6'; // blue
@@ -597,6 +619,7 @@ export function Citas() {
             events={calendarEvents}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
+            eventDrop={handleEventDrop}
             height="auto"
             eventTimeFormat={{
               hour: '2-digit',
