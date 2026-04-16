@@ -1,2 +1,7 @@
 node_modules
 .env
+dist
+.trae
+.env
+BEGIN;.sql
+Centro_comunitario_citas_db.sql

@@ -2,6 +2,8 @@ import { createBrowserRouter } from 'react-router';
 import { Login } from './components/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Eventos } from './pages/Eventos';
+import { EventoDetalle } from './pages/EventoDetalle';
+import { EventoEditor } from './pages/EventoEditor';
 import { Pacientes } from './pages/Pacientes';
 import { Citas } from './pages/Citas';
 import { TriageNuevo } from './pages/TriageNuevo';
@@ -30,6 +32,18 @@ export const router = createBrowserRouter([
       {
         path: 'eventos',
         Component: Eventos,
+      },
+      {
+        path: 'eventos/nuevo',
+        Component: EventoEditor,
+      },
+      {
+        path: 'eventos/:id',
+        Component: EventoDetalle,
+      },
+      {
+        path: 'eventos/:id/editar',
+        Component: EventoEditor,
       },
       {
         path: 'pacientes',

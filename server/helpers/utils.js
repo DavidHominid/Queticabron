@@ -115,9 +115,32 @@ export const mapEvento = (e) => ({
   id: String(e.id || ''),
   nombre: e.titulo || '',
   ciudad: e.ubicacion || 'sonoyta',
+  fechaInicioInscripcion: (() => {
+    try {
+      const meta = typeof e.descripcion === 'string' ? JSON.parse(e.descripcion) : {};
+      return meta.fechaInicioInscripcion || null;
+    } catch {
+      return null;
+    }
+  })(),
+  fechaFinInscripcion: (() => {
+    try {
+      const meta = typeof e.descripcion === 'string' ? JSON.parse(e.descripcion) : {};
+      return meta.fechaFinInscripcion || null;
+    } catch {
+      return null;
+    }
+  })(),
   fechaInicio: e.fecha_inicio ? formatDate(e.fecha_inicio) : null,
   fechaFin: e.fecha_fin ? formatDate(e.fecha_fin) : null,
-  fechaLimiteInscripcion: e.fecha_inicio ? formatDate(e.fecha_inicio) : null,
+  fechaLimiteInscripcion: (() => {
+    try {
+      const meta = typeof e.descripcion === 'string' ? JSON.parse(e.descripcion) : {};
+      return meta.fechaFinInscripcion || (e.fecha_inicio ? formatDate(e.fecha_inicio) : null);
+    } catch {
+      return e.fecha_inicio ? formatDate(e.fecha_inicio) : null;
+    }
+  })(),
   especialidades: e.especialidades || [],
   estado: e.estado || 'activo'
 });

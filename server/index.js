@@ -22,7 +22,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT || 3001;
+const basePort = Number(process.env.PORT) || 3002;
 
 // Middlewares globales
 app.use(cors());
@@ -84,6 +84,15 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Servidor backend corriendo en http://localhost:${port}`);
+const server = app.listen(basePort, () => {
+  console.log(`🚀 Servidor backend corriendo en http://localhost:${basePort}`);
+});
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`❌ Puerto ${basePort} ocupado. Ajusta PORT (env) o libera el puerto.`);
+    process.exit(1);
+  }
+  console.error('❌ Error al iniciar el backend:', err);
+  process.exit(1);
 });

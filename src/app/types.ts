@@ -16,9 +16,11 @@ export interface Evento {
   id: string;
   nombre: string;
   ciudad: Ciudad;
+  fechaInicioInscripcion?: string;
+  fechaFinInscripcion?: string;
   fechaInicio: string;
   fechaFin: string;
-  fechaLimiteInscripcion: string;
+  fechaLimiteInscripcion?: string;
   especialidades: EspecialidadEvento[];
   estado: 'activo' | 'finalizado' | 'cancelado';
 }
@@ -36,7 +38,8 @@ export interface HorarioDisponible {
   dia: string;
   horaInicio: string;
   horaFin: string;
-  intervalo: number; // minutos entre citas
+  intervalo?: number;
+  cupoTotal?: number;
 }
 
 // Paciente
@@ -64,6 +67,7 @@ export interface Cita {
   fecha: string;
   hora: string;
   consultorio: string;
+  medicoEncargado?: string;
   estado: 'programada' | 'cancelada' | 'cedida' | 'en_triage' | 'en_consulta' | 'completada' | 'no_asistio';
   costoPagado: number;
   cedidaA?: string; // ID del nuevo paciente si se cedió el cupo

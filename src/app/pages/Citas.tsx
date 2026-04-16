@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -23,7 +23,7 @@ import { AutoComplete } from 'primereact/autocomplete';
 import { formatDateSafe } from '../components/ui/utils';
 
 export function Citas() {
-  const { citas, pacientes, eventos, addCita, updateCita, getPacienteByExpediente, addRegistroAuditoria, addPaciente } = useData();
+  const { citas, pacientes, eventos, usuarios, addCita, updateCita, getPacienteByExpediente, addRegistroAuditoria, addPaciente } = useData();
   const { user } = useAuth();
 
   // Estados para modal de creación/edición
@@ -52,6 +52,31 @@ export function Citas() {
     estado: 'programada',
     costoPagado: 50,
   });
+
+  const usuarioPorId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const u of usuarios) {
+      map.set(u.id, u.nombre);
+    }
+    return map;
+  }, [usuarios]);
+
+  const getNombreUsuario = (idOrName: string | undefined) => {
+    if (!idOrName) return '';
+    return usuarioPorId.get(idOrName) || idOrName;
+  };
+
+  useEffect(() => {
+    if (!formData.eventoId || !formData.especialidad) return;
+    const evento = eventos.find((e) => e.id === formData.eventoId);
+    const esp = evento?.especialidades.find((x) => x.especialidad === formData.especialidad);
+    if (!esp) return;
+    setFormData((prev) => ({
+      ...prev,
+      consultorio: prev.consultorio || esp.consultorio || '',
+      costoPagado: Number.isFinite(Number(prev.costoPagado)) ? prev.costoPagado : esp.costo,
+    }));
+  }, [eventos, formData.especialidad, formData.eventoId]);
 
   // Formulario para crear nuevo paciente al ceder
   const [nuevoPacienteForm, setNuevoPacienteForm] = useState({
@@ -225,19 +250,22 @@ const handleEventDrop = (info: any) => {
     const especialidadEvento = evento.especialidades.find(e => e.especialidad === especialidad);
     if (!especialidadEvento) return { total: 0, ocupados: 0, disponibles: 0 };
 
-    // Obtener el día de la semana
     const diaSemana = formatDateSafe(fecha);
     const diaCapitalizado = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
 
-    // Buscar horario para ese día
-    const horario = especialidadEvento.horarios.find(h => h.dia === diaCapitalizado);
-    if (!horario) return { total: 0, ocupados: 0, disponibles: 0 };
+    const horarios = (especialidadEvento.horarios || []).filter((h: any) => h.dia === fecha || h.dia === diaCapitalizado);
+    if (!horarios.length) return { total: 0, ocupados: 0, disponibles: 0 };
 
-    // Calcular total de cupos basado en el intervalo
-    const [horaInicio] = horario.horaInicio.split(':').map(Number);
-    const [horaFin] = horario.horaFin.split(':').map(Number);
-    const minutosDisponibles = (horaFin - horaInicio) * 60;
-    const totalCupos = Math.floor(minutosDisponibles / horario.intervalo);
+    const totalCupos = horarios.reduce((acc: number, h: any) => {
+      const cupoDirecto = Number.isFinite(Number(h.cupoTotal)) ? Math.max(0, Math.floor(Number(h.cupoTotal))) : 0;
+      if (cupoDirecto) return acc + cupoDirecto;
+
+      const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 15;
+      const [hiH, hiM] = String(h.horaInicio || '00:00').split(':').map(Number);
+      const [hfH, hfM] = String(h.horaFin || '00:00').split(':').map(Number);
+      const minutosDisponibles = Math.max(0, (hfH * 60 + hfM) - (hiH * 60 + hiM));
+      return acc + Math.floor(minutosDisponibles / intervalo);
+    }, 0);
 
     // Contar cupos ocupados (citas programadas para esa fecha, especialidad y evento)
     const citasOcupadas = citas.filter(c =>
@@ -274,6 +302,9 @@ const handleEventDrop = (info: any) => {
       return;
     }
 
+    const evento = eventos.find((ev) => ev.id === (formData.eventoId || eventos[0]?.id || ''));
+    const espEvento = evento?.especialidades.find((x) => x.especialidad === ((formData.especialidad as Especialidad) || 'medicina_familiar'));
+
     const nuevaCita: Cita = {
       id: `cit${Date.now()}`,
       eventoId: formData.eventoId || eventos[0]?.id || '',
@@ -281,7 +312,8 @@ const handleEventDrop = (info: any) => {
       especialidad: (formData.especialidad as Especialidad) || 'medicina_familiar',
       fecha: formData.fecha || '',
       hora: formData.hora || '',
-      consultorio: formData.consultorio || '',
+      consultorio: formData.consultorio || espEvento?.consultorio || '',
+      medicoEncargado: espEvento?.medicoEncargado || '',
       estado: 'programada',
       costoPagado: formData.costoPagado || 50,
       fechaCreacion: new Date().toISOString().split('T')[0],
@@ -437,7 +469,7 @@ const handleEventDrop = (info: any) => {
     { label: 'Consultorio 6', value: 'Consultorio 6' },
     { label: 'Consultorio 7', value: 'Consultorio 7' },
     { label: 'Consultorio 8', value: 'Consultorio 8' },
-    { label: 'Consultorio Dentista', value: 'Consultorio Dentista' },
+    { label: 'Dentista', value: 'Dentista' },
   ];
 
   const estadoBadge = (estado: string) => {
@@ -447,7 +479,7 @@ const handleEventDrop = (info: any) => {
       case 'en_triage':
         return { label: 'En Triage', severity: 'warning' as const };
       case 'en_consulta':
-        return { label: 'En Consulta', severity: 'help' as const };
+        return { label: 'En Consulta', severity: 'info' as const };
       case 'completada':
         return { label: 'Completada', severity: 'success' as const };
       case 'cancelada':
@@ -524,7 +556,7 @@ const handleEventDrop = (info: any) => {
                   <div className="bg-white p-3 rounded-lg shadow-sm">
                     <p className="text-gray-600 mb-1">📅 Inscripciones hasta</p>
                     <p className="font-semibold text-gray-900">
-                      {formatDateSafe(evento.fechaLimiteInscripcion)}
+                      {formatDateSafe(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion)}
                     </p>
                   </div>
                   <div className="bg-white p-3 rounded-lg shadow-sm">
@@ -561,7 +593,7 @@ const handleEventDrop = (info: any) => {
                               className="text-xs"
                             />
                           </div>
-                          <p className="text-xs text-gray-600 mb-1">👨‍⚕️ {esp.medicoEncargado}</p>
+                          <p className="text-xs text-gray-600 mb-1">👨‍⚕️ {getNombreUsuario(esp.medicoEncargado) || 'No asignado'}</p>
                           <p className="text-xs text-gray-600 mb-2">📍 {esp.consultorio}</p>
                           <div className="flex items-center gap-2">
                             <div className="flex-1 bg-gray-200 rounded-full h-2">
@@ -711,7 +743,7 @@ const handleEventDrop = (info: any) => {
                   setFormData({
                     ...formData,
                     especialidad: newEspecialidad,
-                    consultorio: newEspecialidad === 'dentista' ? 'Consultorio Dentista' : formData.consultorio
+                    consultorio: newEspecialidad === 'dentista' ? (formData.consultorio || 'Dentista') : formData.consultorio
                   });
                 }}
                 placeholder="Selecciona especialidad"
@@ -818,7 +850,7 @@ const handleEventDrop = (info: any) => {
                     const especialidadEvento = evento?.especialidades.find(
                       esp => esp.especialidad === selectedCita.especialidad
                     );
-                    return especialidadEvento?.medicoEncargado || 'No asignado';
+                    return getNombreUsuario(especialidadEvento?.medicoEncargado) || 'No asignado';
                   })()}
                 </p>
               </div>
