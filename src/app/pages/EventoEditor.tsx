@@ -118,7 +118,7 @@ export function EventoEditor() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { eventos, usuarios, addEvento, updateEvento, addRegistroAuditoria } = useData();
+  const { eventos, usuarios, citas, addEvento, updateEvento, addRegistroAuditoria } = useData();
 
   const [form, setForm] = useState<Evento>(() => emptyEvento(user?.ciudad || 'sonoyta'));
   const [error, setError] = useState('');
@@ -442,6 +442,8 @@ export function EventoEditor() {
                           days={days}
                           value={esp}
                           usuarios={usuarios}
+                          eventoId={isEdit && id ? id : form.id}
+                          citas={citas}
                           onChange={(next) => updateEspecialidad(idx, next)}
                           onRemove={() => removeEspecialidad(idx)}
                         />

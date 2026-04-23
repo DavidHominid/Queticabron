@@ -22,7 +22,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const basePort = Number(process.env.PORT) || 3002;
+const basePort = Number(process.env.PORT) || 3001;
 
 // Middlewares globales
 app.use(cors());

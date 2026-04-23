@@ -1,14 +1,33 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
-import { HorarioDisponible } from '../../types';
+import { Cita, Especialidad, HorarioDisponible } from '../../types';
 
 const toYmd = (d: Date) => d.toISOString().slice(0, 10);
 const toHm = (d: Date) => d.toTimeString().slice(0, 5);
 const buildKey = (h: HorarioDisponible) => `${h.dia}|${h.horaInicio}|${h.horaFin}|${h.intervalo ?? 60}`;
 const toDurationHours = (start: Date, end: Date) => Math.max(1, Math.round((end.getTime() - start.getTime()) / 3600000));
+
+const timeToMinutes = (t: string) => {
+  const [hh, mm] = t.split(':').map((x) => Number(x));
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return 0;
+  return hh * 60 + mm;
+};
+
+const countCitasInWindow = (citas: Cita[], eventoId: string, esp: Especialidad, day: string, start: string, end: string) => {
+  const s = timeToMinutes(start);
+  const e = timeToMinutes(end);
+  return citas.filter((c) => {
+    if (c.eventoId !== eventoId) return false;
+    if (c.especialidad !== esp) return false;
+    if (c.fecha !== day) return false;
+    if (c.estado === 'cancelada') return false;
+    const m = timeToMinutes(c.hora);
+    return m >= s && m < e;
+  }).length;
+};
 
 const startOfHour = (d: Date) => {
   const next = new Date(d);
@@ -63,13 +82,20 @@ export function ScheduleCalendarEditor({
   value,
   onChange,
   defaultIntervalo = 60,
+  eventoId,
+  especialidad,
+  citas = [],
 }: {
   startDate: string;
   endDate: string;
   value: HorarioDisponible[];
   onChange: (next: HorarioDisponible[]) => void;
   defaultIntervalo?: number;
+  eventoId?: string;
+  especialidad?: Especialidad;
+  citas?: Cita[];
 }) {
+  const [mensajeBloqueo, setMensajeBloqueo] = useState('');
   const validRange = useMemo(() => {
     if (!startDate || !endDate) return undefined;
     const start = new Date(`${startDate}T00:00:00`);
@@ -80,6 +106,17 @@ export function ScheduleCalendarEditor({
     return { start: start.toISOString().slice(0, 10), end: endExclusive.toISOString().slice(0, 10) };
   }, [startDate, endDate]);
 
+  const lockedKeys = useMemo(() => {
+    if (!eventoId || !especialidad) return new Set<string>();
+    const locked = new Set<string>();
+    for (const h of value || []) {
+      const key = buildKey(h);
+      const n = countCitasInWindow(citas || [], eventoId, especialidad, h.dia, h.horaInicio, h.horaFin);
+      if (n > 0) locked.add(key);
+    }
+    return locked;
+  }, [citas, especialidad, eventoId, value]);
+
   const events = useMemo(() => {
     return (value || []).map((h) => {
       const key = buildKey(h);
@@ -87,26 +124,31 @@ export function ScheduleCalendarEditor({
       const end = `${h.dia}T${h.horaFin}`;
       const cupo = Number.isFinite(Number(h.cupoTotal)) ? Math.max(1, Math.floor(Number(h.cupoTotal))) : 1;
       const duration = toDurationHours(new Date(start), new Date(end));
+      const locked = lockedKeys.has(key);
       return {
         id: key,
-        title: `${duration} hora${duration === 1 ? '' : 's'}`,
+        title: locked ? `Bloqueado (${duration}h)` : `${duration} hora${duration === 1 ? '' : 's'}`,
         start,
         end,
-        editable: true,
+        editable: !locked,
+        startEditable: !locked,
+        durationEditable: !locked,
         extendedProps: {
           intervalo: 60,
           cupoTotal: cupo,
           duration,
+          locked,
         },
       };
     });
-  }, [defaultIntervalo, value]);
+  }, [defaultIntervalo, lockedKeys, value]);
 
   return (
     <div className="space-y-3">
       <div className="text-sm text-gray-700">
         Selecciona en el calendario para crear un bloque. Por defecto inicia en 1 hora, pero puedes arrastrar o redimensionar para procedimientos de 2 o 3 horas.
       </div>
+      {mensajeBloqueo && <div className="text-sm text-red-600">{mensajeBloqueo}</div>}
       <div className="rounded-lg border border-gray-200 overflow-hidden">
         <FullCalendar
           plugins={[timeGridPlugin, interactionPlugin]}
@@ -129,10 +171,17 @@ export function ScheduleCalendarEditor({
           events={events}
           validRange={validRange}
           select={(info) => {
+            setMensajeBloqueo('');
             const nuevo = buildHorario(info.start, info.end, 1);
             onChange(mergeHorarios([...(value || []), nuevo]));
           }}
           eventDrop={(info) => {
+            setMensajeBloqueo('');
+            if (lockedKeys.has(info.event.id)) {
+              info.revert();
+              setMensajeBloqueo('No puedes mover un horario que ya tiene citas agendadas.');
+              return;
+            }
             const base = (value || []).filter((h) => buildKey(h) !== info.event.id);
             const moved = buildHorario(
               info.event.start!,
@@ -142,6 +191,12 @@ export function ScheduleCalendarEditor({
             onChange(mergeHorarios([...base, moved]));
           }}
           eventResize={(info) => {
+            setMensajeBloqueo('');
+            if (lockedKeys.has(info.event.id)) {
+              info.revert();
+              setMensajeBloqueo('No puedes redimensionar un horario que ya tiene citas agendadas.');
+              return;
+            }
             const base = (value || []).filter((h) => buildKey(h) !== info.event.id);
             const resized = buildHorario(
               info.event.start!,
@@ -151,6 +206,11 @@ export function ScheduleCalendarEditor({
             onChange(mergeHorarios([...base, resized]));
           }}
           eventClick={(info) => {
+            setMensajeBloqueo('');
+            if (lockedKeys.has(info.event.id)) {
+              setMensajeBloqueo('No puedes eliminar un horario que ya tiene citas agendadas.');
+              return;
+            }
             onChange((value || []).filter((h) => buildKey(h) !== info.event.id));
           }}
           height="auto"

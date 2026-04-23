@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react';
-import { EspecialidadEvento, Usuario } from '../../types';
+import { Cita, EspecialidadEvento, Usuario } from '../../types';
 import { Checkbox } from '../ui/checkbox';
 import { ScheduleCalendarEditor } from './ScheduleCalendarEditor';
 
@@ -39,12 +39,16 @@ export function EspecialidadCardEditor({
   onChange,
   onRemove,
   usuarios,
+  eventoId,
+  citas,
 }: {
   days: string[];
   value: EspecialidadEvento;
   onChange: (next: EspecialidadEvento) => void;
   onRemove: () => void;
   usuarios: Usuario[];
+  eventoId?: string;
+  citas?: Cita[];
 }) {
   const practicantesList = normalizePracticantes(value);
   const medicos = usuarios.filter((u) => u.rol === 'medico');
@@ -172,6 +176,9 @@ export function EspecialidadCardEditor({
             }))}
             onChange={(next) => onChange({ ...value, horarios: next })}
             defaultIntervalo={(value.horarios?.[0]?.intervalo as number) || 60}
+            eventoId={eventoId}
+            especialidad={value.especialidad}
+            citas={citas || []}
           />
         </div>
       </div>

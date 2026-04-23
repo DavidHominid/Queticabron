@@ -179,6 +179,50 @@ const buildMetadata = (evento) =>
 const isIsoDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
 const normalizeTime = (value) => String(value || '').slice(0, 5) || '08:00';
 
+const timeToMinutes = (t) => {
+  const parts = String(t || '').split(':');
+  const hh = Number(parts[0]);
+  const mm = Number(parts[1]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return 0;
+  return hh * 60 + mm;
+};
+
+const computeDefaultCupo = (horario) => {
+  const intervalo = Number.isFinite(Number(horario?.intervalo)) ? Math.max(1, Math.floor(Number(horario.intervalo))) : 60;
+  const dur = Math.max(0, timeToMinutes(horario?.horaFin) - timeToMinutes(horario?.horaInicio));
+  return intervalo ? Math.floor(dur / intervalo) : 0;
+};
+
+const computeCupoForHorario = (horario) => {
+  const direct = Number.isFinite(Number(horario?.cupoTotal)) ? Math.max(0, Math.floor(Number(horario.cupoTotal))) : 0;
+  return direct || computeDefaultCupo(horario);
+};
+
+const citaCoveredByEspecialidades = (cita, especialidadesPayload) => {
+  const espList = Array.isArray(especialidadesPayload) ? especialidadesPayload : [];
+  const esp = espList.find((e) => e && e.especialidad === cita.especialidad);
+  if (!esp) return false;
+  const horarios = Array.isArray(esp.horarios) ? esp.horarios : [];
+  const horaMin = timeToMinutes(cita.hora);
+  return horarios.some((h) => {
+    if (!h || !h.dia) return false;
+    if (String(h.dia) !== String(cita.fecha)) return false;
+    const start = timeToMinutes(h.horaInicio);
+    const end = timeToMinutes(h.horaFin);
+    return horaMin >= start && horaMin < end;
+  });
+};
+
+const countCitasInWindow = (citas, day, start, end) => {
+  const s = timeToMinutes(start);
+  const e = timeToMinutes(end);
+  return citas.filter((c) => {
+    if (String(c.fecha) !== String(day)) return false;
+    const m = timeToMinutes(c.hora);
+    return m >= s && m < e;
+  }).length;
+};
+
 const persistEspecialidades = async (client, eventId, especialidades) => {
   const allIds = new Set();
   for (const esp of especialidades || []) {
@@ -297,6 +341,58 @@ router.put('/:id', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    const citasResult = await client.query(
+      `SELECT id_cita, fecha_cita, hora, especialidad, estado
+       FROM "${SCHEMA}".citas
+       WHERE evento_id = $1 AND estado != 'cancelada'`,
+      [id],
+    );
+    const citasEvento = (citasResult.rows || []).map((row) => ({
+      id: String(row.id_cita),
+      fecha: formatDate(row.fecha_cita) || null,
+      hora: row.hora || '08:00',
+      especialidad: row.especialidad,
+      estado: row.estado,
+    }));
+    const citasValidas = citasEvento.filter((c) => c.fecha && c.especialidad);
+
+    const especialidadesPayload = Array.isArray(e.especialidades) ? e.especialidades : [];
+    const invalidas = citasValidas.filter((c) => !citaCoveredByEspecialidades(c, especialidadesPayload));
+    if (invalidas.length > 0) {
+      await client.query('ROLLBACK');
+      const sample = invalidas.slice(0, 3).map((c) => `${c.especialidad} ${c.fecha} ${c.hora}`).join(', ');
+      return res.status(400).json({
+        error:
+          `No puedes guardar el evento porque dejarías citas sin horario. ` +
+          `Asegura que estos horarios sigan existiendo: ${sample}${invalidas.length > 3 ? '…' : ''}`,
+      });
+    }
+
+    for (const esp of especialidadesPayload) {
+      const horarios = Array.isArray(esp?.horarios) ? esp.horarios : [];
+      const citasEsp = citasValidas.filter((c) => c.especialidad === esp?.especialidad);
+      for (const h of horarios) {
+        if (!h?.dia || !h?.horaInicio || !h?.horaFin) continue;
+        if (!isIsoDate(h.dia)) continue;
+        const cupo = computeCupoForHorario(h);
+        const ocupadas = countCitasInWindow(
+          citasEsp.filter((c) => c.fecha === h.dia),
+          h.dia,
+          h.horaInicio,
+          h.horaFin,
+        );
+        if (ocupadas > cupo) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error:
+              `No puedes reducir cupos por debajo de las citas existentes. ` +
+              `${esp.especialidad} ${h.dia} ${h.horaInicio}-${h.horaFin} tiene ${ocupadas} cita(s) pero el cupo es ${cupo}.`,
+          });
+        }
+      }
+    }
+
     const metadata = buildMetadata(e);
     const updateResult = await client.query(
       `UPDATE "${SCHEMA}".eventos

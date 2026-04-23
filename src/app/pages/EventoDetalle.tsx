@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, CalendarDays, Pencil } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { AgendaGrid, AgendaSlotRow } from '../components/eventos/AgendaGrid';
+import { AgendaCalendar } from '../components/eventos/AgendaCalendar';
+import { AgendarCitaDialog } from '../components/eventos/AgendarCitaDialog';
+import { DetalleCitasBloqueDialog } from '../components/eventos/DetalleCitasBloqueDialog';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useData } from '../context/DataContext';
-import { Cita, Especialidad, Evento, HorarioDisponible } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, Usuario } from '../types';
 
 const especialidadLabel = (e: Especialidad) =>
   ({
@@ -32,30 +35,6 @@ const listDaysInclusive = (start: string, end: string) => {
   return out;
 };
 
-const timeToMinutes = (t: string) => {
-  const [hh, mm] = t.split(':').map((x) => Number(x));
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return 0;
-  return hh * 60 + mm;
-};
-
-const computeDefaultCupo = (h: HorarioDisponible) => {
-  const intervalo = Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60;
-  const dur = Math.max(0, timeToMinutes(h.horaFin) - timeToMinutes(h.horaInicio));
-  return intervalo ? Math.floor(dur / intervalo) : 0;
-};
-
-const countCitasInWindow = (citas: Cita[], eventoId: string, esp: Especialidad, day: string, start: string, end: string) => {
-  const s = timeToMinutes(start);
-  const e = timeToMinutes(end);
-  return citas.filter((c) => {
-    if (c.eventoId !== eventoId) return false;
-    if (c.especialidad !== esp) return false;
-    if (c.fecha !== day) return false;
-    const m = timeToMinutes(c.hora);
-    return m >= s && m < e;
-  }).length;
-};
-
 const formatDate = (value?: string | null) => {
   if (!value) return 'Sin fecha';
   const date = new Date(`${value}T00:00:00`);
@@ -67,13 +46,61 @@ const formatDate = (value?: string | null) => {
   }).format(date);
 };
 
+const slotKeyForHorario = (h: HorarioDisponible) => {
+  const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 60;
+  return `${h.horaInicio}|${h.horaFin}|${intervalo}`;
+};
+
+const timeToMinutes = (t: string) => {
+  const [hh, mm] = t.split(':').map((x) => Number(x));
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return 0;
+  return hh * 60 + mm;
+};
+
+const citasInWindow = (
+  citas: Cita[],
+  payload: { eventoId: string; especialidad: Especialidad; fecha: string; horaInicio: string; horaFin: string },
+) => {
+  const s = timeToMinutes(payload.horaInicio);
+  const e = timeToMinutes(payload.horaFin);
+  return citas.filter((c) => {
+    if (c.eventoId !== payload.eventoId) return false;
+    if (c.especialidad !== payload.especialidad) return false;
+    if (c.fecha !== payload.fecha) return false;
+    if (c.estado === 'cancelada') return false;
+    const m = timeToMinutes(c.hora);
+    return m >= s && m < e;
+  });
+};
+
+const hasCita = (citas: Cita[], payload: { eventoId: string; especialidad: Especialidad; fecha: string; hora: string }) => {
+  return citas.some(
+    (c) =>
+      c.eventoId === payload.eventoId &&
+      c.especialidad === payload.especialidad &&
+      c.fecha === payload.fecha &&
+      c.hora === payload.hora &&
+      c.estado !== 'cancelada',
+  );
+};
+
 export function EventoDetalle() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { eventos, citas, isInitialized } = useData();
+  const { eventos, citas, pacientes, usuarios, addCita, addRegistroAuditoria, isInitialized } = useData();
+  const { user } = useAuth();
   const [especialidad, setEspecialidad] = useState<Especialidad | ''>('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
+  const [agendaMensaje, setAgendaMensaje] = useState('');
+  const [agendarOpen, setAgendarOpen] = useState(false);
+  const [agendarHorario, setAgendarHorario] = useState<HorarioDisponible | null>(null);
+  const [detalleOpen, setDetalleOpen] = useState(false);
+  const [detalleCitas, setDetalleCitas] = useState<Cita[]>([]);
+  const [detalleTitulo, setDetalleTitulo] = useState('');
+  const [detalleSubtitulo, setDetalleSubtitulo] = useState('');
+  const [detalleHorario, setDetalleHorario] = useState<HorarioDisponible | null>(null);
+  const [detalleDisponibles, setDetalleDisponibles] = useState(0);
 
   const evento = useMemo(() => eventos.find((e) => e.id === id) || null, [eventos, id]);
 
@@ -98,41 +125,66 @@ export function EventoDetalle() {
 
   const days = useMemo(() => listDaysInclusive(desde, hasta), [desde, hasta]);
 
-  const horarios = useMemo(() => {
-    if (!evento || !especialidad) return [] as HorarioDisponible[];
+  const horarios = useMemo((): HorarioDisponible[] => {
+    if (!evento || !especialidad) return [];
     return evento.especialidades.find((e) => e.especialidad === especialidad)?.horarios || [];
   }, [evento, especialidad]);
-
-  const slotRows = useMemo(() => {
-    const map: Record<string, AgendaSlotRow> = {};
-    for (const h of horarios) {
-      const intervalo = Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60;
-      const key = `${h.horaInicio}|${h.horaFin}|${intervalo}`;
-      map[key] = { key, horaInicio: h.horaInicio, horaFin: h.horaFin, intervalo };
-    }
-    return Object.values(map).sort((a, b) => timeToMinutes(a.horaInicio) - timeToMinutes(b.horaInicio));
-  }, [horarios]);
-
-  const cells = useMemo(() => {
-    if (!evento || !especialidad) return {} as Record<string, { cupoTotal: number; cupoOcupado: number } | undefined>;
-    const out: Record<string, { cupoTotal: number; cupoOcupado: number } | undefined> = {};
-    for (const h of horarios) {
-      if (!h.dia || !h.dia.includes('-')) continue;
-      if (!days.includes(h.dia)) continue;
-      const intervalo = Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60;
-      const rowKey = `${h.horaInicio}|${h.horaFin}|${intervalo}`;
-      const cellKey = `${h.dia}|${rowKey}`;
-      const cupoTotal = Number.isFinite(Number(h.cupoTotal)) ? Math.max(0, Math.floor(Number(h.cupoTotal))) : computeDefaultCupo(h);
-      const cupoOcupado = countCitasInWindow(citas, evento.id, especialidad, h.dia, h.horaInicio, h.horaFin);
-      out[cellKey] = { cupoTotal, cupoOcupado };
-    }
-    return out;
-  }, [evento, especialidad, horarios, days, citas]);
 
   const onCreateOrEdit = (day: string, slotKey: string) => {
     if (!evento || !especialidad) return;
     const qp = new URLSearchParams({ especialidad, fecha: day, slot: slotKey });
     navigate(`/eventos/${evento.id}/editar?${qp.toString()}`);
+  };
+
+  const onSlotAction = (payload: {
+    source: 'bloque' | 'nuevo';
+    day: string;
+    slotKey: string;
+    start: string;
+    end: string;
+    cupoTotal: number;
+    cupoOcupado: number;
+    disponibles: number;
+  }) => {
+    if (!evento || !especialidad) return;
+    setAgendaMensaje('');
+
+    if (payload.source === 'nuevo') {
+      onCreateOrEdit(payload.day, payload.slotKey);
+      return;
+    }
+
+    const horario = horarios.find((h) => h.dia === payload.day && slotKeyForHorario(h) === payload.slotKey) || null;
+    if (!horario) {
+      onCreateOrEdit(payload.day, payload.slotKey);
+      return;
+    }
+
+    const ocupadas = citasInWindow(citas, {
+      eventoId: evento.id,
+      especialidad: especialidad as Especialidad,
+      fecha: payload.day,
+      horaInicio: horario.horaInicio,
+      horaFin: horario.horaFin,
+    });
+
+    if (ocupadas.length > 0) {
+      setDetalleHorario(horario);
+      setDetalleCitas(ocupadas);
+      setDetalleDisponibles(payload.disponibles);
+      setDetalleTitulo('Cupos ocupados');
+      setDetalleSubtitulo(`${payload.day} · ${horario.horaInicio}-${horario.horaFin}`);
+      setDetalleOpen(true);
+      return;
+    }
+
+    if (payload.disponibles <= 0) {
+      setAgendaMensaje('Este bloque ya no tiene cupos disponibles.');
+      return;
+    }
+
+    setAgendarHorario(horario);
+    setAgendarOpen(true);
   };
 
   if (isInitialized && !evento) {
@@ -262,17 +314,110 @@ export function EventoDetalle() {
                     <div className="text-sm text-gray-600">Selecciona una especialidad para visualizar la agenda.</div>
                   ) : days.length === 0 ? (
                     <div className="text-sm text-gray-600">Selecciona un rango de fechas válido.</div>
-                  ) : slotRows.length === 0 ? (
+                  ) : horarios.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center">
                       <CalendarDays className="mx-auto mb-4 h-12 w-12 text-gray-300" />
                       <div className="text-sm text-gray-600">Esta especialidad aún no tiene horarios configurados.</div>
                     </div>
                   ) : (
-                    <AgendaGrid days={days} slotRows={slotRows} cells={cells} onCreateOrEdit={onCreateOrEdit} />
+                    <div className="space-y-3">
+                      {agendaMensaje && <div className="text-sm text-red-600">{agendaMensaje}</div>}
+                      <AgendaCalendar
+                        eventoId={evento.id}
+                        especialidad={especialidad as Especialidad}
+                        desde={desde}
+                        hasta={hasta}
+                        horarios={horarios}
+                        citas={citas}
+                        onSlotAction={onSlotAction}
+                      />
+                    </div>
                   )}
                 </CardContent>
               </Card>
             </div>
+
+            {evento && especialidad && agendarHorario && (
+              <AgendarCitaDialog
+                open={agendarOpen}
+                onOpenChange={(next) => {
+                  setAgendarOpen(next);
+                  if (!next) setAgendarHorario(null);
+                }}
+                evento={evento as Evento}
+                especialidad={especialidad as Especialidad}
+                horario={agendarHorario}
+                citas={citas}
+                pacientes={pacientes}
+                onAgendar={async ({ paciente, hora }) => {
+                  const espCfg = evento.especialidades.find((e) => e.especialidad === (especialidad as Especialidad));
+                  if (!espCfg) throw new Error('No se encontró la configuración de la especialidad en el evento.');
+
+                  if (hasCita(citas, { eventoId: evento.id, especialidad: especialidad as Especialidad, fecha: agendarHorario.dia, hora })) {
+                    throw new Error('Esa hora ya fue ocupada.');
+                  }
+
+                  const nuevaCita: Cita = {
+                    id: `cit${Date.now()}`,
+                    eventoId: evento.id,
+                    pacienteId: paciente.id,
+                    especialidad: especialidad as Especialidad,
+                    fecha: agendarHorario.dia,
+                    hora,
+                    consultorio: espCfg.consultorio || 'Consultorio 1',
+                    medicoEncargado: espCfg.medicoEncargado || '',
+                    estado: 'programada',
+                    costoPagado: Number.isFinite(Number(espCfg.costo)) ? Number(espCfg.costo) : 0,
+                    fechaCreacion: new Date().toISOString().split('T')[0],
+                  };
+
+                  await addCita(nuevaCita);
+                  await addRegistroAuditoria({
+                    id: `aud${Date.now()}`,
+                    usuarioId: user?.id || '',
+                    nombreUsuario: user?.nombre || '',
+                    rol: user?.rol || 'recepcion',
+                    accion: 'Agendar Cita',
+                    detalles: `Agendó cita para paciente ${paciente.nombre} (${paciente.numeroExpediente}) en ${nuevaCita.fecha} ${nuevaCita.hora} (${nuevaCita.especialidad})`,
+                    fechaHora: new Date().toISOString(),
+                    ciudad: user?.ciudad || evento.ciudad,
+                  });
+                }}
+              />
+            )}
+
+            {evento && especialidad && (
+              <DetalleCitasBloqueDialog
+                open={detalleOpen}
+                onOpenChange={(next) => {
+                  setDetalleOpen(next);
+                  if (!next) {
+                    setDetalleCitas([]);
+                    setDetalleHorario(null);
+                    setDetalleTitulo('');
+                    setDetalleSubtitulo('');
+                    setDetalleDisponibles(0);
+                  }
+                }}
+                citas={detalleCitas}
+                pacientes={pacientes as Paciente[]}
+                usuarios={usuarios as Usuario[]}
+                titulo={detalleTitulo}
+                subtitulo={detalleSubtitulo}
+                primaryAction={
+                  detalleHorario && detalleDisponibles > 0
+                    ? {
+                        label: 'Agendar otro cupo',
+                        onClick: () => {
+                          setDetalleOpen(false);
+                          setAgendarHorario(detalleHorario);
+                          setAgendarOpen(true);
+                        },
+                      }
+                    : undefined
+                }
+              />
+            )}
           </>
         )}
       </div>
