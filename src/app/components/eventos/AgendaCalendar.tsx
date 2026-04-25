@@ -117,7 +117,7 @@ export function AgendaCalendar({
         const cupoOcupado = countCitasInWindow(citas, eventoId, especialidad, h.dia, h.horaInicio, h.horaFin);
         const disponibles = Math.max(0, cupoTotal - cupoOcupado);
         const ratio = cupoTotal > 0 ? disponibles / cupoTotal : 0;
-        const color = cupoTotal <= 0 ? '#6B7280' : disponibles <= 0 ? '#EF4444' : ratio < 0.25 ? '#F97316' : '#22C55E';
+        const color = cupoTotal <= 0 ? '#6B7280' : disponibles <= 0 ? '#3a65e8ff' : ratio < 0.25 ? '#F97316' : '#22C55E';
         return {
           id: `${h.dia}|${slotKey}`,
           title: cupoTotal > 0 ? `Disp: ${disponibles}/${cupoTotal}` : 'Sin cupo',

@@ -17,6 +17,7 @@ import {
   Bell,
   Heart,
   Stethoscope,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -96,6 +97,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Calendar, label: 'Gestión Citas', path: '/citas' },
           { icon: Users, label: 'Pacientes', path: '/pacientes' },
           { icon: Users, label: 'Usuarios', path: '/usuarios' },
+          { icon: SlidersHorizontal, label: 'Variables', path: '/variables' },
           { icon: ClipboardList, label: 'Auditoría', path: '/auditoria' },
         ];
       default:

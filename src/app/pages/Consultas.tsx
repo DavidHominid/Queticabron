@@ -8,10 +8,11 @@ import { Stethoscope, Calendar, User } from 'lucide-react';
 export function Consultas() {
   const { citas, pacientes, registrosTriage } = useData();
   const { user } = useAuth();
+  const especialidadesUsuario = (user?.especialidades?.length ? user.especialidades : user?.especialidad ? [user.especialidad] : []).filter(Boolean);
 
   // Filtrar citas que están en consulta y son de la especialidad del médico
   const citasEnConsulta = citas.filter(
-    (c) => c.estado === 'en_consulta' && c.especialidad === user?.especialidad
+    (c) => c.estado === 'en_consulta' && especialidadesUsuario.includes(c.especialidad)
   );
 
   return (
@@ -41,7 +42,7 @@ export function Consultas() {
                         <span>•</span>
                         <span>{paciente?.edad} años</span>
                         <span>•</span>
-                        <span>{triage?.razonConsulta}</span>
+                        <span>{triage?.observaciones || 'Sin observaciones'}</span>
                       </div>
                       {triage && (
                         <div className="mt-2 flex gap-4 text-sm">

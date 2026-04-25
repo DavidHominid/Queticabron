@@ -3,6 +3,8 @@ import {
   Evento,
   Paciente,
   Cita,
+  EspecialidadCatalogo,
+  CiudadCatalogo,
   InformacionMedica,
   InformacionMedicaDental,
   RegistroTriage,
@@ -20,6 +22,7 @@ interface DataContextType {
   eventos: Evento[];
   addEvento: (evento: Evento) => void;
   updateEvento: (id: string, evento: Partial<Evento>) => void;
+  deleteEvento: (id: string, opts?: { force?: boolean }) => Promise<void>;
 
   // Pacientes
   pacientes: Paciente[];
@@ -29,7 +32,7 @@ interface DataContextType {
 
   // Citas
   citas: Cita[];
-  addCita: (cita: Cita) => void;
+  addCita: (cita: Cita) => Promise<Cita>;
   updateCita: (id: string, cita: Partial<Cita>) => void;
 
   // Información Médica
@@ -67,6 +70,18 @@ interface DataContextType {
   registrosAuditoria: RegistroAuditoria[];
   addRegistroAuditoria: (registro: RegistroAuditoria) => void;
 
+  // Especialidades (catálogo)
+  especialidadesCatalogo: EspecialidadCatalogo[];
+  addEspecialidadCatalogo: (payload: { codigo: string; nombre: string }) => Promise<void>;
+  updateEspecialidadCatalogo: (codigo: string, payload: Partial<Pick<EspecialidadCatalogo, 'nombre' | 'activa'>>) => Promise<void>;
+  deleteEspecialidadCatalogo: (codigo: string) => Promise<void>;
+
+  // Ciudades (catálogo)
+  ciudadesCatalogo: CiudadCatalogo[];
+  addCiudadCatalogo: (payload: { codigo: string; nombre: string }) => Promise<void>;
+  updateCiudadCatalogo: (codigo: string, payload: Partial<Pick<CiudadCatalogo, 'nombre' | 'activa'>>) => Promise<void>;
+  deleteCiudadCatalogo: (codigo: string) => Promise<void>;
+
   // Usuarios
   usuarios: Usuario[];
   addUsuario: (usuario: Usuario) => void;
@@ -94,6 +109,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [cirugias, setCirugias] = useState<Cirugia[]>([]);
   const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
   const [registrosAuditoria, setRegistrosAuditoria] = useState<RegistroAuditoria[]>([]);
+  const [especialidadesCatalogo, setEspecialidadesCatalogo] = useState<EspecialidadCatalogo[]>([]);
+  const [ciudadesCatalogo, setCiudadesCatalogo] = useState<CiudadCatalogo[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [estudios, setEstudios] = useState<EstudioSocioeconomico[]>([]);
 
@@ -147,6 +164,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         safeFetch('cirugias', setCirugias),
         safeFetch('seguimientos', setSeguimientos),
         safeFetch('eventos', setEventos),
+        safeFetch('especialidades', setEspecialidadesCatalogo),
+        safeFetch('ciudades', setCiudadesCatalogo),
         safeFetch('usuarios', setUsuarios),
         safeFetch('estudios', setEstudios),
         safeFetch('auditoria', setRegistrosAuditoria)
@@ -217,6 +236,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const deleteEvento = async (id: string, opts?: { force?: boolean }) => {
+    const url = opts?.force ? `/api/eventos/${id}?force=1` : `/api/eventos/${id}`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo eliminar el evento.');
+    }
+    await fetchAllData();
+  };
+
   const addPaciente = async (paciente: Paciente) => {
     try {
       const res = await fetch('/api/pacientes', {
@@ -274,12 +303,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cita),
       });
-      if (res.ok) {
-        const nuevo = await res.json();
-        setCitas([...citas, nuevo]);
+      const text = await res.text();
+      const payload = text ? JSON.parse(text) : null;
+      if (!res.ok) {
+        const msg = payload?.error || 'No se pudo crear la cita.';
+        throw new Error(msg);
       }
+      setCitas([...citas, payload]);
+      return payload;
     } catch (err) {
       console.error(err);
+      throw err;
     }
   };
 
@@ -464,6 +498,98 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addEspecialidadCatalogo = async (payload: { codigo: string; nombre: string }) => {
+    const res = await fetch('/api/especialidades', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo crear la especialidad.');
+    }
+    const created = await res.json();
+    setEspecialidadesCatalogo((prev) => {
+      const next = [...prev.filter((e) => e.codigo !== created.codigo), created];
+      return next.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    });
+  };
+
+  const updateEspecialidadCatalogo = async (
+    codigo: string,
+    payload: Partial<Pick<EspecialidadCatalogo, 'nombre' | 'activa'>>,
+  ) => {
+    const res = await fetch(`/api/especialidades/${encodeURIComponent(codigo)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo actualizar la especialidad.');
+    }
+    const updated = await res.json();
+    setEspecialidadesCatalogo((prev) => prev.map((e) => (e.codigo === updated.codigo ? updated : e)));
+  };
+
+  const deleteEspecialidadCatalogo = async (codigo: string) => {
+    const res = await fetch(`/api/especialidades/${encodeURIComponent(codigo)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo eliminar la especialidad.');
+    }
+    const updated = await res.json();
+    setEspecialidadesCatalogo((prev) => prev.map((e) => (e.codigo === updated.codigo ? updated : e)));
+  };
+
+  const addCiudadCatalogo = async (payload: { codigo: string; nombre: string }) => {
+    const res = await fetch('/api/ciudades', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo crear la ciudad.');
+    }
+    const created = await res.json();
+    setCiudadesCatalogo((prev) => {
+      const next = [...prev.filter((c) => c.codigo !== created.codigo), created];
+      return next.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    });
+  };
+
+  const updateCiudadCatalogo = async (
+    codigo: string,
+    payload: Partial<Pick<CiudadCatalogo, 'nombre' | 'activa'>>,
+  ) => {
+    const res = await fetch(`/api/ciudades/${encodeURIComponent(codigo)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo actualizar la ciudad.');
+    }
+    const updated = await res.json();
+    setCiudadesCatalogo((prev) => prev.map((c) => (c.codigo === updated.codigo ? updated : c)));
+  };
+
+  const deleteCiudadCatalogo = async (codigo: string) => {
+    const res = await fetch(`/api/ciudades/${encodeURIComponent(codigo)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo eliminar la ciudad.');
+    }
+    const updated = await res.json();
+    setCiudadesCatalogo((prev) => prev.map((c) => (c.codigo === updated.codigo ? updated : c)));
+  };
+
   const addUsuario = async (usuario: Usuario) => {
     try {
       const res = await fetch('/api/usuarios', {
@@ -531,6 +657,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         eventos,
         addEvento,
         updateEvento,
+        deleteEvento,
         pacientes,
         addPaciente,
         updatePaciente,
@@ -557,6 +684,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         updateSeguimiento,
         registrosAuditoria,
         addRegistroAuditoria,
+        especialidadesCatalogo,
+        addEspecialidadCatalogo,
+        updateEspecialidadCatalogo,
+        deleteEspecialidadCatalogo,
+        ciudadesCatalogo,
+        addCiudadCatalogo,
+        updateCiudadCatalogo,
+        deleteCiudadCatalogo,
         usuarios,
         addUsuario,
         updateUsuario,

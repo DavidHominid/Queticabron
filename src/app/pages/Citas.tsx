@@ -1,1139 +1,436 @@
 import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, Filter } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { useData } from '../context/DataContext';
+import { AgendaCalendar } from '../components/eventos/AgendaCalendar';
+import { AgendarCitaDialog } from '../components/eventos/AgendarCitaDialog';
+import { DetalleCitasBloqueDialog } from '../components/eventos/DetalleCitasBloqueDialog';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuth } from '../context/AuthContext';
-import { Cita, Especialidad } from '../types';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import listPlugin from '@fullcalendar/list';
-import esLocale from '@fullcalendar/core/locales/es';
-import { Dialog } from 'primereact/dialog';
-import { Button as PrimeButton } from 'primereact/button';
-import { InputText } from 'primereact/inputtext';
-import { Dropdown } from 'primereact/dropdown';
-import { InputNumber } from 'primereact/inputnumber';
-import { Badge } from 'primereact/badge';
-import { Card } from 'primereact/card';
-import { Divider } from 'primereact/divider';
-import { Message } from 'primereact/message';
-import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
-import { AutoComplete } from 'primereact/autocomplete';
-import { formatDateSafe } from '../components/ui/utils';
+import { useData } from '../context/DataContext';
+import { Cita, Especialidad, Evento, HorarioDisponible, Paciente } from '../types';
+import { labelEspecialidad } from '../utils/especialidades';
 
-export function Citas() {
-  const { citas, pacientes, eventos, usuarios, addCita, updateCita, getPacienteByExpediente, addRegistroAuditoria, addPaciente } = useData();
-  const { user } = useAuth();
+const listDaysInclusive = (start: string, end: string) => {
+  if (!start || !end) return [] as string[];
+  const s = new Date(`${start}T00:00:00`);
+  const e = new Date(`${end}T00:00:00`);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime()) || s.getTime() > e.getTime()) return [];
+  const out: string[] = [];
+  const cur = new Date(s);
+  while (cur.getTime() <= e.getTime()) {
+    out.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+};
 
-  // Estados para modal de creación/edición
-  const [showModal, setShowModal] = useState(false);
-  const [showCederModal, setShowCederModal] = useState(false);
-  const [tipoCesion, setTipoCesion] = useState<'existente' | 'nuevo' | null>(null);
-  const [searchExpediente, setSearchExpediente] = useState('');
-  const [searchExpedienteCeder, setSearchExpedienteCeder] = useState('');
-  const [pacienteEncontrado, setPacienteEncontrado] = useState<any>(null);
-  const [pacienteCeder, setPacienteCeder] = useState<any>(null);
-  const [selectedCita, setSelectedCita] = useState<Cita | null>(null);
-  const [citaACeder, setCitaACeder] = useState<Cita | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string>('');
+const formatDate = (value?: string | null) => {
+  if (!value) return 'Sin fecha';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+};
 
-  // Estados para autocompletado
-  const [filteredPacientes, setFilteredPacientes] = useState<any[]>([]);
-  const [filteredPacientesCeder, setFilteredPacientesCeder] = useState<any[]>([]);
+const slotKeyForHorario = (h: HorarioDisponible) => {
+  const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 60;
+  return `${h.horaInicio}|${h.horaFin}|${intervalo}`;
+};
 
-  const [formData, setFormData] = useState<Partial<Cita>>({
-    eventoId: '',
-    especialidad: 'medicina_familiar',
-    fecha: '',
-    hora: '',
-    consultorio: '',
-    estado: 'programada',
-    costoPagado: 50,
-  });
+const timeToMinutes = (t: string) => {
+  const [hh, mm] = t.split(':').map((x) => Number(x));
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return 0;
+  return hh * 60 + mm;
+};
 
-  const usuarioPorId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const u of usuarios) {
-      map.set(u.id, u.nombre);
-    }
-    return map;
-  }, [usuarios]);
-
-  const getNombreUsuario = (idOrName: string | undefined) => {
-    if (!idOrName) return '';
-    return usuarioPorId.get(idOrName) || idOrName;
-  };
-
-  useEffect(() => {
-    if (!formData.eventoId || !formData.especialidad) return;
-    const evento = eventos.find((e) => e.id === formData.eventoId);
-    const esp = evento?.especialidades.find((x) => x.especialidad === formData.especialidad);
-    if (!esp) return;
-    setFormData((prev) => ({
-      ...prev,
-      consultorio: prev.consultorio || esp.consultorio || '',
-      costoPagado: Number.isFinite(Number(prev.costoPagado)) ? prev.costoPagado : esp.costo,
-    }));
-  }, [eventos, formData.especialidad, formData.eventoId]);
-
-  // Formulario para crear nuevo paciente al ceder
-  const [nuevoPacienteForm, setNuevoPacienteForm] = useState({
-    nombre: '',
-    edad: 0,
-    fechaNacimiento: '',
-    sexo: 'Masculino' as 'Masculino' | 'Femenino',
-    telefono: '',
-  });
-
-  // Convertir citas a eventos de calendario
-  const calendarEvents = citas.map((cita) => {
-    const paciente = pacientes.find((p) => p.id === cita.pacienteId);
-    const especialidadTexto = cita.especialidad.replace('_', ' ');
-
-    return {
-      id: cita.id,
-      title: `${paciente?.nombre || 'Paciente'} - ${especialidadTexto}`,
-      start: `${cita.fecha}T${cita.hora}`,
-      extendedProps: {
-        cita,
-        paciente,
-      },
-      backgroundColor: getColorByEstado(cita.estado),
-      borderColor: getColorByEstado(cita.estado),
-      textColor: '#fff',
-    };
-  });
-// Cuando se arrastra una cita a otra hora o día
-const handleEventDrop = (info: any) => {
-  const cita = info.event.extendedProps.cita;
-
-  const nuevaFecha = info.event.start.toISOString().split('T')[0];
-  const nuevaHora = info.event.start.toTimeString().substring(0,5);
-
-  updateCita(cita.id, {
-    fecha: nuevaFecha,
-    hora: nuevaHora,
-  });
-
-  addRegistroAuditoria({
-    id: `aud${Date.now()}`,
-    usuarioId: user?.id || '',
-    nombreUsuario: user?.nombre || '',
-    rol: user?.rol || 'recepcion',
-    accion: 'Mover Cita',
-    detalles: `Movió cita de ${cita.fecha} ${cita.hora} a ${nuevaFecha} ${nuevaHora}`,
-    fechaHora: new Date().toISOString(),
-    ciudad: user?.ciudad || 'sonoyta',
+const citasInWindow = (
+  citas: Cita[],
+  payload: { eventoId: string; especialidad: Especialidad; fecha: string; horaInicio: string; horaFin: string },
+) => {
+  const s = timeToMinutes(payload.horaInicio);
+  const e = timeToMinutes(payload.horaFin);
+  return citas.filter((c) => {
+    if (c.eventoId !== payload.eventoId) return false;
+    if (c.especialidad !== payload.especialidad) return false;
+    if (c.fecha !== payload.fecha) return false;
+    if (c.estado === 'cancelada') return false;
+    const m = timeToMinutes(c.hora);
+    return m >= s && m < e;
   });
 };
-  function getColorByEstado(estado: string): string {
-    switch (estado) {
-      case 'programada': return '#3B82F6'; // blue
-      case 'en_triage': return '#F59E0B'; // yellow
-      case 'en_consulta': return '#A855F7'; // purple
-      case 'completada': return '#10B981'; // green
-      case 'cancelada': return '#EF4444'; // red
-      case 'cedida': return '#F97316'; // orange
-      default: return '#6B7280'; // gray
-    }
-  }
 
-  // Manejar clic en un slot de tiempo vacío (crear cita)
-  const handleDateClick = (info: any) => {
-    const clickedDate = new Date(info.dateStr);
-    setSelectedDate(clickedDate);
+const hasCita = (citas: Cita[], payload: { eventoId: string; especialidad: Especialidad; fecha: string; hora: string }) => {
+  return citas.some(
+    (c) =>
+      c.eventoId === payload.eventoId &&
+      c.especialidad === payload.especialidad &&
+      c.fecha === payload.fecha &&
+      c.hora === payload.hora &&
+      c.estado !== 'cancelada',
+  );
+};
 
-    // Si es una vista de tiempo, extraer la hora
-    if (info.dateStr.includes('T')) {
-      const timeString = info.dateStr.split('T')[1].substring(0, 5);
-      setSelectedTime(timeString);
-      setFormData({
-        ...formData,
-        fecha: info.dateStr.split('T')[0],
-        hora: timeString,
-      });
-    } else {
-      setSelectedTime('09:00');
-      setFormData({
-        ...formData,
-        fecha: info.dateStr,
-        hora: '09:00',
-      });
-    }
+export function Citas() {
+  const { eventos, citas, pacientes, usuarios, especialidadesCatalogo, addCita, addRegistroAuditoria, isInitialized } = useData();
+  const { user } = useAuth();
+  const [eventoId, setEventoId] = useState('');
+  const [especialidad, setEspecialidad] = useState<Especialidad | ''>('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [agendaMensaje, setAgendaMensaje] = useState('');
 
-    setShowModal(true);
-  };
+  const [agendarOpen, setAgendarOpen] = useState(false);
+  const [agendarHorario, setAgendarHorario] = useState<HorarioDisponible | null>(null);
+  const [detalleOpen, setDetalleOpen] = useState(false);
+  const [detalleCitas, setDetalleCitas] = useState<Cita[]>([]);
+  const [detalleTitulo, setDetalleTitulo] = useState('');
+  const [detalleSubtitulo, setDetalleSubtitulo] = useState('');
+  const [detalleHorario, setDetalleHorario] = useState<HorarioDisponible | null>(null);
+  const [detalleDisponibles, setDetalleDisponibles] = useState(0);
 
-  // Manejar clic en un evento existente (ver detalles)
-  const handleEventClick = (info: any) => {
-    const cita = info.event.extendedProps.cita;
-    setSelectedCita(cita);
-  };
+  const canSeeAllCiudades = user?.rol === 'administrador';
 
-  // Buscar paciente
-  const buscarPaciente = () => {
-    let paciente = getPacienteByExpediente(searchExpediente);
+  const eventosVisibles = useMemo(() => {
+    const ciudadesUsuario =
+      Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length
+        ? ((user as any).ciudades as string[])
+        : user?.ciudad
+          ? [user.ciudad]
+          : [];
+    const base = canSeeAllCiudades ? eventos : eventos.filter((e) => ciudadesUsuario.includes(e.ciudad));
+    return [...base].sort((a, b) => (b.fechaInicio || '').localeCompare(a.fechaInicio || ''));
+  }, [canSeeAllCiudades, eventos, user?.ciudad, (user as any)?.ciudades]);
 
-    if (!paciente) {
-      paciente = pacientes.find(p =>
-        p.nombre.toLowerCase().includes(searchExpediente.toLowerCase())
-      );
-    }
+  const evento = useMemo(() => eventosVisibles.find((e) => e.id === eventoId) || null, [eventosVisibles, eventoId]);
 
-    if (paciente) {
-      setPacienteEncontrado(paciente);
-    } else {
-      alert('No se encontró ningún paciente con ese nombre o número de expediente');
-      setPacienteEncontrado(null);
-    }
-  };
+  useEffect(() => {
+    if (eventoId) return;
+    const firstActivo = eventosVisibles.find((e) => e.estado === 'activo') || eventosVisibles[0];
+    if (firstActivo) setEventoId(firstActivo.id);
+  }, [eventoId, eventosVisibles]);
 
-  // Función para autocompletar pacientes
-  const searchPacientes = (event: any) => {
-    const query = event.query.toLowerCase();
-    const filtered = pacientes.filter(p =>
-      p.nombre.toLowerCase().includes(query) ||
-      p.numeroExpediente.toLowerCase().includes(query)
-    );
-    setFilteredPacientes(filtered);
-  };
+  useEffect(() => {
+    if (!evento) return;
+    if (especialidad) return;
+    const first = evento.especialidades?.[0]?.especialidad as Especialidad | undefined;
+    if (first) setEspecialidad(first);
+  }, [especialidad, evento]);
 
-  // Función para autocompletar pacientes al ceder
-  const searchPacientesCeder = (event: any) => {
-    const query = event.query.toLowerCase();
-    const filtered = pacientes.filter(p =>
-      p.nombre.toLowerCase().includes(query) ||
-      p.numeroExpediente.toLowerCase().includes(query)
-    );
-    setFilteredPacientesCeder(filtered);
-  };
+  useEffect(() => {
+    if (!evento) return;
+    const days = listDaysInclusive(evento.fechaInicio || '', evento.fechaFin || '');
+    if (!days.length) return;
+    const limited = days.slice(0, 7);
+    setDesde(limited[0]);
+    setHasta(limited[limited.length - 1]);
+  }, [evento?.id]);
 
-  // Seleccionar paciente del autocompletado
-  const handleSelectPaciente = (e: any) => {
-    const paciente = e.value;
-    if (typeof paciente === 'object') {
-      setPacienteEncontrado(paciente);
-      setSearchExpediente(`${paciente.nombre} - ${paciente.numeroExpediente}`);
-    } else {
-      setSearchExpediente(paciente);
-    }
-  };
+  const horarios = useMemo(() => {
+    if (!evento || !especialidad) return [] as HorarioDisponible[];
+    return evento.especialidades.find((e) => e.especialidad === especialidad)?.horarios || [];
+  }, [evento, especialidad]);
 
-  // Seleccionar paciente al ceder del autocompletado
-  const handleSelectPacienteCeder = (e: any) => {
-    const paciente = e.value;
-    if (typeof paciente === 'object') {
-      setPacienteCeder(paciente);
-      setSearchExpedienteCeder(`${paciente.nombre} - ${paciente.numeroExpediente}`);
-    } else {
-      setSearchExpedienteCeder(paciente);
-    }
-  };
+  const horariosSinFecha = useMemo(() => horarios.filter((h) => h.dia && !h.dia.includes('-')), [horarios]);
+  const horariosConFecha = useMemo(() => horarios.filter((h) => h.dia && h.dia.includes('-')), [horarios]);
 
-  // Template para mostrar pacientes en el dropdown
-  const pacienteTemplate = (item: any) => {
-    return (
-      <div className="flex flex-col">
-        <span className="font-medium">{item.nombre}</span>
-        <span className="text-sm text-gray-600">{item.numeroExpediente} - {item.edad} años</span>
-      </div>
-    );
-  };
+  const onSlotAction = (payload: {
+    source: 'bloque' | 'nuevo';
+    day: string;
+    slotKey: string;
+    start: string;
+    end: string;
+    cupoTotal: number;
+    cupoOcupado: number;
+    disponibles: number;
+  }) => {
+    if (!evento || !especialidad) return;
+    setAgendaMensaje('');
 
-  // Calcular cupos disponibles para una fecha, especialidad y evento
-  const calcularCuposDisponibles = (eventoId: string, especialidad: Especialidad, fecha: string): { total: number, ocupados: number, disponibles: number } => {
-    const evento = eventos.find(e => e.id === eventoId);
-    if (!evento) return { total: 0, ocupados: 0, disponibles: 0 };
-
-    const especialidadEvento = evento.especialidades.find(e => e.especialidad === especialidad);
-    if (!especialidadEvento) return { total: 0, ocupados: 0, disponibles: 0 };
-
-    const diaSemana = formatDateSafe(fecha);
-    const diaCapitalizado = diaSemana.charAt(0).toUpperCase() + diaSemana.slice(1);
-
-    const horarios = (especialidadEvento.horarios || []).filter((h: any) => h.dia === fecha || h.dia === diaCapitalizado);
-    if (!horarios.length) return { total: 0, ocupados: 0, disponibles: 0 };
-
-    const totalCupos = horarios.reduce((acc: number, h: any) => {
-      const cupoDirecto = Number.isFinite(Number(h.cupoTotal)) ? Math.max(0, Math.floor(Number(h.cupoTotal))) : 0;
-      if (cupoDirecto) return acc + cupoDirecto;
-
-      const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 15;
-      const [hiH, hiM] = String(h.horaInicio || '00:00').split(':').map(Number);
-      const [hfH, hfM] = String(h.horaFin || '00:00').split(':').map(Number);
-      const minutosDisponibles = Math.max(0, (hfH * 60 + hfM) - (hiH * 60 + hiM));
-      return acc + Math.floor(minutosDisponibles / intervalo);
-    }, 0);
-
-    // Contar cupos ocupados (citas programadas para esa fecha, especialidad y evento)
-    const citasOcupadas = citas.filter(c =>
-      c.eventoId === eventoId &&
-      c.especialidad === especialidad &&
-      c.fecha === fecha &&
-      c.estado !== 'cancelada'
-    ).length;
-
-    return {
-      total: totalCupos,
-      ocupados: citasOcupadas,
-      disponibles: totalCupos - citasOcupadas
-    };
-  };
-
-  // Verificar si una fecha está dentro del rango del evento
-  const fechaDentroDelEvento = (eventoId: string, fecha: string): boolean => {
-    const evento = eventos.find(e => e.id === eventoId);
-    if (!evento) return false;
-
-    const fechaConsulta = new Date(fecha);
-    const fechaInicio = new Date(evento.fechaInicio);
-    const fechaFin = new Date(evento.fechaFin);
-
-    return fechaConsulta >= fechaInicio && fechaConsulta <= fechaFin;
-  };
-
-  // Crear nueva cita
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pacienteEncontrado) {
-      alert('Primero busca un paciente por su número de expediente');
+    if (payload.source === 'nuevo') {
+      setAgendaMensaje('No hay un bloque de horario definido en ese punto. Selecciona un bloque existente con cupos.');
       return;
     }
 
-    const evento = eventos.find((ev) => ev.id === (formData.eventoId || eventos[0]?.id || ''));
-    const espEvento = evento?.especialidades.find((x) => x.especialidad === ((formData.especialidad as Especialidad) || 'medicina_familiar'));
+    const horario = horariosConFecha.find((h) => h.dia === payload.day && slotKeyForHorario(h) === payload.slotKey) || null;
+    if (!horario) {
+      setAgendaMensaje('No se encontró el bloque de horario. Revisa que el evento tenga horarios por fecha.');
+      return;
+    }
 
-    const nuevaCita: Cita = {
+    const ocupadas = citasInWindow(citas, {
+      eventoId: evento.id,
+      especialidad: especialidad as Especialidad,
+      fecha: payload.day,
+      horaInicio: horario.horaInicio,
+      horaFin: horario.horaFin,
+    });
+
+    if (ocupadas.length > 0) {
+      setDetalleHorario(horario);
+      setDetalleCitas(ocupadas);
+      setDetalleDisponibles(payload.disponibles);
+      setDetalleTitulo('Cupos ocupados');
+      setDetalleSubtitulo(`${payload.day} · ${horario.horaInicio}-${horario.horaFin}`);
+      setDetalleOpen(true);
+      return;
+    }
+
+    if (payload.disponibles <= 0) {
+      setAgendaMensaje('Este bloque ya no tiene cupos disponibles.');
+      return;
+    }
+
+    if (evento.estado !== 'activo') {
+      setAgendaMensaje('Este evento no está activo. No se pueden agendar citas.');
+      return;
+    }
+
+    setAgendarHorario(horario);
+    setAgendarOpen(true);
+  };
+
+  const onAgendar = async (payload: { paciente: Paciente; hora: string }) => {
+    if (!evento || !especialidad || !agendarHorario) return;
+    if (evento.estado !== 'activo') {
+      throw new Error('El evento no está activo.');
+    }
+
+    if (hasCita(citas, { eventoId: evento.id, especialidad: especialidad as Especialidad, fecha: agendarHorario.dia, hora: payload.hora })) {
+      throw new Error('Ese horario ya fue ocupado por otra cita.');
+    }
+
+    const espEvento = evento.especialidades.find((e) => e.especialidad === especialidad) || null;
+    const nueva: Cita = {
       id: `cit${Date.now()}`,
-      eventoId: formData.eventoId || eventos[0]?.id || '',
-      pacienteId: pacienteEncontrado.id,
-      especialidad: (formData.especialidad as Especialidad) || 'medicina_familiar',
-      fecha: formData.fecha || '',
-      hora: formData.hora || '',
-      consultorio: formData.consultorio || espEvento?.consultorio || '',
+      eventoId: evento.id,
+      pacienteId: payload.paciente.id,
+      especialidad: especialidad as Especialidad,
+      fecha: agendarHorario.dia,
+      hora: payload.hora,
+      consultorio: espEvento?.consultorio || '',
       medicoEncargado: espEvento?.medicoEncargado || '',
       estado: 'programada',
-      costoPagado: formData.costoPagado || 50,
-      fechaCreacion: new Date().toISOString().split('T')[0],
+      costoPagado: Number.isFinite(Number(espEvento?.costo)) ? Number(espEvento?.costo) : 0,
+      fechaCreacion: new Date().toISOString().slice(0, 10),
     };
 
-    addCita(nuevaCita);
+    await addCita(nueva);
+
     addRegistroAuditoria({
       id: `aud${Date.now()}`,
       usuarioId: user?.id || '',
       nombreUsuario: user?.nombre || '',
       rol: user?.rol || 'recepcion',
       accion: 'Agendar Cita',
-      detalles: `Agendó cita para ${pacienteEncontrado.nombre} - ${formData.especialidad} - ${formData.fecha} ${formData.hora}`,
+      detalles: `Agendó cita para ${payload.paciente.nombre} (${payload.paciente.numeroExpediente}) · ${labelEspecialidad(especialidad as Especialidad, especialidadesCatalogo)} · ${agendarHorario.dia} ${payload.hora} · Evento: ${evento.nombre}`,
       fechaHora: new Date().toISOString(),
-      ciudad: user?.ciudad || 'sonoyta',
+      ciudad: user?.ciudad || evento.ciudad || 'sonoyta',
     });
-
-    resetForm();
   };
 
-  // Cancelar cita
-  const handleCancelarCita = (citaId: string) => {
-    confirmDialog({
-      message: '¿Estás seguro de cancelar esta cita? No hay reembolsos.',
-      header: 'Confirmar Cancelación',
-      icon: 'pi pi-exclamation-triangle',
-      accept: () => {
-        updateCita(citaId, { estado: 'cancelada' });
-        addRegistroAuditoria({
-          id: `aud${Date.now()}`,
-          usuarioId: user?.id || '',
-          nombreUsuario: user?.nombre || '',
-          rol: user?.rol || 'recepcion',
-          accion: 'Cancelar Cita',
-          detalles: `Canceló cita ID: ${citaId}`,
-          fechaHora: new Date().toISOString(),
-          ciudad: user?.ciudad || 'sonoyta',
-        });
-        setSelectedCita(null);
+  const detallePrimaryAction = useMemo(() => {
+    if (!evento || !especialidad) return undefined;
+    if (evento.estado !== 'activo') return undefined;
+    if (!detalleHorario) return undefined;
+    if (detalleDisponibles <= 0) return undefined;
+    return {
+      label: 'Agendar en este bloque',
+      onClick: () => {
+        setDetalleOpen(false);
+        setAgendarHorario(detalleHorario);
+        setAgendarOpen(true);
       },
-    });
-  };
-
-  // Ceder cita a paciente existente
-  const handleCederCitaExistente = () => {
-    if (!citaACeder || !pacienteCeder) return;
-
-    updateCita(citaACeder.id, {
-      pacienteId: pacienteCeder.id,
-      estado: 'cedida',
-      cedidaA: pacienteCeder.id,
-    });
-
-    addRegistroAuditoria({
-      id: `aud${Date.now()}`,
-      usuarioId: user?.id || '',
-      nombreUsuario: user?.nombre || '',
-      rol: user?.rol || 'recepcion',
-      accion: 'Ceder Cita',
-      detalles: `Cedió cita de ${pacientes.find(p => p.id === citaACeder.pacienteId)?.nombre} a ${pacienteCeder.nombre}`,
-      fechaHora: new Date().toISOString(),
-      ciudad: user?.ciudad || 'sonoyta',
-    });
-
-    setShowCederModal(false);
-    setTipoCesion(null);
-    setPacienteCeder(null);
-    setSearchExpedienteCeder('');
-    setCitaACeder(null);
-    setSelectedCita(null);
-  };
-
-  // Ceder cita a nuevo paciente
-  const handleCederCitaNuevo = () => {
-    if (!citaACeder) return;
-    if (!nuevoPacienteForm.nombre || !nuevoPacienteForm.telefono) {
-      alert('Por favor completa todos los campos obligatorios');
-      return;
-    }
-
-    // Crear nuevo paciente
-    const nuevoExpediente = `EXP${Date.now()}`;
-    const nuevoPaciente = {
-      id: `pac${Date.now()}`,
-      numeroExpediente: nuevoExpediente,
-      nombre: nuevoPacienteForm.nombre,
-      edad: nuevoPacienteForm.edad,
-      fechaNacimiento: nuevoPacienteForm.fechaNacimiento,
-      sexo: nuevoPacienteForm.sexo,
-      telefono: nuevoPacienteForm.telefono,
-      ciudad: user?.ciudad || 'sonoyta',
-      fechaRegistro: new Date().toISOString().split('T')[0],
     };
-
-    addPaciente(nuevoPaciente);
-
-    updateCita(citaACeder.id, {
-      pacienteId: nuevoPaciente.id,
-      estado: 'cedida',
-      cedidaA: nuevoPaciente.id,
-    });
-
-    addRegistroAuditoria({
-      id: `aud${Date.now()}`,
-      usuarioId: user?.id || '',
-      nombreUsuario: user?.nombre || '',
-      rol: user?.rol || 'recepcion',
-      accion: 'Ceder Cita a Nuevo Paciente',
-      detalles: `Cedió cita y creó nuevo paciente: ${nuevoPaciente.nombre} (${nuevoExpediente})`,
-      fechaHora: new Date().toISOString(),
-      ciudad: user?.ciudad || 'sonoyta',
-    });
-
-    setShowCederModal(false);
-    setTipoCesion(null);
-    setNuevoPacienteForm({ nombre: '', edad: 0, fechaNacimiento: '', sexo: 'Masculino', telefono: '' });
-    setCitaACeder(null);
-    setSelectedCita(null);
-  };
-
-  const resetForm = () => {
-    setShowModal(false);
-    setPacienteEncontrado(null);
-    setSearchExpediente('');
-    setSelectedDate(null);
-    setSelectedTime('');
-    setFormData({
-      eventoId: '',
-      especialidad: 'medicina_familiar',
-      fecha: '',
-      hora: '',
-      consultorio: '',
-      estado: 'programada',
-      costoPagado: 50,
-    });
-  };
-
-  const especialidadesOptions = [
-    { label: 'Medicina Familiar', value: 'medicina_familiar' },
-    { label: 'Pediatría', value: 'pediatria' },
-    { label: 'Fisioterapia', value: 'fisioterapia' },
-    { label: 'Vacunas', value: 'vacunas' },
-    { label: 'Detección Oportuna de Cáncer', value: 'deteccion_cancer' },
-    { label: 'Dentista', value: 'dentista' },
-  ];
-
-  const consultoriosOptions = [
-    { label: 'Consultorio 1', value: 'Consultorio 1' },
-    { label: 'Consultorio 2', value: 'Consultorio 2' },
-    { label: 'Consultorio 3', value: 'Consultorio 3' },
-    { label: 'Consultorio 4', value: 'Consultorio 4' },
-    { label: 'Consultorio 5', value: 'Consultorio 5' },
-    { label: 'Consultorio 6', value: 'Consultorio 6' },
-    { label: 'Consultorio 7', value: 'Consultorio 7' },
-    { label: 'Consultorio 8', value: 'Consultorio 8' },
-    { label: 'Dentista', value: 'Dentista' },
-  ];
-
-  const estadoBadge = (estado: string) => {
-    switch (estado) {
-      case 'programada':
-        return { label: 'Programada', severity: 'info' as const };
-      case 'en_triage':
-        return { label: 'En Triage', severity: 'warning' as const };
-      case 'en_consulta':
-        return { label: 'En Consulta', severity: 'info' as const };
-      case 'completada':
-        return { label: 'Completada', severity: 'success' as const };
-      case 'cancelada':
-        return { label: 'Cancelada', severity: 'danger' as const };
-      case 'cedida':
-        return { label: 'Cedida', severity: 'warning' as const };
-      default:
-        return { label: estado, severity: 'secondary' as const };
-    }
-  };
+  }, [detalleDisponibles, detalleHorario, especialidad, evento]);
 
   return (
     <DashboardLayout>
-      <ConfirmDialog />
-
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Calendario de Citas</h1>
-            <p className="text-gray-600 mt-1">Gestiona las citas médicas de forma visual e interactiva</p>
+            <h1 className="text-2xl font-semibold text-gray-900">Citas</h1>
+            <p className="mt-1 text-gray-600">Agenda citas por evento y especialidad respetando horarios, cupos y estados.</p>
           </div>
-          <PrimeButton
-            label="Nueva Cita"
-            icon="pi pi-plus"
-            onClick={() => setShowModal(true)}
-            className="p-button-primary"
-          />
         </div>
 
-        {/* Leyenda de estados */}
-        <Card>
-          <div className="flex flex-wrap gap-4 items-center">
-            <span className="text-sm font-medium text-gray-700">Estados:</span>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#3B82F6' }}></div>
-              <span className="text-sm">Programada</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#F59E0B' }}></div>
-              <span className="text-sm">En Triage</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#A855F7' }}></div>
-              <span className="text-sm">En Consulta</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#10B981' }}></div>
-              <span className="text-sm">Completada</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#EF4444' }}></div>
-              <span className="text-sm">Cancelada</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: '#F97316' }}></div>
-              <span className="text-sm">Cedida</span>
-            </div>
-          </div>
-        </Card>
-        {/* Información de eventos activos */}
-        {eventos.length > 0 && (
-          <Card title="Eventos Activos" className="bg-gradient-to-r from-blue-50 to-indigo-50">
-            {eventos.map(evento => (
-              <div key={evento.id} className="mb-6 last:mb-0">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-gray-900">{evento.nombre}</h3>
-                  <Badge
-                    value={evento.estado === 'activo' ? 'ACTIVO' : evento.estado.toUpperCase()}
-                    severity={evento.estado === 'activo' ? 'success' : 'secondary'}
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
-                  <div className="bg-white p-3 rounded-lg shadow-sm">
-                    <p className="text-gray-600 mb-1">📅 Inscripciones hasta</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatDateSafe(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion)}
-                    </p>
-                  </div>
-                  <div className="bg-white p-3 rounded-lg shadow-sm">
-                    <p className="text-gray-600 mb-1">🏥 Fecha del evento</p>
-                    <p className="font-semibold text-gray-900">
-                      {formatDateSafe(evento.fechaInicio)}
-                      {' - '}
-                      {formatDateSafe(evento.fechaFin)}
-                    </p>
-                  </div>
-                  <div className="bg-white p-3 rounded-lg shadow-sm">
-                    <p className="text-gray-600 mb-1">⏰ Horarios</p>
-                    <p className="font-semibold text-gray-900">8:00 AM - 4:00 PM</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Especialidades disponibles:</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {evento.especialidades.map(esp => {
-                      // Calcular cupos para hoy o próxima fecha del evento
-                      const hoy = new Date().toISOString().split('T')[0];
-                      const cuposHoy = calcularCuposDisponibles(evento.id, esp.especialidad, hoy);
-
-                      return (
-                        <div key={esp.especialidad} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="font-medium text-gray-900 capitalize text-sm">
-                              {esp.especialidad.replace('_', ' ')}
-                            </h4>
-                            <Badge
-                              value={`$${esp.costo}`}
-                              severity="info"
-                              className="text-xs"
-                            />
-                          </div>
-                          <p className="text-xs text-gray-600 mb-1">👨‍⚕️ {getNombreUsuario(esp.medicoEncargado) || 'No asignado'}</p>
-                          <p className="text-xs text-gray-600 mb-2">📍 {esp.consultorio}</p>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-gray-200 rounded-full h-2">
-                              <div
-                                className="bg-blue-500 h-2 rounded-full"
-                                style={{
-                                  width: `${cuposHoy.total > 0 ? (cuposHoy.ocupados / cuposHoy.total) * 100 : 0}%`
-                                }}
-                              ></div>
-                            </div>
-                            <span className="text-xs font-medium text-gray-700">
-                              {cuposHoy.disponibles}/{cuposHoy.total}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Cupos por día ({esp.horarios[0]?.intervalo || 60} min/cita)
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ))}
+        {!isInitialized && (
+          <Card className="shadow-sm">
+            <CardContent className="p-8">
+              <div className="h-6 w-40 animate-pulse rounded bg-gray-200" />
+              <div className="mt-4 h-24 animate-pulse rounded bg-gray-100" />
+            </CardContent>
           </Card>
         )}
 
-        {/* Calendario */}
-        <Card>
-          <FullCalendar
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
-            initialView="timeGridWeek"
-            locale={esLocale}
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
-            }}
-            buttonText={{
-              today: 'Hoy',
-              month: 'Mes',
-              week: 'Semana',
-              day: 'Día',
-              list: 'Lista',
-            }}
-            slotMinTime="07:00:00"
-            slotMaxTime="20:00:00"
-            slotDuration="00:30:00"
-            allDaySlot={false}
-            editable={true}
-            selectable={true}
-            selectMirror={true}
-            dayMaxEvents={true}
-            weekends={true}
-            events={calendarEvents}
-            dateClick={handleDateClick}
-            eventClick={handleEventClick}
-            eventDrop={handleEventDrop}
-            height="auto"
-            eventTimeFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              meridiem: false,
-            }}
-            slotLabelFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-              meridiem: false,
-            }}
-          />
-        </Card>
+        {isInitialized && eventosVisibles.length === 0 && (
+          <Card className="shadow-sm">
+            <CardContent className="p-12 text-center">
+              <CalendarDays className="mx-auto mb-4 h-16 w-16 text-gray-300" />
+              <h3 className="mb-2 text-lg font-medium text-gray-900">No hay eventos disponibles</h3>
+              <p className="text-gray-600">Primero crea un evento con fechas y horarios para habilitar cupos.</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {isInitialized && eventosVisibles.length > 0 && (
+          <Card className="shadow-sm">
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Filter className="h-4 w-4" />
+                Filtros
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-900">Evento</div>
+                <select
+                  value={eventoId}
+                  onChange={(e) => {
+                    setEventoId(e.target.value);
+                    setEspecialidad('');
+                    setAgendaMensaje('');
+                  }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                >
+                  {eventosVisibles.map((e: Evento) => (
+                    <option key={e.id} value={e.id}>
+                      {e.nombre} · {e.ciudad} · {e.estado}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-900">Especialidad</div>
+                <select
+                  value={especialidad}
+                  onChange={(e) => {
+                    setEspecialidad(e.target.value as Especialidad);
+                    setAgendaMensaje('');
+                  }}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  disabled={!evento}
+                >
+                  {(evento?.especialidades || []).map((esp) => (
+                    <option key={esp.especialidad} value={esp.especialidad}>
+                      {labelEspecialidad(esp.especialidad as Especialidad, especialidadesCatalogo)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-900">Desde</div>
+                <input
+                  type="date"
+                  value={desde}
+                  onChange={(e) => setDesde(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  disabled={!evento}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-900">Hasta</div>
+                <input
+                  type="date"
+                  value={hasta}
+                  onChange={(e) => setHasta(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  disabled={!evento}
+                />
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-4">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <div>
+                      <div className="text-gray-500">Inscripciones</div>
+                      <div className="font-medium text-gray-900">
+                        {formatDate(evento?.fechaInicioInscripcion)} - {formatDate(evento?.fechaFinInscripcion || evento?.fechaLimiteInscripcion)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Evento</div>
+                      <div className="font-medium text-gray-900">
+                        {formatDate(evento?.fechaInicio)} - {formatDate(evento?.fechaFin)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500">Estado</div>
+                      <div className="font-medium capitalize text-gray-900">{evento?.estado || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {isInitialized && evento && especialidad && horariosSinFecha.length > 0 && (
+          <Card className="shadow-sm">
+            <CardContent className="p-6">
+              <div className="text-sm text-amber-800">
+                Este evento tiene horarios guardados como texto (ej. “Lunes”). Para calcular cupos por bloque, define horarios por fecha (YYYY-MM-DD) en el editor del evento.
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {isInitialized && evento && especialidad && (
+          <Card className="shadow-sm">
+            <CardHeader className="border-b">
+              <CardTitle className="text-base">Agenda por cupos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 p-6">
+              {agendaMensaje && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">{agendaMensaje}</div>
+              )}
+              <AgendaCalendar
+                eventoId={evento.id}
+                especialidad={especialidad as Especialidad}
+                desde={desde}
+                hasta={hasta}
+                horarios={horariosConFecha}
+                citas={citas}
+                onSlotAction={onSlotAction}
+              />
+              {horariosConFecha.length === 0 && (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  No hay horarios por fecha para esta especialidad. Ve a “Editar evento” y agrega bloques con día (YYYY-MM-DD).
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Modal para crear/editar cita */}
-      <Dialog
-        header="Agendar Nueva Cita"
-        visible={showModal}
-        style={{ width: '50vw' }}
-        breakpoints={{ '960px': '75vw', '641px': '90vw' }}
-        onHide={resetForm}
-        footer={
-          <div>
-            <PrimeButton label="Cancelar" icon="pi pi-times" onClick={resetForm} className="p-button-text" />
-            <PrimeButton
-              label="Agendar Cita"
-              icon="pi pi-check"
-              onClick={handleSubmit}
-              disabled={!pacienteEncontrado}
-            />
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          {/* Buscar paciente */}
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-medium text-gray-900 mb-3">1. Buscar Paciente</h3>
-            <div className="p-inputgroup">
-              <AutoComplete
-                placeholder="Nombre o número de expediente"
-                value={searchExpediente}
-                onChange={(e) => setSearchExpediente(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && buscarPaciente()}
-                suggestions={filteredPacientes}
-                completeMethod={searchPacientes}
-                field="nombre"
-                itemTemplate={pacienteTemplate}
-                onSelect={handleSelectPaciente}
-              />
-              <PrimeButton
-                icon="pi pi-search"
-                onClick={buscarPaciente}
-              />
-            </div>
-            {pacienteEncontrado && (
-              <Message
-                severity="success"
-                text={`${pacienteEncontrado.nombre} - ${pacienteEncontrado.edad} años - ${pacienteEncontrado.telefono}`}
-                className="mt-3 w-full"
-              />
-            )}
-          </div>
+      {evento && especialidad && agendarHorario && (
+        <AgendarCitaDialog
+          open={agendarOpen}
+          onOpenChange={setAgendarOpen}
+          evento={evento}
+          especialidad={especialidad as Especialidad}
+          horario={agendarHorario}
+          citas={citas}
+          pacientes={pacientes}
+          onAgendar={onAgendar}
+        />
+      )}
 
-          {/* Datos de la cita */}
-          <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-            <h3 className="font-medium text-gray-900 mb-3">2. Datos de la Cita</h3>
-
-            <div className="field">
-              <label htmlFor="evento" className="block mb-2 font-medium">Evento *</label>
-              <Dropdown
-                id="evento"
-                value={formData.eventoId}
-                options={eventos.map(e => ({ label: e.nombre, value: e.id }))}
-                onChange={(e) => setFormData({ ...formData, eventoId: e.value })}
-                placeholder="Selecciona un evento"
-                className="w-full"
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="especialidad" className="block mb-2 font-medium">Especialidad *</label>
-              <Dropdown
-                id="especialidad"
-                value={formData.especialidad}
-                options={especialidadesOptions}
-                onChange={(e) => {
-                  const newEspecialidad = e.value;
-                  setFormData({
-                    ...formData,
-                    especialidad: newEspecialidad,
-                    consultorio: newEspecialidad === 'dentista' ? (formData.consultorio || 'Dentista') : formData.consultorio
-                  });
-                }}
-                placeholder="Selecciona especialidad"
-                className="w-full"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="field">
-                <label htmlFor="fecha" className="block mb-2 font-medium">Fecha *</label>
-                <input
-                  id="fecha"
-                  type="date"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  value={formData.fecha}
-                  onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="hora" className="block mb-2 font-medium">Hora *</label>
-                <input
-                  id="hora"
-                  type="time"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  value={formData.hora}
-                  onChange={(e) => setFormData({ ...formData, hora: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="field">
-                <label htmlFor="consultorio" className="block mb-2 font-medium">Consultorio *</label>
-                <Dropdown
-                  id="consultorio"
-                  value={formData.consultorio}
-                  options={consultoriosOptions}
-                  onChange={(e) => setFormData({ ...formData, consultorio: e.value })}
-                  placeholder="Ej: Consultorio 1"
-                  className="w-full"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="costo" className="block mb-2 font-medium">Costo *</label>
-                <InputNumber
-                  id="costo"
-                  value={formData.costoPagado}
-                  onValueChange={(e) => setFormData({ ...formData, costoPagado: e.value || 50 })}
-                  mode="currency"
-                  currency="USD"
-                  locale="en-US"
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
-
-          <Message
-            severity="warn"
-            text="No hay reembolsos en caso de cancelación o no asistencia. El paciente puede ceder su cupo a otra persona."
-          />
-        </div>
-      </Dialog>
-
-      {/* Modal de detalles de cita */}
-      <Dialog
-        header="Detalles de la Cita"
-        visible={!!selectedCita}
-        style={{ width: '50vw' }}
-        breakpoints={{ '960px': '75vw', '641px': '90vw' }}
-        onHide={() => setSelectedCita(null)}
-      >
-        {selectedCita && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-xl font-semibold">
-                  {pacientes.find(p => p.id === selectedCita.pacienteId)?.nombre}
-                </h3>
-                <p className="text-gray-600">
-                  {pacientes.find(p => p.id === selectedCita.pacienteId)?.numeroExpediente}
-                </p>
-              </div>
-              <Badge
-                value={estadoBadge(selectedCita.estado).label}
-                severity={estadoBadge(selectedCita.estado).severity}
-              />
-            </div>
-
-            <Divider />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">Especialidad</p>
-                <p className="font-medium capitalize">
-                  {selectedCita.especialidad.replace('_', ' ')}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Doctor</p>
-                <p className="font-medium">
-                  {(() => {
-                    const evento = eventos.find(e => e.id === selectedCita.eventoId);
-                    const especialidadEvento = evento?.especialidades.find(
-                      esp => esp.especialidad === selectedCita.especialidad
-                    );
-                    return getNombreUsuario(especialidadEvento?.medicoEncargado) || 'No asignado';
-                  })()}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Consultorio</p>
-                <p className="font-medium">{selectedCita.consultorio}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Evento</p>
-                <p className="font-medium">
-                  {eventos.find(e => e.id === selectedCita.eventoId)?.nombre}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Fecha</p>
-                <p className="font-medium">
-                  {formatDateSafe(selectedCita.fecha)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Hora</p>
-                <p className="font-medium">{selectedCita.hora}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Costo Pagado</p>
-                <p className="font-medium">${selectedCita.costoPagado}</p>
-              </div>
-            </div>
-
-            {selectedCita.estado === 'programada' && (
-              <>
-                <Divider />
-                <div className="flex gap-3">
-                  <PrimeButton
-                    label="Cancelar Cita"
-                    icon="pi pi-times"
-                    className="p-button-danger flex-1"
-                    onClick={() => handleCancelarCita(selectedCita.id)}
-                  />
-                  <PrimeButton
-                    label="Ceder Cupo"
-                    icon="pi pi-user-plus"
-                    className="p-button-outlined flex-1"
-                    onClick={() => {
-                      setShowCederModal(true);
-                      setCitaACeder(selectedCita);
-                    }}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </Dialog>
-
-      {/* Modal para ceder cita */}
-      <Dialog
-        header="Ceder Cupo de Cita"
-        visible={showCederModal}
-        style={{ width: '50vw' }}
-        breakpoints={{ '960px': '75vw', '641px': '90vw' }}
-        onHide={() => {
-          setShowCederModal(false);
-          setTipoCesion(null);
-          setPacienteCeder(null);
-          setSearchExpedienteCeder('');
-          setNuevoPacienteForm({ nombre: '', edad: 0, fechaNacimiento: '', sexo: 'Masculino', telefono: '' });
-        }}
-      >
-        {citaACeder && (
-          <div className="space-y-4">
-            {/* Información de la cita */}
-            <Card title="Información de la Cita">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-gray-600">Paciente Original: </span>
-                  <span className="font-semibold">
-                    {pacientes.find(p => p.id === citaACeder.pacienteId)?.nombre}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Especialidad: </span>
-                  <span className="font-semibold capitalize">
-                    {citaACeder.especialidad.replace('_', ' ')}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Fecha: </span>
-                  <span className="font-semibold">
-                    {formatDateSafe(citaACeder.fecha)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Hora: </span>
-                  <span className="font-semibold">{citaACeder.hora}</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Seleccionar tipo de cesión */}
-            {!tipoCesion && (
-              <div>
-                <h3 className="font-medium mb-3">¿A quién deseas ceder el cupo?</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
-                    onClick={() => setTipoCesion('existente')}
-                  >
-                    <div className="text-center p-4">
-                      <i className="pi pi-user text-4xl text-blue-500 mb-3"></i>
-                      <h4 className="font-medium">Paciente Existente</h4>
-                      <p className="text-sm text-gray-600 mt-1">Buscar en el sistema</p>
-                    </div>
-                  </Card>
-                  <Card
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
-                    onClick={() => setTipoCesion('nuevo')}
-                  >
-                    <div className="text-center p-4">
-                      <i className="pi pi-user-plus text-4xl text-green-500 mb-3"></i>
-                      <h4 className="font-medium">Nuevo Paciente</h4>
-                      <p className="text-sm text-gray-600 mt-1">Crear desde cero</p>
-                    </div>
-                  </Card>
-                </div>
-              </div>
-            )}
-
-            {/* Buscar paciente existente */}
-            {tipoCesion === 'existente' && (
-              <div className="space-y-4">
-                <h3 className="font-medium">Buscar Paciente Existente</h3>
-                <div className="p-inputgroup">
-                  <AutoComplete
-                    placeholder="Nombre o número de expediente"
-                    value={searchExpedienteCeder}
-                    onChange={(e) => setSearchExpedienteCeder(e.target.value)}
-                    suggestions={filteredPacientesCeder}
-                    completeMethod={searchPacientesCeder}
-                    field="nombre"
-                    itemTemplate={pacienteTemplate}
-                    onSelect={handleSelectPacienteCeder}
-                  />
-                  <PrimeButton
-                    icon="pi pi-search"
-                    onClick={() => {
-                      let paciente = getPacienteByExpediente(searchExpedienteCeder);
-                      if (!paciente) {
-                        paciente = pacientes.find(p =>
-                          p.nombre.toLowerCase().includes(searchExpedienteCeder.toLowerCase())
-                        );
-                      }
-                      if (paciente) {
-                        setPacienteCeder(paciente);
-                      } else {
-                        alert('No se encontró ningún paciente');
-                        setPacienteCeder(null);
-                      }
-                    }}
-                  />
-                </div>
-                {pacienteCeder && (
-                  <Message
-                    severity="success"
-                    text={`${pacienteCeder.nombre} - ${pacienteCeder.numeroExpediente} - ${pacienteCeder.edad} años`}
-                    className="w-full"
-                  />
-                )}
-                <div className="flex gap-3 pt-4">
-                  <PrimeButton
-                    label="Volver"
-                    icon="pi pi-arrow-left"
-                    className="p-button-outlined flex-1"
-                    onClick={() => {
-                      setTipoCesion(null);
-                      setPacienteCeder(null);
-                    }}
-                  />
-                  <PrimeButton
-                    label="Ceder Cita"
-                    icon="pi pi-check"
-                    className="flex-1"
-                    onClick={handleCederCitaExistente}
-                    disabled={!pacienteCeder}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Crear nuevo paciente */}
-            {tipoCesion === 'nuevo' && (
-              <div className="space-y-4">
-                <h3 className="font-medium">Crear Nuevo Paciente</h3>
-
-                <div className="field">
-                  <label htmlFor="nombreNuevo" className="block mb-2">Nombre Completo *</label>
-                  <InputText
-                    id="nombreNuevo"
-                    value={nuevoPacienteForm.nombre}
-                    onChange={(e) => setNuevoPacienteForm({ ...nuevoPacienteForm, nombre: e.target.value })}
-                    placeholder="Juan Pérez García"
-                    className="w-full"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="field">
-                    <label htmlFor="fechaNacNuevo" className="block mb-2">Fecha de Nacimiento *</label>
-                    <input
-                      id="fechaNacNuevo"
-                      type="date"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      value={nuevoPacienteForm.fechaNacimiento}
-                      onChange={(e) => {
-                        const edad = new Date().getFullYear() - new Date(e.target.value).getFullYear();
-                        setNuevoPacienteForm({
-                          ...nuevoPacienteForm,
-                          fechaNacimiento: e.target.value,
-                          edad,
-                        });
-                      }}
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="edadNuevo" className="block mb-2">Edad</label>
-                    <InputNumber
-                      id="edadNuevo"
-                      value={nuevoPacienteForm.edad}
-                      onValueChange={(e) => setNuevoPacienteForm({ ...nuevoPacienteForm, edad: e.value || 0 })}
-                      className="w-full"
-                      disabled
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="field">
-                    <label htmlFor="sexoNuevo" className="block mb-2">Sexo *</label>
-                    <Dropdown
-                      id="sexoNuevo"
-                      value={nuevoPacienteForm.sexo}
-                      options={[
-                        { label: 'Masculino', value: 'Masculino' },
-                        { label: 'Femenino', value: 'Femenino' },
-                      ]}
-                      onChange={(e) => setNuevoPacienteForm({ ...nuevoPacienteForm, sexo: e.value })}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="telefonoNuevo" className="block mb-2">Teléfono *</label>
-                    <InputText
-                      id="telefonoNuevo"
-                      value={nuevoPacienteForm.telefono}
-                      onChange={(e) => setNuevoPacienteForm({ ...nuevoPacienteForm, telefono: e.target.value })}
-                      placeholder="123-456-7890"
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <PrimeButton
-                    label="Volver"
-                    icon="pi pi-arrow-left"
-                    className="p-button-outlined flex-1"
-                    onClick={() => {
-                      setTipoCesion(null);
-                      setNuevoPacienteForm({ nombre: '', edad: 0, fechaNacimiento: '', sexo: 'Masculino', telefono: '' });
-                    }}
-                  />
-                  <PrimeButton
-                    label="Crear y Ceder"
-                    icon="pi pi-check"
-                    className="flex-1"
-                    onClick={handleCederCitaNuevo}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Dialog>
+      <DetalleCitasBloqueDialog
+        open={detalleOpen}
+        onOpenChange={setDetalleOpen}
+        citas={detalleCitas}
+        pacientes={pacientes}
+        usuarios={usuarios}
+        titulo={detalleTitulo}
+        subtitulo={detalleSubtitulo}
+        primaryAction={detallePrimaryAction}
+      />
     </DashboardLayout>
   );
 }

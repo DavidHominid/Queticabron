@@ -19,7 +19,7 @@ import { Plus, Search, User, Phone, Calendar as CalendarIcon, MapPin, FileText, 
 import { Paciente, Ciudad } from '../types';
 
 export function Pacientes() {
-  const { pacientes, citas, consultasMedicas, addPaciente, updatePaciente, addRegistroAuditoria, addCita, eventos } = useData();
+  const { pacientes, citas, consultasMedicas, addPaciente, updatePaciente, addRegistroAuditoria, addCita, eventos, ciudadesCatalogo } = useData();
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,12 +29,17 @@ export function Pacientes() {
   const [showCalendarUI, setShowCalendarUI] = useState(false);
   const [citaForm, setCitaForm] = useState({ fecha: '', hora: '08:00' });
   const [filterType, setFilterType] = useState<'todos' | 'agendados' | 'atendidos'>('todos');
+  const ciudadDefault =
+    (user?.ciudad || '') ||
+    (Array.isArray((user as any)?.ciudades) ? (user as any).ciudades[0] : '') ||
+    (ciudadesCatalogo || []).find((c) => c.activa)?.codigo ||
+    'sonoyta';
   const initialFormData: Partial<Paciente> = {
     nombre: '',
     fechaNacimiento: '',
     sexo: 'Masculino',
     telefono: '',
-    ciudad: user?.ciudad || 'sonoyta',
+    ciudad: ciudadDefault,
     imagen: '',
     nacionalidad: 'Mexicana',
     identificacion: '',
@@ -396,9 +401,13 @@ export function Pacientes() {
                       value={formData.ciudad}
                       onChange={(e) => setFormData({ ...formData, ciudad: e.target.value as Ciudad })}
                     >
-                      <option value="sonoyta">Sonoyta</option>
-                      <option value="puerto_penasco">Puerto Peñasco</option>
-                      <option value="otra">Otra</option>
+                      {(ciudadesCatalogo || [])
+                        .filter((c) => c.activa)
+                        .map((c) => (
+                          <option key={c.codigo} value={c.codigo}>
+                            {c.nombre}
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>

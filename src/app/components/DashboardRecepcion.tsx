@@ -23,7 +23,13 @@ export function DashboardRecepcion() {
 
   // Obtener el evento activo para hoy en la ciudad del usuario
   const hoy = new Date().toISOString().split('T')[0];
-  const eventoActivo = eventos.find(e => e.estado === 'activo' && e.ciudad === user?.ciudad);
+  const ciudadesUsuario =
+    Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length
+      ? ((user as any).ciudades as string[])
+      : user?.ciudad
+        ? [user.ciudad]
+        : [];
+  const eventoActivo = eventos.find((e) => e.estado === 'activo' && ciudadesUsuario.includes(e.ciudad));
   
   const citasHoy = citas.filter((c) => 
     c.eventoId === eventoActivo?.id && 
@@ -149,4 +155,3 @@ export function DashboardRecepcion() {
     </div>
   );
 }
-

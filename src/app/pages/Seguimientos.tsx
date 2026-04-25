@@ -29,8 +29,13 @@ import {
 import { Seguimiento } from '../types';
 
 export function Seguimientos() {
-  const { seguimientos, pacientes, addSeguimiento, updateSeguimiento, addCita, eventos, citas } = useData();
+  const { seguimientos, pacientes, especialidadesCatalogo, addSeguimiento, updateSeguimiento, addCita, eventos, citas } = useData();
   const { user } = useAuth();
+  const especialidadSugerida =
+    (user?.especialidades?.[0] as string | undefined) ||
+    (user?.especialidad as string | undefined) ||
+    (especialidadesCatalogo || []).find((e) => e.activa)?.codigo ||
+    '';
   const [selectedSeguimiento, setSelectedSeguimiento] = useState<Seguimiento | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -71,9 +76,10 @@ export function Seguimientos() {
         fecha: dateStr,
         hora: horaSugerida,
         estado: 'programada',
-        especialidad: user?.especialidad || 'General',
+        especialidad: especialidadSugerida,
         medicoEncargado: user?.nombre || '',
     };
+    if (!nuevaCita.especialidad) return;
     if (addCita) await addCita(nuevaCita as any);
 
     if (updateSeguimiento) {
@@ -94,9 +100,10 @@ export function Seguimientos() {
           fecha: manualForm.fecha,
           hora: manualForm.hora,
           estado: 'programada',
-          especialidad: user?.especialidad || 'General',
+          especialidad: especialidadSugerida,
           medicoEncargado: user?.nombre || '',
       };
+      if (!nuevaCita.especialidad) return;
       if (addCita) await addCita(nuevaCita as any);
       if (updateSeguimiento) await updateSeguimiento(targetForManual.id, { ...targetForManual, fechaCita: manualForm.fecha, estado: 'agendada' });
       setShowManualModal(false);
@@ -132,9 +139,9 @@ export function Seguimientos() {
         citaId: selectedSeguimiento?.citaId || '',
         diagnostico: formData.diagnostico,
         observaciones: formData.observaciones,
-        fechaCita: formData.fechaCita || null,
+        fechaCita: formData.fechaCita || undefined,
         fechaCreacion: selectedSeguimiento?.fechaCreacion || new Date().toISOString(),
-        medicoEncargado: selectedSeguimiento?.medicoEncargado || null,
+        medicoEncargado: selectedSeguimiento?.medicoEncargado || undefined,
         estado: formData.fechaCita ? 'agendada' : 'pendiente',
       };
       await addSeguimiento(nuevo);

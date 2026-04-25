@@ -5,34 +5,111 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Checkbox } from '../components/ui/checkbox';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, Edit, Trash2, X, UserPlus, Users, Shield, Key } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, X, UserPlus, Users, Shield, Key, Power, Filter, ArrowUpDown, RotateCcw, CalendarRange } from 'lucide-react';
 import { Usuario, Rol, Ciudad, Especialidad } from '../types';
+import { labelEspecialidad } from '../utils/especialidades';
+import { labelCiudad } from '../utils/ciudades';
 
 export function Usuarios() {
-  const { usuarios, addUsuario, updateUsuario, deleteUsuario, addRegistroAuditoria } = useData();
+  const { usuarios, especialidadesCatalogo, ciudadesCatalogo, addUsuario, updateUsuario, deleteUsuario, addRegistroAuditoria } = useData();
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [vigenciaHabilitada, setVigenciaHabilitada] = useState(false);
+  const [filtroRol, setFiltroRol] = useState<'todos' | 'administrador' | 'recepcion' | 'triage' | 'medico'>('todos');
+  const [filtroCiudad, setFiltroCiudad] = useState<'todas' | Ciudad>('todas');
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | 'activos' | 'inactivos' | 'fuera_vigencia' | 'inactivos_manual'>('todos');
+  const [orden, setOrden] = useState<'nombre_asc' | 'nombre_desc' | 'rol' | 'ciudad'>('nombre_asc');
+  const hoy = new Date().toISOString().slice(0, 10);
+  const showColCiudad = filtroRol === 'recepcion';
+  const showColCiudades = filtroRol === 'medico' || filtroRol === 'triage';
+  const showColEspecialidades = filtroRol === 'medico';
+  const showColVigencia = filtroRol === 'triage';
+  const esActivoEfectivo = (u: Usuario) => {
+    if (!u.activo) return false;
+    const desde = u.activoDesde ? String(u.activoDesde) : '';
+    const hasta = u.activoHasta ? String(u.activoHasta) : '';
+    if (desde && desde > hoy) return false;
+    if (hasta && hasta < hoy) return false;
+    return true;
+  };
+  const estadoUsuario = (u: Usuario) => {
+    if (!u.activo) return 'inactivos_manual';
+    if (!esActivoEfectivo(u)) return 'fuera_vigencia';
+    return 'activos';
+  };
+  const formatYmd = (ymd?: string | null) => {
+    const v = String(ymd || '').trim();
+    if (!v) return '';
+    return v;
+  };
+
+  const ciudadDefault = (user?.ciudad || (Array.isArray((user as any)?.ciudades) ? (user as any).ciudades[0] : null) || 'sonoyta') as Ciudad;
 
   const [formData, setFormData] = useState<Partial<Usuario>>({
     nombre: '',
     email: '',
     password: '',
     rol: 'recepcion',
-    ciudad: user?.ciudad || 'sonoyta',
+    ciudad: ciudadDefault,
+    ciudades: [ciudadDefault],
     especialidad: undefined,
+    especialidades: [],
     activo: true,
+    activoDesde: null,
+    activoHasta: null,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const raw = Array.isArray(formData.especialidades) ? formData.especialidades : [];
+    const especialidades = Array.from(new Set(raw.map((x) => String(x || '').trim()).filter(Boolean)));
+    if (formData.rol === 'medico' && especialidades.length === 0) {
+      alert('Selecciona al menos una especialidad para el médico.');
+      return;
+    }
+    const rawCiudades = Array.isArray(formData.ciudades)
+      ? formData.ciudades
+      : formData.ciudad
+        ? [formData.ciudad]
+        : [];
+    const ciudades = Array.from(new Set(rawCiudades.map((x) => String(x || '').trim()).filter(Boolean)));
+    if (formData.rol === 'recepcion' && !ciudades[0]) {
+      alert('Selecciona una ciudad para recepción.');
+      return;
+    }
+    if ((formData.rol === 'medico' || formData.rol === 'triage') && ciudades.length === 0) {
+      alert('Selecciona al menos una ciudad.');
+      return;
+    }
+    if (formData.rol === 'triage') {
+      if (vigenciaHabilitada) {
+        if (!formData.activoDesde || !formData.activoHasta) {
+          alert('Selecciona fecha de inicio y fin para la vigencia.');
+          return;
+        }
+        if (String(formData.activoDesde) > String(formData.activoHasta)) {
+          alert('La fecha de inicio no puede ser mayor a la fecha de fin.');
+          return;
+        }
+      }
+    }
 
     if (editingUser) {
       // Actualizar usuario
-      updateUsuario(editingUser.id, formData);
+      updateUsuario(editingUser.id, {
+        ...formData,
+        ciudad: (ciudades[0] as any) || '',
+        ciudades: formData.rol === 'medico' || formData.rol === 'triage' ? (ciudades as any) : (formData.rol === 'recepcion' ? [ciudades[0]] : []),
+        especialidades: formData.rol === 'medico' ? especialidades : [],
+        especialidad: formData.rol === 'medico' ? (especialidades[0] as Especialidad | undefined) : undefined,
+        activoDesde: formData.rol === 'triage' && vigenciaHabilitada ? (formData.activoDesde as any) : null,
+        activoHasta: formData.rol === 'triage' && vigenciaHabilitada ? (formData.activoHasta as any) : null,
+      });
       addRegistroAuditoria({
         id: `aud${Date.now()}`,
         usuarioId: user?.id || '',
@@ -51,9 +128,13 @@ export function Usuarios() {
         email: formData.email || '',
         password: formData.password || '',
         rol: (formData.rol as Rol) || 'recepcion',
-        ciudad: (formData.ciudad as Ciudad) || 'sonoyta',
-        especialidad: formData.especialidad as Especialidad,
-        activo: true,
+        ciudad: (ciudades[0] as Ciudad) || ciudadDefault,
+        ciudades: formData.rol === 'medico' || formData.rol === 'triage' ? (ciudades as any) : (formData.rol === 'recepcion' ? ([ciudades[0]] as any) : []),
+        especialidades: formData.rol === 'medico' ? especialidades : [],
+        especialidad: formData.rol === 'medico' ? (especialidades[0] as Especialidad | undefined) : undefined,
+        activo: formData.activo ?? true,
+        activoDesde: formData.rol === 'triage' && vigenciaHabilitada ? (formData.activoDesde as any) : null,
+        activoHasta: formData.rol === 'triage' && vigenciaHabilitada ? (formData.activoHasta as any) : null,
       };
 
       addUsuario(nuevoUsuario);
@@ -75,14 +156,25 @@ export function Usuarios() {
 
   const handleEdit = (usuario: Usuario) => {
     setEditingUser(usuario);
+    const especialidadesActuales = Array.isArray(usuario.especialidades)
+      ? usuario.especialidades
+      : usuario.especialidad
+        ? [usuario.especialidad]
+        : [];
+    const tieneVigencia = Boolean(usuario.activoDesde || usuario.activoHasta);
+    setVigenciaHabilitada(tieneVigencia);
     setFormData({
       nombre: usuario.nombre,
       email: usuario.email,
       password: '',
       rol: usuario.rol,
       ciudad: usuario.ciudad,
+      ciudades: Array.isArray((usuario as any).ciudades) && (usuario as any).ciudades.length ? (usuario as any).ciudades : usuario.ciudad ? ([usuario.ciudad] as any) : [],
       especialidad: usuario.especialidad,
+      especialidades: especialidadesActuales,
       activo: usuario.activo,
+      activoDesde: usuario.activoDesde || null,
+      activoHasta: usuario.activoHasta || null,
     });
     setShowModal(true);
   };
@@ -104,7 +196,14 @@ export function Usuarios() {
   };
 
   const toggleEstado = (usuario: Usuario) => {
-    updateUsuario(usuario.id, { activo: !usuario.activo });
+    const hoy = new Date().toISOString().slice(0, 10);
+    const hasta = usuario.activoHasta ? String(usuario.activoHasta) : null;
+    const activar = !usuario.activo;
+    const clearVigencia = activar && hasta && hasta < hoy;
+    updateUsuario(usuario.id, {
+      activo: activar,
+      ...(clearVigencia ? { activoDesde: null, activoHasta: null } : {}),
+    });
     addRegistroAuditoria({
       id: `aud${Date.now()}`,
       usuarioId: user?.id || '',
@@ -118,14 +217,19 @@ export function Usuarios() {
   };
 
   const resetForm = () => {
+    setVigenciaHabilitada(false);
     setFormData({
       nombre: '',
       email: '',
       password: '',
       rol: 'recepcion',
-      ciudad: user?.ciudad || 'sonoyta',
+      ciudad: ciudadDefault,
+      ciudades: [ciudadDefault],
       especialidad: undefined,
+      especialidades: [],
       activo: true,
+      activoDesde: null,
+      activoHasta: null,
     });
     setEditingUser(null);
   };
@@ -140,12 +244,43 @@ export function Usuarios() {
     return colores[rol] || 'bg-gray-100 text-gray-700';
   };
 
-  const filteredUsuarios = usuarios.filter(
-    (u) =>
-      u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.rol.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredUsuarios = [...usuarios]
+    .filter((u) => {
+      if (filtroRol !== 'todos' && u.rol !== filtroRol) return false;
+      if (filtroCiudad !== 'todas') {
+        const ciudadesUsuario = Array.isArray(u.ciudades) && u.ciudades.length ? u.ciudades : u.ciudad ? [u.ciudad] : [];
+        if (!ciudadesUsuario.includes(filtroCiudad)) return false;
+      }
+      if (filtroEstado !== 'todos') {
+        const estado = estadoUsuario(u);
+        if (filtroEstado === 'inactivos') {
+          if (estado === 'activos') return false;
+        } else if (estado !== filtroEstado) {
+          return false;
+        }
+      }
+      const q = searchTerm.trim().toLowerCase();
+      if (!q) return true;
+      const especialidadesUsuario = Array.isArray(u.especialidades) ? u.especialidades : u.especialidad ? [u.especialidad] : [];
+      const ciudadesUsuario = Array.isArray(u.ciudades) ? u.ciudades : u.ciudad ? [u.ciudad] : [];
+      const blob = [
+        u.nombre,
+        u.email,
+        u.rol,
+        ...ciudadesUsuario.map((c) => labelCiudad(c, ciudadesCatalogo)),
+        ...especialidadesUsuario.map((e) => labelEspecialidad(e, especialidadesCatalogo)),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return blob.includes(q);
+    })
+    .sort((a, b) => {
+      if (orden === 'rol') return a.rol.localeCompare(b.rol) || a.nombre.localeCompare(b.nombre);
+      if (orden === 'ciudad') return String(a.ciudad || '').localeCompare(String(b.ciudad || '')) || a.nombre.localeCompare(b.nombre);
+      if (orden === 'nombre_desc') return b.nombre.localeCompare(a.nombre);
+      return a.nombre.localeCompare(b.nombre);
+    });
 
   return (
     <DashboardLayout>
@@ -161,99 +296,109 @@ export function Usuarios() {
           </Button>
         </div>
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Total</p>
-                  <p className="text-2xl font-semibold text-gray-900">{usuarios.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Administradores</p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {usuarios.filter((u) => u.rol === 'administrador').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <UserPlus className="w-6 h-6 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Médicos</p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {usuarios.filter((u) => u.rol === 'medico').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Recepción</p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {usuarios.filter((u) => u.rol === 'recepcion').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <Users className="w-6 h-6 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Triage</p>
-                  <p className="text-2xl font-semibold text-gray-900">
-                    {usuarios.filter((u) => u.rol === 'triage').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Búsqueda */}
+        {/* Filtros */}
         <Card className="shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <CardHeader className="border-b">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Filter className="h-4 w-4" />
+              Filtros
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2 lg:grid-cols-5">
+            <div className="lg:col-span-2">
+              <Label htmlFor="buscarUsuarios">Buscar</Label>
+              <div className="relative mt-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Buscar por nombre, email o rol..."
+                  id="buscarUsuarios"
+                  placeholder="Nombre, email, rol, ciudad o especialidad..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="filtroRol">Rol</Label>
+              <select
+                id="filtroRol"
+                className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                value={filtroRol}
+                onChange={(e) => setFiltroRol(e.target.value as any)}
+              >
+                <option value="todos">Todos</option>
+                <option value="administrador">Administrador</option>
+                <option value="recepcion">Recepción</option>
+                <option value="triage">Triage</option>
+                <option value="medico">Médico</option>
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="filtroCiudad">Ciudad</Label>
+              <select
+                id="filtroCiudad"
+                className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                value={filtroCiudad}
+                onChange={(e) => setFiltroCiudad(e.target.value as any)}
+              >
+                <option value="todas">Todas</option>
+                {(ciudadesCatalogo || [])
+                  .filter((c) => c.activa)
+                  .map((c) => (
+                    <option key={c.codigo} value={c.codigo}>
+                      {c.nombre}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="filtroEstado">Estado</Label>
+              <select
+                id="filtroEstado"
+                className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                value={filtroEstado}
+                onChange={(e) => setFiltroEstado(e.target.value as any)}
+              >
+                <option value="todos">Todos</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos (todos)</option>
+                <option value="inactivos_manual">Inactivo manual</option>
+                <option value="fuera_vigencia">Fuera de vigencia</option>
+              </select>
+            </div>
+
+            <div className="lg:col-span-2">
+              <Label htmlFor="ordenUsuarios">Orden</Label>
+              <div className="mt-2 flex gap-2">
+                <select
+                  id="ordenUsuarios"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  value={orden}
+                  onChange={(e) => setOrden(e.target.value as any)}
+                >
+                  <option value="nombre_asc">Nombre (A-Z)</option>
+                  <option value="nombre_desc">Nombre (Z-A)</option>
+                  <option value="rol">Rol</option>
+                  <option value="ciudad">Ciudad</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setFiltroRol('todos');
+                    setFiltroCiudad('todas');
+                    setFiltroEstado('todos');
+                    setOrden('nombre_asc');
+                  }}
+                  className="gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Limpiar
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -261,25 +406,42 @@ export function Usuarios() {
 
         {/* Tabla de usuarios */}
         <Card className="shadow-sm">
+          <CardHeader className="border-b">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ArrowUpDown className="h-4 w-4" />
+                Usuarios
+              </CardTitle>
+              <div className="flex flex-wrap gap-2">
+                <Badge className="bg-gray-100 text-gray-800">Mostrando: {filteredUsuarios.length}</Badge>
+                <Badge className="bg-green-100 text-green-700">Activos: {usuarios.filter(esActivoEfectivo).length}</Badge>
+                <Badge className="bg-gray-100 text-gray-700">Inactivos: {usuarios.length - usuarios.filter(esActivoEfectivo).length}</Badge>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="relative max-h-[70vh] overflow-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="sticky top-0 z-10 bg-gray-50 border-b">
                   <tr>
                     <th className="text-left p-4 text-sm font-medium text-gray-700">Usuario</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-700">Email</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-700">Rol</th>
-                    <th className="text-left p-4 text-sm font-medium text-gray-700">
-                      Especialidad
-                    </th>
-                    <th className="text-left p-4 text-sm font-medium text-gray-700">Ciudad</th>
+                    {showColCiudad && <th className="text-left p-4 text-sm font-medium text-gray-700">Ciudad</th>}
+                    {showColCiudades && <th className="text-left p-4 text-sm font-medium text-gray-700">Ciudades</th>}
+                    {showColEspecialidades && (
+                      <th className="text-left p-4 text-sm font-medium text-gray-700">Especialidad</th>
+                    )}
+                    {showColVigencia && (
+                      <th className="text-left p-4 text-sm font-medium text-gray-700">Vigencia</th>
+                    )}
                     <th className="text-left p-4 text-sm font-medium text-gray-700">Estado</th>
                     <th className="text-left p-4 text-sm font-medium text-gray-700">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsuarios.map((usuario) => (
-                    <tr key={usuario.id} className="border-b hover:bg-gray-50">
+                  {filteredUsuarios.map((usuario, idx) => (
+                    <tr key={usuario.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-blue-50/40`}>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
@@ -289,6 +451,7 @@ export function Usuarios() {
                           </div>
                           <div>
                             <p className="font-medium text-gray-900">{usuario.nombre}</p>
+                            <p className="text-xs text-gray-500">ID: {usuario.id}</p>
                           </div>
                         </div>
                       </td>
@@ -296,27 +459,82 @@ export function Usuarios() {
                       <td className="p-4">
                         <Badge className={rolBadgeColor(usuario.rol)}>{usuario.rol}</Badge>
                       </td>
-                      <td className="p-4 text-sm text-gray-900">
-                        {usuario.especialidad ? (
-                          <span className="capitalize">{usuario.especialidad.replace('_', ' ')}</span>
-                        ) : (
-                          <span className="text-gray-400">N/A</span>
-                        )}
-                      </td>
-                      <td className="p-4 text-sm text-gray-900 capitalize">
-                        {usuario.ciudad.replace('_', ' ')}
-                      </td>
+                      {showColCiudad && (
+                        <td className="p-4 text-sm text-gray-900">
+                          {labelCiudad(usuario.ciudad, ciudadesCatalogo) || <span className="text-gray-400">—</span>}
+                        </td>
+                      )}
+                      {showColCiudades && (
+                        <td className="p-4 text-sm text-gray-900">
+                          {Array.isArray((usuario as any).ciudades) && (usuario as any).ciudades.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {(usuario as any).ciudades.map((c: string) => (
+                                <Badge key={c} className="bg-gray-100 text-gray-800">
+                                  {labelCiudad(c, ciudadesCatalogo)}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : usuario.ciudad ? (
+                            <Badge className="bg-gray-100 text-gray-800">{labelCiudad(usuario.ciudad, ciudadesCatalogo)}</Badge>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      )}
+                      {showColEspecialidades && (
+                        <td className="p-4 text-sm text-gray-900">
+                          {Array.isArray(usuario.especialidades) && usuario.especialidades.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {usuario.especialidades.map((e) => (
+                                <Badge key={e} className="bg-gray-100 text-gray-800">
+                                  {labelEspecialidad(e, especialidadesCatalogo)}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : usuario.especialidad ? (
+                            <span className="capitalize">{labelEspecialidad(usuario.especialidad, especialidadesCatalogo)}</span>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </td>
+                      )}
+                      {showColVigencia && (
+                        <td className="p-4 text-sm text-gray-700">
+                          {usuario.activoDesde || usuario.activoHasta ? (
+                            <div className="flex items-center gap-2">
+                              <CalendarRange className="h-4 w-4 text-gray-400" />
+                              <span className="whitespace-nowrap">
+                                {formatYmd(usuario.activoDesde) || '—'} → {formatYmd(usuario.activoHasta) || '—'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="p-4">
-                        <button
-                          onClick={() => toggleEstado(usuario)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            usuario.activo
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {usuario.activo ? 'Activo' : 'Inactivo'}
-                        </button>
+                        <div className="flex flex-col gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleEstado(usuario)}
+                            className={`min-w-28 justify-center gap-2 ${
+                              esActivoEfectivo(usuario)
+                                ? 'border-green-300 text-green-700 hover:bg-green-50'
+                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            <Power className="h-4 w-4" />
+                            {esActivoEfectivo(usuario) ? 'Activo' : 'Inactivo'}
+                          </Button>
+                          {usuario.activo && !esActivoEfectivo(usuario) && (
+                            <span className="text-xs text-amber-700">Fuera de vigencia</span>
+                          )}
+                          {!usuario.activo && (usuario.activoDesde || usuario.activoHasta) && (
+                            <span className="text-xs text-gray-500">Inactivo manual</span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
@@ -347,7 +565,8 @@ export function Usuarios() {
               {filteredUsuarios.length === 0 && (
                 <div className="p-12 text-center">
                   <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600">No se encontraron usuarios</p>
+                  <p className="text-gray-900 font-medium">No se encontraron usuarios</p>
+                  <p className="text-gray-600 mt-1">Ajusta los filtros o cambia el texto de búsqueda.</p>
                 </div>
               )}
             </div>
@@ -425,12 +644,26 @@ export function Usuarios() {
                       value={formData.rol}
                       onChange={(e) => {
                         const nuevoRol = e.target.value as Rol;
+                        const firstEsp = (especialidadesCatalogo || []).find((x) => x.activa)?.codigo;
+                        const firstCiudad = (ciudadesCatalogo || []).find((x) => x.activa)?.codigo || ciudadDefault;
+                        const nextVigencia = nuevoRol === 'triage' ? vigenciaHabilitada : false;
                         setFormData({
                           ...formData,
                           rol: nuevoRol,
-                          especialidad:
-                            nuevoRol === 'medico' ? 'medicina_familiar' : undefined,
+                          especialidades: nuevoRol === 'medico' && firstEsp ? [firstEsp] : [],
+                          especialidad: nuevoRol === 'medico' && firstEsp ? (firstEsp as Especialidad) : undefined,
+                          ciudad: firstCiudad as any,
+                          ciudades:
+                            nuevoRol === 'medico' || nuevoRol === 'triage'
+                              ? ([firstCiudad] as any)
+                              : nuevoRol === 'recepcion'
+                                ? ([firstCiudad] as any)
+                                : ([] as any),
+                          activo: formData.activo ?? true,
+                          activoDesde: nuevoRol === 'triage' && nextVigencia ? formData.activoDesde : null,
+                          activoHasta: nuevoRol === 'triage' && nextVigencia ? formData.activoHasta : null,
                         });
+                        setVigenciaHabilitada(nuevoRol === 'triage' ? nextVigencia : false);
                       }}
                       required
                     >
@@ -442,40 +675,161 @@ export function Usuarios() {
                   </div>
 
                   <div>
-                    <Label htmlFor="ciudad">Ciudad *</Label>
-                    <select
-                      id="ciudad"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={formData.ciudad}
-                      onChange={(e) => setFormData({ ...formData, ciudad: e.target.value as Ciudad })}
-                      required
-                    >
-                      <option value="sonoyta">Sonoyta</option>
-                      <option value="puerto_penasco">Puerto Peñasco</option>
-                      <option value="otra">Otra</option>
-                    </select>
+                    <Label>Ciudad</Label>
+                    {formData.rol === 'recepcion' && (
+                      <select
+                        id="ciudad"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={formData.ciudad}
+                        onChange={(e) => setFormData({ ...formData, ciudad: e.target.value as Ciudad, ciudades: [e.target.value as any] })}
+                        required
+                      >
+                        {(ciudadesCatalogo || [])
+                          .filter((c) => c.activa)
+                          .map((c) => (
+                            <option key={c.codigo} value={c.codigo}>
+                              {c.nombre}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+
+                    {(formData.rol === 'medico' || formData.rol === 'triage') && (
+                      <div className="rounded-lg border border-gray-200 p-3">
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          {(ciudadesCatalogo || [])
+                            .filter((c) => c.activa)
+                            .map((c) => {
+                              const base = Array.isArray((formData as any).ciudades) ? ((formData as any).ciudades as any[]) : [];
+                              const selected = base.includes(c.codigo);
+                              return (
+                                <label key={c.codigo} className="flex items-center gap-2 text-sm text-gray-800">
+                                  <Checkbox
+                                    checked={selected}
+                                    onCheckedChange={(next) => {
+                                      const isOn = Boolean(next);
+                                      const updated = isOn ? Array.from(new Set([...base, c.codigo])) : base.filter((x) => x !== c.codigo);
+                                      setFormData({
+                                        ...formData,
+                                        ciudades: updated as any,
+                                        ciudad: (updated[0] as any) || '',
+                                      });
+                                    }}
+                                  />
+                                  <span>{c.nombre}</span>
+                                </label>
+                              );
+                            })}
+                        </div>
+                        {Array.isArray((formData as any).ciudades) && (formData as any).ciudades.length === 0 && (
+                          <div className="mt-2 text-sm text-red-700">Selecciona al menos una ciudad.</div>
+                        )}
+                      </div>
+                    )}
+
+                    {formData.rol === 'administrador' && <div className="mt-2 text-sm text-gray-600">No aplica</div>}
                   </div>
                 </div>
 
                 {formData.rol === 'medico' && (
                   <div>
                     <Label htmlFor="especialidad">Especialidad *</Label>
-                    <select
-                      id="especialidad"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={formData.especialidad}
-                      onChange={(e) =>
-                        setFormData({ ...formData, especialidad: e.target.value as Especialidad })
-                      }
-                      required
-                    >
-                      <option value="medicina_familiar">Medicina Familiar</option>
-                      <option value="pediatria">Pediatría</option>
-                      <option value="fisioterapia">Fisioterapia</option>
-                      <option value="vacunas">Vacunas</option>
-                      <option value="deteccion_cancer">Detección Oportuna de Cáncer</option>
-                      <option value="dentista">Dentista</option>
-                    </select>
+                    <div className="rounded-lg border border-gray-200 p-3">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {(especialidadesCatalogo || [])
+                          .filter((x) => x.activa)
+                          .map((esp) => {
+                            const selected = Array.isArray(formData.especialidades) ? formData.especialidades.includes(esp.codigo) : false;
+                            return (
+                              <label key={esp.codigo} className="flex items-center gap-2 text-sm text-gray-800">
+                                <Checkbox
+                                  checked={selected}
+                                  onCheckedChange={(next) => {
+                                    const isOn = Boolean(next);
+                                    const base = Array.isArray(formData.especialidades) ? formData.especialidades : [];
+                                    const updated = isOn
+                                      ? Array.from(new Set([...base, esp.codigo]))
+                                      : base.filter((x) => x !== esp.codigo);
+                                    setFormData({
+                                      ...formData,
+                                      especialidades: updated,
+                                      especialidad: (updated[0] as Especialidad | undefined) || undefined,
+                                    });
+                                  }}
+                                />
+                                <span>{esp.nombre}</span>
+                              </label>
+                            );
+                          })}
+                      </div>
+                      {Array.isArray(formData.especialidades) && formData.especialidades.length === 0 && (
+                        <div className="mt-2 text-sm text-red-700">Selecciona al menos una especialidad para el médico.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {formData.rol === 'triage' && (
+                  <div className="space-y-4 rounded-lg border border-gray-200 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-medium text-gray-900">Usuario activo</div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, activo: !(formData.activo ?? true) })}
+                        className={`min-w-28 justify-center gap-2 ${
+                          formData.activo ?? true
+                            ? 'border-green-300 text-green-700 hover:bg-green-50'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <Power className="h-4 w-4" />
+                        {formData.activo ?? true ? 'Activo' : 'Inactivo'}
+                      </Button>
+                    </div>
+
+                    <label className="flex items-center gap-2 text-sm text-gray-800">
+                      <Checkbox
+                        checked={vigenciaHabilitada}
+                        onCheckedChange={(next) => {
+                          const on = Boolean(next);
+                          setVigenciaHabilitada(on);
+                          if (!on) {
+                            setFormData({ ...formData, activoDesde: null, activoHasta: null });
+                          }
+                        }}
+                      />
+                      <span>Activación temporal (vigencia)</span>
+                    </label>
+
+                    {vigenciaHabilitada && (
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="activoDesde">Activo desde *</Label>
+                          <Input
+                            id="activoDesde"
+                            type="date"
+                            value={String(formData.activoDesde || '')}
+                            onChange={(e) => setFormData({ ...formData, activoDesde: e.target.value })}
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="activoHasta">Activo hasta *</Label>
+                          <Input
+                            id="activoHasta"
+                            type="date"
+                            value={String(formData.activoHasta || '')}
+                            onChange={(e) => setFormData({ ...formData, activoHasta: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500">
+                      Si llega la fecha “Activo hasta”, el usuario se desactiva automáticamente, pero puedes reactivarlo manualmente cuando quieras.
+                    </div>
                   </div>
                 )}
 

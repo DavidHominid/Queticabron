@@ -41,6 +41,7 @@ export function Medico() {
   const { user } = useAuth();
   const [showConsultaModal, setShowConsultaModal] = useState(false);
   const [selectedCita, setSelectedCita] = useState<any>(null);
+  const especialidadesUsuario = (user?.especialidades?.length ? user.especialidades : user?.especialidad ? [user.especialidad] : []).filter(Boolean);
 
   const [consultaForm, setConsultaForm] = useState({
     motivoConsulta: '',
@@ -61,13 +62,15 @@ export function Medico() {
   const citasEnConsulta = citas.filter(
     (c) =>
       (c.estado === 'en_consulta' || c.estado === 'en_triage') &&
-      (user?.rol === 'administrador' || user?.rol === 'medico' || c.especialidad === user?.especialidad)
+      (user?.rol === 'administrador' ||
+        (user?.rol === 'medico' ? (especialidadesUsuario.length ? especialidadesUsuario.includes(c.especialidad) : true) : especialidadesUsuario.includes(c.especialidad)))
   );
 
   const citasCompletadas = citas.filter(
     (c) =>
       c.estado === 'completada' &&
-      (user?.rol === 'administrador' || user?.rol === 'medico' || c.especialidad === user?.especialidad)
+      (user?.rol === 'administrador' ||
+        (user?.rol === 'medico' ? (especialidadesUsuario.length ? especialidadesUsuario.includes(c.especialidad) : true) : especialidadesUsuario.includes(c.especialidad)))
   );
 
   const iniciarConsulta = (cita: any) => {
@@ -201,7 +204,8 @@ export function Medico() {
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Consultorio Médico</h1>
           <p className="text-gray-600 mt-1">
-            Pacientes en espera y consultas completadas - {user?.especialidad?.replace('_', ' ')}
+            Pacientes en espera y consultas completadas
+            {especialidadesUsuario.length > 0 ? ` - ${especialidadesUsuario.map((e) => String(e).replaceAll('_', ' ')).join(', ')}` : ''}
           </p>
         </div>
 

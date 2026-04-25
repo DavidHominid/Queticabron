@@ -1,25 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { ArrowLeft, CalendarDays, Pencil } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Pencil, Trash2 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { AgendaCalendar } from '../components/eventos/AgendaCalendar';
 import { AgendarCitaDialog } from '../components/eventos/AgendarCitaDialog';
 import { DetalleCitasBloqueDialog } from '../components/eventos/DetalleCitasBloqueDialog';
 import { Button } from '../components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../components/ui/alert-dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, Usuario } from '../types';
-
-const especialidadLabel = (e: Especialidad) =>
-  ({
-    medicina_familiar: 'Medicina Familiar',
-    pediatria: 'Pediatría',
-    fisioterapia: 'Fisioterapia',
-    vacunas: 'Vacunas',
-    deteccion_cancer: 'Detección Oportuna de Cáncer',
-    dentista: 'Dentista',
-  })[e];
+import { labelEspecialidad } from '../utils/especialidades';
 
 const listDaysInclusive = (start: string, end: string) => {
   if (!start || !end) return [] as string[];
@@ -44,6 +46,13 @@ const formatDate = (value?: string | null) => {
     month: 'short',
     year: 'numeric',
   }).format(date);
+};
+
+const isEventoFinalizado = (fechaFin?: string | null) => {
+  if (!fechaFin) return false;
+  const end = new Date(`${fechaFin}T23:59:59`);
+  if (Number.isNaN(end.getTime())) return false;
+  return Date.now() > end.getTime();
 };
 
 const slotKeyForHorario = (h: HorarioDisponible) => {
@@ -87,8 +96,11 @@ const hasCita = (citas: Cita[], payload: { eventoId: string; especialidad: Espec
 export function EventoDetalle() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { eventos, citas, pacientes, usuarios, addCita, addRegistroAuditoria, isInitialized } = useData();
+  const { eventos, citas, pacientes, usuarios, especialidadesCatalogo, deleteEvento, addCita, addRegistroAuditoria, isInitialized } = useData();
   const { user } = useAuth();
+  const modoPruebas = String((import.meta as any).env?.VITE_EVENTOS_MODO_PRUEBAS || '')
+    .trim()
+    .toLowerCase() === 'true';
   const [especialidad, setEspecialidad] = useState<Especialidad | ''>('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
@@ -103,6 +115,7 @@ export function EventoDetalle() {
   const [detalleDisponibles, setDetalleDisponibles] = useState(0);
 
   const evento = useMemo(() => eventos.find((e) => e.id === id) || null, [eventos, id]);
+  const bloqueado = useMemo(() => isEventoFinalizado(evento?.fechaFin || null), [evento?.fechaFin]);
 
   useEffect(() => {
     if (!evento) return;
@@ -215,10 +228,105 @@ export function EventoDetalle() {
             <h1 className="text-2xl font-semibold text-gray-900">{evento?.nombre || 'Evento'}</h1>
             <p className="mt-1 text-gray-600">Consulta la información general del evento y su agenda por especialidad.</p>
           </div>
-          <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={() => (evento ? navigate(`/eventos/${evento.id}/editar`) : null)} disabled={!evento}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Editar evento
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => (evento ? navigate(`/eventos/${evento.id}/editar`) : null)}
+              disabled={!evento || bloqueado}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar evento
+            </Button>
+            {evento && user?.rol === 'administrador' && !bloqueado && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Eliminar evento</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Se eliminará el evento "{evento.nombre}" y también especialidades, horarios, practicantes, citas, triage y notas médicas relacionadas.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-red-600 hover:bg-red-700"
+                      onClick={async () => {
+                        try {
+                          await deleteEvento(evento.id);
+                          addRegistroAuditoria({
+                            id: `aud${Date.now()}`,
+                            usuarioId: user?.id || '',
+                            nombreUsuario: user?.nombre || '',
+                            rol: user?.rol || 'administrador',
+                            accion: 'Eliminar Evento',
+                            detalles: `Eliminó evento: ${evento.nombre} (${evento.id})`,
+                            fechaHora: new Date().toISOString(),
+                            ciudad: (user?.ciudad || 'sonoyta') as any,
+                          });
+                          navigate('/eventos');
+                        } catch (err: any) {
+                          alert(err?.message || 'No se pudo eliminar el evento.');
+                        }
+                      }}
+                    >
+                      Eliminar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            {evento && user?.rol === 'administrador' && bloqueado && modoPruebas && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar (pruebas)
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Eliminar evento (modo pruebas)</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      El evento ya finalizó y normalmente es de solo lectura. En modo pruebas se permite eliminarlo de forma forzada.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-red-600 hover:bg-red-700"
+                      onClick={async () => {
+                        try {
+                          await deleteEvento(evento.id, { force: true });
+                          addRegistroAuditoria({
+                            id: `aud${Date.now()}`,
+                            usuarioId: user?.id || '',
+                            nombreUsuario: user?.nombre || '',
+                            rol: user?.rol || 'administrador',
+                            accion: 'Eliminar Evento (Pruebas)',
+                            detalles: `Eliminó evento (pruebas): ${evento.nombre} (${evento.id})`,
+                            fechaHora: new Date().toISOString(),
+                            ciudad: (user?.ciudad || 'sonoyta') as any,
+                          });
+                          navigate('/eventos');
+                        } catch (err: any) {
+                          alert(err?.message || 'No se pudo eliminar el evento.');
+                        }
+                      }}
+                    >
+                      Eliminar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
 
         {!evento ? (
@@ -279,7 +387,7 @@ export function EventoDetalle() {
                         <option value="">Selecciona…</option>
                         {evento.especialidades.map((esp) => (
                           <option key={esp.especialidad} value={esp.especialidad}>
-                            {especialidadLabel(esp.especialidad)}
+                            {labelEspecialidad(esp.especialidad, especialidadesCatalogo)}
                           </option>
                         ))}
                       </select>

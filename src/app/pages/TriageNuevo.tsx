@@ -59,7 +59,13 @@ export function TriageNuevo() {
   const [observaciones, setObservaciones] = useState('');
 
   // Obtener el evento activo del usuario (simplificado: toma el primer evento activo)
-  const eventoActivo = eventos.find((e) => e.estado === 'activo' && e.ciudad === user?.ciudad);
+  const ciudadesUsuario =
+    Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length
+      ? ((user as any).ciudades as string[])
+      : user?.ciudad
+        ? [user.ciudad]
+        : [];
+  const eventoActivo = eventos.find((e) => e.estado === 'activo' && ciudadesUsuario.includes(e.ciudad));
 
   const hoy = format(new Date(), 'yyyy-MM-dd');
 

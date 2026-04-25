@@ -14,6 +14,7 @@ import { Auditoria } from './pages/Auditoria';
 import { Cirugias } from './pages/Cirugias';
 import { Medico } from './pages/Medico';
 import { Usuarios } from './pages/Usuarios';
+import { Variables } from './pages/Variables';
 import { RootLayout } from './components/RootLayout';
 
 export const router = createBrowserRouter([
@@ -84,6 +85,10 @@ export const router = createBrowserRouter([
       {
         path: 'usuarios',
         Component: Usuarios,
+      },
+      {
+        path: 'variables',
+        Component: Variables,
       },
       {
         path: 'configuracion',

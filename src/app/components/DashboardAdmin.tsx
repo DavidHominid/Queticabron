@@ -9,6 +9,7 @@ import {
   ArrowRight,
   UserCog,
   ClipboardList,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { StatCard } from './dashboard/StatCard';
@@ -140,6 +141,10 @@ export function DashboardAdmin() {
               <Button className="w-full bg-blue-600 hover:bg-blue-700 justify-start" onClick={() => navigate('/usuarios')}>
                 <UserCog className="w-4 h-4 mr-2" />
                 Crear Usuario
+              </Button>
+              <Button className="w-full bg-indigo-600 hover:bg-indigo-700 justify-start" onClick={() => navigate('/variables')}>
+                <SlidersHorizontal className="w-4 h-4 mr-2" />
+                Variables
               </Button>
               <Button className="w-full bg-purple-600 hover:bg-purple-700 justify-start" onClick={() => navigate('/auditoria')}>
                 <FileText className="w-4 h-4 mr-2" />

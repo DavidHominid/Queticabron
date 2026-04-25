@@ -4,19 +4,12 @@ import { DashboardLayout } from '../components/DashboardLayout';
 import { EspecialidadCardEditor } from '../components/eventos/EspecialidadCardEditor';
 import { EventoInfoForm } from '../components/eventos/EventoInfoForm';
 import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Ciudad, Especialidad, EspecialidadEvento, Evento } from '../types';
-
-const especialidadesOptions: Array<{ value: Especialidad; label: string }> = [
-  { value: 'medicina_familiar', label: 'Medicina Familiar' },
-  { value: 'pediatria', label: 'Pediatria' },
-  { value: 'fisioterapia', label: 'Fisioterapia' },
-  { value: 'vacunas', label: 'Vacunas' },
-  { value: 'deteccion_cancer', label: 'Deteccion Oportuna de Cancer' },
-  { value: 'dentista', label: 'Dentista' },
-];
+import { labelEspecialidad } from '../utils/especialidades';
 
 const listDaysInclusive = (start: string, end: string) => {
   if (!start || !end) return [] as string[];
@@ -112,15 +105,30 @@ const createEspecialidad = (especialidad: Especialidad): EspecialidadEvento => (
   costo: 0,
 });
 
+const isEventoFinalizado = (fechaFin?: string | null) => {
+  if (!fechaFin) return false;
+  const end = new Date(`${fechaFin}T23:59:59`);
+  if (Number.isNaN(end.getTime())) return false;
+  return Date.now() > end.getTime();
+};
+
 export function EventoEditor() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { eventos, usuarios, citas, addEvento, updateEvento, addRegistroAuditoria } = useData();
+  const { eventos, usuarios, citas, especialidadesCatalogo, ciudadesCatalogo, addEvento, updateEvento, addRegistroAuditoria } = useData();
 
-  const [form, setForm] = useState<Evento>(() => emptyEvento(user?.ciudad || 'sonoyta'));
+  const eventoOriginal = useMemo(() => (isEdit && id ? eventos.find((e) => e.id === id) || null : null), [eventos, id, isEdit]);
+  const bloqueado = useMemo(() => isEventoFinalizado(eventoOriginal?.fechaFin || null), [eventoOriginal?.fechaFin]);
+
+  const ciudadDefault =
+    (user?.rol === 'recepcion' ? (user?.ciudad || '') : '') ||
+    (Array.isArray((user as any)?.ciudades) ? (user as any).ciudades[0] : '') ||
+    (ciudadesCatalogo || []).find((c) => c.activa)?.codigo ||
+    'sonoyta';
+  const [form, setForm] = useState<Evento>(() => emptyEvento(ciudadDefault as Ciudad));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [activeEspecialidad, setActiveEspecialidad] = useState<string>('');
@@ -154,6 +162,13 @@ export function EventoEditor() {
   }, [eventos, id, isEdit]);
 
   const days = useMemo(() => listDaysInclusive(form.fechaInicio, form.fechaFin), [form.fechaInicio, form.fechaFin]);
+  const especialidadesOptions = useMemo(
+    () =>
+      (especialidadesCatalogo || [])
+        .filter((e) => e.activa)
+        .map((e) => ({ value: e.codigo as Especialidad, label: e.nombre })),
+    [especialidadesCatalogo],
+  );
 
   const qp = useMemo(() => {
     const sp = new URLSearchParams(location.search);
@@ -170,7 +185,6 @@ export function EventoEditor() {
     if (days.length && !days.includes(qp.fecha)) return;
 
     const esp = qp.especialidad as Especialidad;
-    if (!especialidadesOptions.some((o) => o.value === esp)) return;
 
     const [horaInicio, horaFin, intervaloRaw] = qp.slot.split('|');
     const intervalo = Number(intervaloRaw);
@@ -264,9 +278,9 @@ export function EventoEditor() {
     if (!form.especialidades.length) return 'Debes agregar al menos una especialidad.';
 
     for (const esp of form.especialidades) {
-      if (!esp.medicoEncargado.trim()) return `Falta medico encargado en ${esp.especialidad.replace('_', ' ')}.`;
-      if (!esp.consultorio.trim()) return `Falta consultorio en ${esp.especialidad.replace('_', ' ')}.`;
-      if (!(esp.horarios || []).length) return `Debes asignar al menos un horario en ${esp.especialidad.replace('_', ' ')}.`;
+      if (!esp.medicoEncargado.trim()) return `Falta medico encargado en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+      if (!esp.consultorio.trim()) return `Falta consultorio en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+      if (!(esp.horarios || []).length) return `Debes asignar al menos un horario en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
     }
 
     return '';
@@ -344,6 +358,27 @@ export function EventoEditor() {
 
   const activeValue = activeEspecialidad || form.especialidades[0]?.especialidad || '';
 
+  if (isEdit && bloqueado) {
+    return (
+      <DashboardLayout>
+        <Card className="shadow-sm">
+          <CardContent className="p-12 text-center">
+            <h2 className="text-lg font-semibold text-gray-900">Evento finalizado</h2>
+            <p className="mt-2 text-gray-600">Este evento ya finalizó y es de solo lectura. No se puede editar ni modificar.</p>
+            <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
+              <Button type="button" onClick={() => navigate(`/eventos/${id}`)}>
+                Ver evento
+              </Button>
+              <Button type="button" variant="outline" onClick={() => navigate('/eventos')}>
+                Volver a eventos
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -378,7 +413,13 @@ export function EventoEditor() {
 
         {currentStep === 1 ? (
           <div className="w-full space-y-6">
-            <EventoInfoForm value={form} onChange={setForm} />
+            <EventoInfoForm
+              value={form}
+              onChange={setForm}
+              ciudadesCatalogo={ciudadesCatalogo || []}
+              rolUsuario={user?.rol}
+              ciudadBloqueada={user?.rol === 'recepcion' ? (user?.ciudad as any) : undefined}
+            />
 
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => navigate('/eventos')}>
@@ -431,7 +472,7 @@ export function EventoEditor() {
                           value={esp.especialidad}
                           className="h-10 flex-none rounded-lg border border-gray-200 px-4 data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50"
                         >
-                          {especialidadesOptions.find((option) => option.value === esp.especialidad)?.label || esp.especialidad}
+                          {labelEspecialidad(esp.especialidad, especialidadesCatalogo)}
                         </TabsTrigger>
                       ))}
                     </TabsList>
@@ -442,6 +483,7 @@ export function EventoEditor() {
                           days={days}
                           value={esp}
                           usuarios={usuarios}
+                          especialidadesCatalogo={especialidadesCatalogo}
                           eventoId={isEdit && id ? id : form.id}
                           citas={citas}
                           onChange={(next) => updateEspecialidad(idx, next)}

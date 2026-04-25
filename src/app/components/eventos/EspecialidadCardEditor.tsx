@@ -1,7 +1,8 @@
 import { Trash2 } from 'lucide-react';
-import { Cita, EspecialidadEvento, Usuario } from '../../types';
+import { Cita, EspecialidadCatalogo, EspecialidadEvento, Usuario } from '../../types';
 import { Checkbox } from '../ui/checkbox';
 import { ScheduleCalendarEditor } from './ScheduleCalendarEditor';
+import { labelEspecialidad } from '../../utils/especialidades';
 
 const normalizePracticantes = (value: EspecialidadEvento): string[] => {
   const anyValue = value as unknown as { practicante?: string; practicantes?: unknown };
@@ -39,6 +40,7 @@ export function EspecialidadCardEditor({
   onChange,
   onRemove,
   usuarios,
+  especialidadesCatalogo,
   eventoId,
   citas,
 }: {
@@ -47,12 +49,28 @@ export function EspecialidadCardEditor({
   onChange: (next: EspecialidadEvento) => void;
   onRemove: () => void;
   usuarios: Usuario[];
+  especialidadesCatalogo?: EspecialidadCatalogo[];
   eventoId?: string;
   citas?: Cita[];
 }) {
   const practicantesList = normalizePracticantes(value);
   const medicos = usuarios.filter((u) => u.rol === 'medico');
-  const triageUsers = usuarios.filter((u) => u.rol === 'triage');
+  const hoy = new Date().toISOString().slice(0, 10);
+  const esActivoEfectivo = (u: Usuario) => {
+    if ((u as any).activo === false) return false;
+    const desde = (u as any).activoDesde ? String((u as any).activoDesde) : '';
+    const hasta = (u as any).activoHasta ? String((u as any).activoHasta) : '';
+    if (desde && desde > hoy) return false;
+    if (hasta && hasta < hoy) return false;
+    return true;
+  };
+  const medicoMatchesEspecialidad = (u: Usuario) => {
+    const list = Array.isArray(u.especialidades) ? u.especialidades : u.especialidad ? [u.especialidad] : [];
+    return list.includes(value.especialidad);
+  };
+  const medicosRecomendados = medicos.filter(medicoMatchesEspecialidad);
+  const medicosOtros = medicos.filter((u) => !medicoMatchesEspecialidad(u));
+  const triageUsers = usuarios.filter((u) => u.rol === 'triage').filter(esActivoEfectivo);
   const medicoActual = findUsuario(usuarios, value.medicoEncargado);
   const practicantesActual = practicantesList
     .map((idOrName) => findUsuario(usuarios, idOrName))
@@ -67,7 +85,7 @@ export function EspecialidadCardEditor({
       <div className="border-b px-6 py-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <h3 className="text-base font-semibold capitalize text-gray-900">{value.especialidad.replace('_', ' ')}</h3>
+            <h3 className="text-base font-semibold text-gray-900">{labelEspecialidad(value.especialidad, especialidadesCatalogo)}</h3>
             <div className="text-sm text-gray-600">Cupos registrados: {cuposRegistrados}</div>
           </div>
           <button
@@ -92,12 +110,30 @@ export function EspecialidadCardEditor({
             >
               <option value="">Selecciona un médico</option>
               {value.medicoEncargado && !medicoActual && <option value={value.medicoEncargado}>Actual: {value.medicoEncargado}</option>}
-              {medicos.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {labelUsuario(u)}
-                </option>
-              ))}
+              {medicosRecomendados.length > 0 && (
+                <optgroup label="Recomendados">
+                  {medicosRecomendados.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {labelUsuario(u)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {medicosOtros.length > 0 && (
+                <optgroup label="Otros">
+                  {medicosOtros.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {labelUsuario(u)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
+            {medicosRecomendados.length === 0 && (
+              <div className="text-xs text-amber-700">
+                No hay médicos con esta especialidad asignada. Puedes seleccionar cualquier médico o asignar especialidades en “Usuarios”.
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">

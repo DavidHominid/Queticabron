@@ -11,10 +11,11 @@ export function Expedientes() {
   const { pacientes, citas, consultasMedicas } = useData();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const especialidadesUsuario = (user?.especialidades?.length ? user.especialidades : user?.especialidad ? [user.especialidad] : []).filter(Boolean);
 
   // Filtrar pacientes que han tenido citas con este médico
   const pacientesDelMedico = pacientes.filter((paciente) =>
-    citas.some((cita) => cita.pacienteId === paciente.id && cita.especialidad === user?.especialidad)
+    citas.some((cita) => cita.pacienteId === paciente.id && especialidadesUsuario.includes(cita.especialidad))
   );
 
   const pacientesFiltrados = pacientesDelMedico.filter(
@@ -48,7 +49,7 @@ export function Expedientes() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {pacientesFiltrados.map((paciente) => {
             const citasCount = citas.filter(
-              (c) => c.pacienteId === paciente.id && c.especialidad === user?.especialidad
+              (c) => c.pacienteId === paciente.id && especialidadesUsuario.includes(c.especialidad)
             ).length;
 
             return (

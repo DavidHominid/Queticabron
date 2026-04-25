@@ -1,21 +1,25 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { CalendarDays, MapPin, Pencil, Plus } from 'lucide-react';
+import { CalendarDays, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Button } from '../components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../components/ui/alert-dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Especialidad, Evento } from '../types';
-
-const especialidadLabel = (e: Especialidad) =>
-  ({
-    medicina_familiar: 'Medicina Familiar',
-    pediatria: 'Pediatría',
-    fisioterapia: 'Fisioterapia',
-    vacunas: 'Vacunas',
-    deteccion_cancer: 'Detección Oportuna de Cáncer',
-    dentista: 'Dentista',
-  })[e];
+import { labelCiudad } from '../utils/ciudades';
+import { labelEspecialidad } from '../utils/especialidades';
 
 const formatDate = (value?: string | null) => {
   if (!value) return 'Sin fecha';
@@ -28,18 +32,40 @@ const formatDate = (value?: string | null) => {
   }).format(date);
 };
 
+const isEventoFinalizado = (fechaFin?: string | null) => {
+  if (!fechaFin) return false;
+  const end = new Date(`${fechaFin}T23:59:59`);
+  if (Number.isNaN(end.getTime())) return false;
+  return Date.now() > end.getTime();
+};
+
 export function Eventos() {
   const navigate = useNavigate();
-  const { eventos, isInitialized } = useData();
+  const { eventos, especialidadesCatalogo, ciudadesCatalogo, deleteEvento, addRegistroAuditoria, isInitialized } = useData();
+  const { user } = useAuth();
+  const modoPruebas = String((import.meta as any).env?.VITE_EVENTOS_MODO_PRUEBAS || '')
+    .trim()
+    .toLowerCase() === 'true';
 
   const sortedEventos = useMemo(
     () =>
-      [...eventos].sort((a, b) => {
+      [...eventos]
+        .filter((e) => {
+          if (user?.rol === 'administrador') return true;
+          const ciudadesUsuario =
+            Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length
+              ? ((user as any).ciudades as string[])
+              : user?.ciudad
+                ? [user.ciudad]
+                : [];
+          return ciudadesUsuario.includes(e.ciudad);
+        })
+        .sort((a, b) => {
         const dateA = a.fechaInicio || '';
         const dateB = b.fechaInicio || '';
         return dateB.localeCompare(dateA);
-      }),
-    [eventos],
+        }),
+    [eventos, user?.rol, user?.ciudad, (user as any)?.ciudades],
   );
 
   return (
@@ -67,7 +93,7 @@ export function Eventos() {
           </Card>
         )}
 
-        {isInitialized && eventos.length === 0 && (
+        {isInitialized && sortedEventos.length === 0 && (
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
               <CalendarDays className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -81,49 +107,65 @@ export function Eventos() {
           </Card>
         )}
 
-        {isInitialized && eventos.length > 0 && (
+        {isInitialized && sortedEventos.length > 0 && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {sortedEventos.map((evento: Evento) => {
-              const especialidades = (evento.especialidades || []).map((esp) => especialidadLabel(esp.especialidad as Especialidad));
+              const especialidades = (evento.especialidades || []).map((esp) =>
+                labelEspecialidad(esp.especialidad as Especialidad, especialidadesCatalogo),
+              );
               const totalHorarios = (evento.especialidades || []).reduce((acc, esp) => acc + (esp.horarios?.length || 0), 0);
+              const bloqueado = isEventoFinalizado(evento.fechaFin);
 
               return (
-                <button
+                <Card
                   key={evento.id}
-                  type="button"
                   onClick={() => navigate(`/eventos/${evento.id}`)}
-                  className="text-left"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      navigate(`/eventos/${evento.id}`);
+                    }
+                  }}
+                  className="h-full cursor-pointer overflow-hidden border-gray-200 text-left shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-md"
                 >
-                  <Card className="h-full overflow-hidden border-gray-200 shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-md">
-                    <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-white">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <CardTitle className="text-lg">{evento.nombre}</CardTitle>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <MapPin className="h-4 w-4" />
-                            <span>{evento.ciudad}</span>
-                          </div>
+                  <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <CardTitle className="text-lg">{evento.nombre}</CardTitle>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <MapPin className="h-4 w-4" />
+                          <span>{labelCiudad(evento.ciudad, ciudadesCatalogo)}</span>
                         </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
                         <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
                           {evento.estado}
                         </span>
+                        {bloqueado && (
+                          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                            Solo lectura
+                          </span>
+                        )}
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4 p-6">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <div className="text-gray-500">Inscripciones</div>
-                          <div className="font-medium text-gray-900">
-                            {formatDate(evento.fechaInicioInscripcion)} - {formatDate(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-gray-500">Evento</div>
-                          <div className="font-medium text-gray-900">
-                            {formatDate(evento.fechaInicio)} - {formatDate(evento.fechaFin)}
-                          </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-6">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="text-gray-500">Inscripciones</div>
+                        <div className="font-medium text-gray-900">
+                          {formatDate(evento.fechaInicioInscripcion)} - {formatDate(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion)}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-gray-500">Evento</div>
+                        <div className="font-medium text-gray-900">
+                          {formatDate(evento.fechaInicio)} - {formatDate(evento.fechaFin)}
+                        </div>
+                      </div>
+                    </div>
 
                       <div className="flex flex-wrap gap-2">
                         {especialidades.length > 0 ? (
@@ -153,21 +195,120 @@ export function Eventos() {
                         >
                           Ver evento
                         </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/eventos/${evento.id}/editar`);
-                          }}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Editar
-                        </Button>
+                        {!bloqueado && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/eventos/${evento.id}/editar`);
+                            }}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </Button>
+                        )}
+                        {user?.rol === 'administrador' && !bloqueado && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="border-red-300 text-red-700 hover:bg-red-50"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Eliminar evento</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Se eliminará el evento "{evento.nombre}" y también especialidades, horarios, practicantes, citas, triage y notas médicas relacionadas.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 hover:bg-red-700"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await deleteEvento(evento.id);
+                                      addRegistroAuditoria({
+                                        id: `aud${Date.now()}`,
+                                        usuarioId: user?.id || '',
+                                        nombreUsuario: user?.nombre || '',
+                                        rol: user?.rol || 'administrador',
+                                        accion: 'Eliminar Evento',
+                                        detalles: `Eliminó evento: ${evento.nombre} (${evento.id})`,
+                                        fechaHora: new Date().toISOString(),
+                                        ciudad: (user?.ciudad || 'sonoyta') as any,
+                                      });
+                                    } catch (err: any) {
+                                      alert(err?.message || 'No se pudo eliminar el evento.');
+                                    }
+                                  }}
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                        {user?.rol === 'administrador' && bloqueado && modoPruebas && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="border-red-300 text-red-700 hover:bg-red-50"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar (pruebas)
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Eliminar evento (modo pruebas)</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  El evento ya finalizó y normalmente es de solo lectura. En modo pruebas se permite eliminarlo de forma forzada.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 hover:bg-red-700"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      await deleteEvento(evento.id, { force: true });
+                                      addRegistroAuditoria({
+                                        id: `aud${Date.now()}`,
+                                        usuarioId: user?.id || '',
+                                        nombreUsuario: user?.nombre || '',
+                                        rol: user?.rol || 'administrador',
+                                        accion: 'Eliminar Evento (Pruebas)',
+                                        detalles: `Eliminó evento (pruebas): ${evento.nombre} (${evento.id})`,
+                                        fechaHora: new Date().toISOString(),
+                                        ciudad: (user?.ciudad || 'sonoyta') as any,
+                                      });
+                                    } catch (err: any) {
+                                      alert(err?.message || 'No se pudo eliminar el evento.');
+                                    }
+                                  }}
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
-                    </CardContent>
-                  </Card>
-                </button>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>

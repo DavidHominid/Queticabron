@@ -1,14 +1,32 @@
 // Tipos de usuario
 export type UserRole = 'recepcion' | 'triage' | 'medico' | 'administrador';
-export type Especialidad = 'medicina_familiar' | 'pediatria' | 'fisioterapia' | 'vacunas' | 'deteccion_cancer' | 'dentista';
-export type Ciudad = 'sonoyta' | 'puerto_penasco' | 'otra';
+export type Rol = UserRole;
+export type Especialidad = string;
+export type Ciudad = string;
+
+export interface EspecialidadCatalogo {
+  codigo: string;
+  nombre: string;
+  activa: boolean;
+}
+
+export interface CiudadCatalogo {
+  codigo: string;
+  nombre: string;
+  activa: boolean;
+}
 
 export interface User {
   id: string;
   nombre: string;
   rol: UserRole;
   especialidad?: Especialidad;
+  especialidades?: Especialidad[];
   ciudad: Ciudad;
+  ciudades?: Ciudad[];
+  activo?: boolean;
+  activoDesde?: string | null;
+  activoHasta?: string | null;
 }
 
 // Evento/Consultorio
@@ -47,6 +65,7 @@ export interface Paciente {
   id: string;
   numeroExpediente: string;
   nombre: string;
+  apellido?: string;
   edad: number;
   fechaNacimiento: string;
   sexo: 'Masculino' | 'Femenino';
@@ -217,6 +236,7 @@ export interface ExpedienteDental {
 export interface Seguimiento {
   id: string;
   pacienteId: string;
+  citaId?: string | null;
   cirugiaId?: string; // Relation to surgery
   consultaPrevia?: string;
   citaNueva?: string;
@@ -302,8 +322,12 @@ export interface Usuario {
   password: string;
   rol: UserRole;
   especialidad?: Especialidad;
+  especialidades?: Especialidad[];
   ciudad: Ciudad;
+  ciudades?: Ciudad[];
   activo: boolean;
+  activoDesde?: string | null;
+  activoHasta?: string | null;
 }
 
 // Estudio Socioeconómico
