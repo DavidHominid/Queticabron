@@ -52,6 +52,7 @@ export const toFEEstado = (dbEstado) => {
     'cancelada':  'cancelada',
     'atendida':   'completada',
     'noshow':     'no_asistio',
+    'cedida':     'cedida',
     'en_triage':  'en_triage',
     'en_consulta':'en_consulta',
   };
@@ -66,7 +67,8 @@ export const toDBEstado = (feEstado) => {
     'completada':  'completada',
     'cancelada':   'cancelada',
     'cancelado':   'cancelada',
-    'no_asistio':  'cancelada',
+    'no_asistio':  'noshow',
+    'cedida':      'cedida',
   };
   return map[feEstado] ?? 'pendiente';
 };

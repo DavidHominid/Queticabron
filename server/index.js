@@ -17,12 +17,15 @@ import eventosRoutes from './routes/eventos.js';
 import auditoriaRoutes from './routes/auditoria.js';
 import informacionMedicaRoutes from './routes/informacion-medica.js';
 import uploadRoutes from './routes/upload.js';
+import especialidadesRoutes from './routes/especialidades.js';
+import ciudadesRoutes from './routes/ciudades.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const basePort = Number(process.env.PORT) || 3001;
+const host = process.env.HOST || '127.0.0.1';
 
 // Middlewares globales
 app.use(cors());
@@ -55,6 +58,8 @@ app.use('/api/cirugias', cirugiasRoutes);
 app.use('/api/seguimientos', seguimientosRoutes);
 app.use('/api/estudios', estudiosRoutes);
 app.use('/api/eventos', eventosRoutes);
+app.use('/api/especialidades', especialidadesRoutes);
+app.use('/api/ciudades', ciudadesRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
 app.use('/api/informacion-medica', informacionMedicaRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -84,8 +89,8 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-const server = app.listen(basePort, () => {
-  console.log(`🚀 Servidor backend corriendo en http://localhost:${basePort}`);
+const server = app.listen(basePort, host, () => {
+  console.log(`🚀 Servidor backend corriendo en http://${host}:${basePort}`);
 });
 
 server.on('error', (err) => {

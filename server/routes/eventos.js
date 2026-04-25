@@ -4,6 +4,12 @@ import { formatDate } from '../helpers/utils.js';
 
 const router = express.Router();
 
+const EVENTOS_MODO_PRUEBAS = String(process.env.EVENTOS_MODO_PRUEBAS || '').trim().toLowerCase() === 'true';
+const wantsForce = (value) => {
+  const v = String(value || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'si' || v === 'sí';
+};
+
 const SELECT_EVENTOS = `
   SELECT
     e.id,
@@ -310,7 +316,7 @@ router.post('/', async (req, res) => {
         eventId,
         e.nombre,
         metadata,
-        e.ciudad || 'Sonoyta',
+        String(e.ciudad || 'sonoyta').toLowerCase(),
         e.fechaInicioInscripcion || null,
         e.fechaFinInscripcion || e.fechaLimiteInscripcion || null,
         e.fechaInicio,
@@ -341,6 +347,23 @@ router.put('/:id', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    const lockRes = await client.query(
+      `SELECT fecha_fin, (fecha_fin IS NOT NULL AND CURRENT_DATE > fecha_fin) AS locked
+       FROM "${SCHEMA}".eventos
+       WHERE id = $1`,
+      [id],
+    );
+    if (!lockRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+    const locked = Boolean(lockRes.rows[0].locked);
+    const force = EVENTOS_MODO_PRUEBAS && wantsForce(req.query?.force);
+    if (locked && !force) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Este evento ya finalizó. No se puede modificar.' });
+    }
 
     const citasResult = await client.query(
       `SELECT id_cita, fecha_cita, hora, especialidad, estado
@@ -411,7 +434,7 @@ router.put('/:id', async (req, res) => {
       [
         e.nombre,
         metadata,
-        e.ciudad,
+        String(e.ciudad || 'sonoyta').toLowerCase(),
         e.fechaInicioInscripcion || null,
         e.fechaFinInscripcion || e.fechaLimiteInscripcion || null,
         e.fechaInicio,
@@ -437,6 +460,114 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Error en PUT /api/eventos:', err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const lockRes = await client.query(
+      `SELECT fecha_fin, (fecha_fin IS NOT NULL AND CURRENT_DATE > fecha_fin) AS locked
+       FROM "${SCHEMA}".eventos
+       WHERE id = $1`,
+      [id],
+    );
+    if (!lockRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+    const locked = Boolean(lockRes.rows[0].locked);
+    const force = EVENTOS_MODO_PRUEBAS && wantsForce(req.query?.force);
+    if (locked && !force) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Este evento ya finalizó. No se puede eliminar.' });
+    }
+
+    const citasRes = await client.query(`SELECT id_cita FROM "${SCHEMA}".citas WHERE evento_id = $1`, [id]);
+    const citaIds = (citasRes.rows || [])
+      .map((r) => Number(r.id_cita))
+      .filter((n) => Number.isFinite(n));
+
+    let deletedTriage = 0;
+    let deletedNotas = 0;
+    let deletedCitas = 0;
+
+    if (citaIds.length > 0) {
+      const triageDel = await client.query(`DELETE FROM "${SCHEMA}".triaje WHERE id_cita = ANY($1::int[])`, [citaIds]);
+      deletedTriage = triageDel.rowCount || 0;
+
+      const notaColRes = await client.query(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_schema = $1
+           AND table_name = 'nota_medica'
+           AND column_name IN ('id_cita', 'cita_id')
+         LIMIT 1`,
+        [SCHEMA],
+      );
+
+      if (notaColRes.rows.length) {
+        const col = String(notaColRes.rows[0].column_name);
+        const citaIdsText = citaIds.map(String);
+        const notasDel = await client.query(
+          `DELETE FROM "${SCHEMA}".nota_medica WHERE "${col}"::text = ANY($1::text[])`,
+          [citaIdsText],
+        );
+        deletedNotas = notasDel.rowCount || 0;
+      }
+
+      const citasDel = await client.query(`DELETE FROM "${SCHEMA}".citas WHERE id_cita = ANY($1::int[])`, [citaIds]);
+      deletedCitas = citasDel.rowCount || 0;
+    }
+
+    const espRes = await client.query(`SELECT id FROM "${SCHEMA}".evento_especialidad WHERE evento_id = $1`, [id]);
+    const espIds = (espRes.rows || []).map((r) => String(r.id)).filter(Boolean);
+
+    let deletedHorarios = 0;
+    let deletedPracticantes = 0;
+
+    if (espIds.length > 0) {
+      const horariosDel = await client.query(
+        `DELETE FROM "${SCHEMA}".evento_horario WHERE evento_especialidad_id = ANY($1::bigint[])`,
+        [espIds],
+      );
+      deletedHorarios = horariosDel.rowCount || 0;
+
+      const practDel = await client.query(
+        `DELETE FROM "${SCHEMA}".evento_especialidad_practicante WHERE evento_especialidad_id = ANY($1::bigint[])`,
+        [espIds],
+      );
+      deletedPracticantes = practDel.rowCount || 0;
+    }
+
+    const espDel = await client.query(`DELETE FROM "${SCHEMA}".evento_especialidad WHERE evento_id = $1`, [id]);
+    const deletedEspecialidades = espDel.rowCount || 0;
+
+    const evDel = await client.query(`DELETE FROM "${SCHEMA}".eventos WHERE id = $1`, [id]);
+    const deletedEventos = evDel.rowCount || 0;
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      deleted: {
+        eventos: deletedEventos,
+        especialidades: deletedEspecialidades,
+        horarios: deletedHorarios,
+        practicantes: deletedPracticantes,
+        citas: deletedCitas,
+        notas_medicas: deletedNotas,
+        triaje: deletedTriage,
+      },
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en DELETE /api/eventos/:id:', err.message);
     res.status(500).json({ error: err.message });
   } finally {
     client.release();

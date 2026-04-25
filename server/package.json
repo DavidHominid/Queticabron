@@ -5,7 +5,12 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "migrar:especialidades": "node scripts/migrar_especialidades.js",
+    "seed:medicos": "node scripts/generar_medicos.js",
+    "migrar:usuarios-vigencia": "node scripts/migrar_usuarios_vigencia_activo.js",
+    "migrar:ciudades": "node scripts/migrar_ciudades.js",
+    "migrar:eliminar-ciudad-otra": "node scripts/eliminar_ciudad_otra.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

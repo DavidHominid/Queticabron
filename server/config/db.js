@@ -1,21 +1,33 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
-// Aseguramos que cargamos el .env desde la raíz (si estamos en /server)
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+const envActual = path.resolve(process.cwd(), '.env');
+const envPadre = path.resolve(process.cwd(), '..', '.env');
+const envPath = fs.existsSync(envActual) ? envActual : fs.existsSync(envPadre) ? envPadre : undefined;
+dotenv.config(envPath ? { path: envPath } : undefined);
 
 const { Pool } = pg;
 
-export const SCHEMA = process.env.DB_SCHEMA || 'public';
+const DB_TARGET = String(process.env.DB_TARGET || '').trim().toUpperCase();
+const pick = (key) => {
+  if (DB_TARGET) {
+    const v = process.env[`${key}_${DB_TARGET}`];
+    if (v !== undefined && String(v).trim() !== '') return v;
+  }
+  return process.env[key];
+};
+
+export const SCHEMA = pick('DB_SCHEMA') || 'public';
 
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  options: `-c search_path=${SCHEMA}`
+  host: pick('DB_HOST'),
+  port: parseInt(pick('DB_PORT') || '5432'),
+  database: pick('DB_NAME'),
+  user: pick('DB_USER'),
+  password: pick('DB_PASSWORD'),
+  options: `-c search_path=${SCHEMA}`,
 });
 
 // Prueba de conexión
@@ -23,7 +35,7 @@ pool.query('SELECT NOW()', (err, res) => {
   if (err) {
     console.error('❌ Error de conexión DB:', err.message);
   } else {
-    console.log(`✅ DB Conectada: ${process.env.DB_NAME} (Schema: ${SCHEMA})`);
+    console.log(`✅ DB Conectada: ${pick('DB_NAME')} (Schema: ${SCHEMA}${DB_TARGET ? `, Target: ${DB_TARGET}` : ''})`);
   }
 });
 

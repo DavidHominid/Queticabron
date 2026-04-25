@@ -23,6 +23,10 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const c = req.body;
   try {
+    const especialidad = String(c.especialidad || '').trim();
+    if (!especialidad) {
+      return res.status(400).json({ error: 'La especialidad es obligatoria.' });
+    }
     const result = await pool.query(
       `INSERT INTO "${SCHEMA}".citas (id_paciente, evento_id, fecha_cita, hora, estado, especialidad, medico_encargado, consultorio, costo_pagado) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
@@ -31,7 +35,7 @@ router.post('/', async (req, res) => {
         c.fecha || null,
         c.hora || '08:00',
         toDBEstado(c.estado || 'programada'),
-        c.especialidad || 'medicina_familiar',
+        especialidad,
         c.medicoEncargado || null,
         c.consultorio || 'Consultorio 1',
         c.costoPagado || 0
@@ -56,7 +60,7 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { estado, fecha, hora } = req.body;
+  const { estado, fecha, hora, pacienteId } = req.body;
 
   try {
     const result = await pool.query(
@@ -65,14 +69,16 @@ router.put('/:id', async (req, res) => {
       SET 
         estado = COALESCE($1, estado),
         fecha_cita = COALESCE($2, fecha_cita),
-        hora = COALESCE($3, hora)
-      WHERE id_cita = $4
+        hora = COALESCE($3, hora),
+        id_paciente = COALESCE($4, id_paciente)
+      WHERE id_cita = $5
       RETURNING *
       `,
       [
         estado ? toDBEstado(estado) : null,
         fecha || null,
         hora || null,
+        Number.isFinite(Number(pacienteId)) ? parseInt(pacienteId) : null,
         parseInt(id)
       ]
     );
