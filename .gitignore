@@ -5,3 +5,4 @@ dist
 .env
 BEGIN;.sql
 Centro_comunitario_citas_db.sql
+server/migrations

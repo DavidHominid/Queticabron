@@ -16,6 +16,17 @@ import { WelcomeCard } from './dashboard/WelcomeCard';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 
+const normCiudad = (value: unknown) => {
+  const v = typeof value === 'string' ? value : value && typeof value === 'object' ? (value as any).codigo || (value as any).ciudad || '' : String(value ?? '');
+  return String(v ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\s+/g, '_')
+    .replace(/-+/g, '_');
+};
+
 export function DashboardRecepcion() {
   const navigate = useNavigate();
   const { citas, pacientes, eventos } = useData();
@@ -23,13 +34,10 @@ export function DashboardRecepcion() {
 
   // Obtener el evento activo para hoy en la ciudad del usuario
   const hoy = new Date().toISOString().split('T')[0];
-  const ciudadesUsuario =
-    Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length
-      ? ((user as any).ciudades as string[])
-      : user?.ciudad
-        ? [user.ciudad]
-        : [];
-  const eventoActivo = eventos.find((e) => e.estado === 'activo' && ciudadesUsuario.includes(e.ciudad));
+  const ciudadesExtra = Array.isArray((user as any)?.ciudades) ? ((user as any).ciudades as unknown[]) : [];
+  const base = ciudadesExtra.length ? ciudadesExtra : user?.ciudad ? [user.ciudad] : [];
+  const ciudadesUsuario = Array.from(new Set(base.map(normCiudad).filter(Boolean)));
+  const eventoActivo = eventos.find((e) => e.estado === 'activo' && ciudadesUsuario.includes(normCiudad(e.ciudad)));
   
   const citasHoy = citas.filter((c) => 
     c.eventoId === eventoActivo?.id && 

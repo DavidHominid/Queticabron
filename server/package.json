@@ -10,7 +10,8 @@
     "seed:medicos": "node scripts/generar_medicos.js",
     "migrar:usuarios-vigencia": "node scripts/migrar_usuarios_vigencia_activo.js",
     "migrar:ciudades": "node scripts/migrar_ciudades.js",
-    "migrar:eliminar-ciudad-otra": "node scripts/eliminar_ciudad_otra.js"
+    "migrar:eliminar-ciudad-otra": "node scripts/eliminar_ciudad_otra.js",
+    "migrar:tipos-cita": "node scripts/migrar_tipos_cita.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

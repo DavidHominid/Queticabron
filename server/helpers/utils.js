@@ -87,6 +87,13 @@ export const mapCita = (c) => {
     fecha: c.fecha_cita ? formatDate(c.fecha_cita) : c.fecha,
     hora: c.hora || '08:00',
     especialidad: c.especialidad,
+    tipoCitaId: c.tipo_cita_id ? String(c.tipo_cita_id) : undefined,
+    tipoCitaNombre: c.tipo_cita_nombre ? String(c.tipo_cita_nombre) : undefined,
+    duracionMinutos: Number.isFinite(Number(c.duracion_minutos))
+      ? Number(c.duracion_minutos)
+      : Number.isFinite(Number(c.tipo_cita_duracion_minutos))
+        ? Number(c.tipo_cita_duracion_minutos)
+        : undefined,
     medicoEncargado: c.medico_encargado,
     consultorio: c.consultorio,
     estado: feEstado,

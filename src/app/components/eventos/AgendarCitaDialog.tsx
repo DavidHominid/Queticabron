@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
-import { Cita, Especialidad, Evento, HorarioDisponible, Paciente } from '../../types';
+import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, TipoCitaEvento } from '../../types';
 
 const timeToMinutes = (t: string) => {
   const [hh, mm] = t.split(':').map((x) => Number(x));
@@ -29,6 +29,7 @@ export function AgendarCitaDialog({
   horario,
   citas,
   pacientes,
+  tipoCitaIdFijo,
   onAgendar,
 }: {
   open: boolean;
@@ -38,11 +39,13 @@ export function AgendarCitaDialog({
   horario: HorarioDisponible;
   citas: Cita[];
   pacientes: Paciente[];
-  onAgendar: (payload: { paciente: Paciente; hora: string }) => Promise<void> | void;
+  tipoCitaIdFijo?: string;
+  onAgendar: (payload: { paciente: Paciente; hora: string; tipoCita: TipoCitaEvento | null }) => Promise<void> | void;
 }) {
   const [query, setQuery] = useState('');
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState<Paciente | null>(null);
   const [horaSeleccionada, setHoraSeleccionada] = useState('');
+  const [tipoSeleccionadoId, setTipoSeleccionadoId] = useState<string>('');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [comboAbierto, setComboAbierto] = useState(false);
@@ -54,6 +57,7 @@ export function AgendarCitaDialog({
     setQuery('');
     setPacienteSeleccionado(null);
     setHoraSeleccionada('');
+    setTipoSeleccionadoId('');
     setError('');
     setGuardando(false);
     setComboAbierto(false);
@@ -81,26 +85,67 @@ export function AgendarCitaDialog({
     return Number.isFinite(Number(horario.intervalo)) ? Math.max(1, Math.floor(Number(horario.intervalo))) : 60;
   }, [horario]);
 
+  const tiposCita = useMemo(() => {
+    const espCfg = evento.especialidades?.find((e) => e.especialidad === especialidad);
+    const list = Array.isArray((espCfg as any)?.tiposCita) ? ((espCfg as any).tiposCita as TipoCitaEvento[]) : [];
+    return list
+      .map((t) => ({
+        ...t,
+        id: t.id ? String(t.id) : undefined,
+        nombre: String(t.nombre || ''),
+        duracionMinutos: Number.isFinite(Number(t.duracionMinutos)) ? Math.max(5, Math.floor(Number(t.duracionMinutos))) : 60,
+        precio: Number.isFinite(Number((t as any).precio)) ? Number((t as any).precio) : 0,
+        medicoEncargado: String((t as any).medicoEncargado || ''),
+      }))
+      .filter((t) => t.nombre.trim());
+  }, [especialidad, evento.especialidades]);
+
+  const tipoSeleccionado = useMemo(() => {
+    if (!tiposCita.length) return null;
+    if (tipoCitaIdFijo && String(tipoCitaIdFijo).trim()) {
+      return tiposCita.find((t) => String(t.id || '') === String(tipoCitaIdFijo)) || null;
+    }
+    const byId = tiposCita.find((t) => t.id && t.id === tipoSeleccionadoId) || null;
+    return byId || tiposCita[0] || null;
+  }, [tipoCitaIdFijo, tipoSeleccionadoId, tiposCita]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!tiposCita.length) return;
+    if (tipoCitaIdFijo && String(tipoCitaIdFijo).trim()) {
+      setTipoSeleccionadoId(String(tipoCitaIdFijo));
+      return;
+    }
+    setTipoSeleccionadoId((prev) => prev || String(tiposCita[0]?.id || ''));
+  }, [open, tipoCitaIdFijo, tiposCita]);
+
+  const duracionMinutos = useMemo(() => {
+    const selected = tipoSeleccionado;
+    if (selected?.duracionMinutos) return Math.max(5, Math.floor(Number(selected.duracionMinutos)));
+    return intervalo;
+  }, [intervalo, tipoSeleccionado]);
+
   const horasDisponibles = useMemo(() => {
     const inicio = timeToMinutes(horario.horaInicio);
     const fin = timeToMinutes(horario.horaFin);
-    const totalSlots = Math.max(0, cupoTotal);
-    if (inicio >= fin || !totalSlots) return [] as string[];
+    if (inicio >= fin) return [] as string[];
 
-    const generated: string[] = [];
-    for (let m = inicio; m < fin; m += intervalo) {
-      generated.push(minutesToHm(m));
-    }
-    const sliced = generated.length > totalSlots ? generated.slice(0, totalSlots) : generated;
-
-    const ocupadas = new Set(
-      citas
-        .filter((c) => c.eventoId === evento.id && c.especialidad === especialidad && c.fecha === horario.dia && c.estado !== 'cancelada')
-        .map((c) => c.hora),
-    );
-
-    return sliced.filter((h) => !ocupadas.has(h));
-  }, [citas, cupoTotal, especialidad, evento.id, horario.dia, horario.horaFin, horario.horaInicio, intervalo]);
+    const tipoId = String((horario as any).tipoCitaId || tipoCitaIdFijo || '').trim();
+    const ocupada = (citas || []).some((c) => {
+      if (c.eventoId !== evento.id) return false;
+      if (c.especialidad !== especialidad) return false;
+      if (c.fecha !== horario.dia) return false;
+      if (c.estado === 'cancelada') return false;
+      if (tipoId && String(c.tipoCitaId || '') !== tipoId) return false;
+      const cs = timeToMinutes(c.hora);
+      const cdur = Number.isFinite(Number(c.duracionMinutos)) ? Math.max(1, Math.floor(Number(c.duracionMinutos))) : 60;
+      const ce = cs + cdur;
+      return cs < fin && ce > inicio;
+    });
+    if (ocupada) return [] as string[];
+    if (inicio + duracionMinutos > fin) return [] as string[];
+    return [horario.horaInicio];
+  }, [citas, duracionMinutos, especialidad, evento.id, horario.dia, horario.horaFin, horario.horaInicio, tipoCitaIdFijo]);
 
   useEffect(() => {
     if (!open) return;
@@ -144,7 +189,7 @@ export function AgendarCitaDialog({
     setError('');
     setGuardando(true);
     try {
-      await onAgendar({ paciente: pacienteSeleccionado, hora: horaSeleccionada });
+      await onAgendar({ paciente: pacienteSeleccionado, hora: horaSeleccionada, tipoCita: tipoSeleccionado });
       onOpenChange(false);
     } catch (e: any) {
       const msg = typeof e?.message === 'string' && e.message.trim() ? e.message : 'No se pudo agendar la cita. Intenta nuevamente.';
@@ -165,6 +210,28 @@ export function AgendarCitaDialog({
         </DialogHeader>
 
         <div className="space-y-5">
+          {tiposCita.length > 0 && !(tipoCitaIdFijo && String(tipoCitaIdFijo).trim()) && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium text-gray-900">Tipo de cita</div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={tipoSeleccionado?.id || ''}
+                  onChange={(e) => setTipoSeleccionadoId(e.target.value)}
+                >
+                  {tiposCita.map((t) => (
+                    <option key={t.id || t.nombre} value={t.id || ''}>
+                      {t.nombre} · {t.duracionMinutos} min · ${t.precio}
+                    </option>
+                  ))}
+                </select>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  Duración: {duracionMinutos} min
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <div className="text-sm font-medium text-gray-900">Paciente</div>
             <div ref={comboRef} className="relative">

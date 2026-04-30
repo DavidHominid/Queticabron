@@ -18,23 +18,31 @@ const minutesToTime = (m: number) => {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`;
 };
 
+const minutesToHm = (m: number) => minutesToTime(m).slice(0, 5);
+
 const computeDefaultCupo = (h: HorarioDisponible) => {
   const intervalo = Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60;
   const dur = Math.max(0, timeToMinutes(h.horaFin) - timeToMinutes(h.horaInicio));
   return intervalo ? Math.floor(dur / intervalo) : 0;
 };
 
-const countCitasInWindow = (citas: Cita[], eventoId: string, esp: Especialidad, day: string, start: string, end: string) => {
-  const s = timeToMinutes(start);
-  const e = timeToMinutes(end);
-  return citas.filter((c) => {
+const computeSlotsOcupados = (citas: Cita[], eventoId: string, esp: Especialidad, h: HorarioDisponible) => {
+  const inicio = timeToMinutes(h.horaInicio);
+  const fin = timeToMinutes(h.horaFin);
+  if (inicio >= fin) return 0;
+  const tipoId = h.tipoCitaId ? String(h.tipoCitaId) : '';
+  const ocupada = (citas || []).some((c) => {
     if (c.eventoId !== eventoId) return false;
     if (c.especialidad !== esp) return false;
-    if (c.fecha !== day) return false;
+    if (c.fecha !== h.dia) return false;
     if (c.estado === 'cancelada') return false;
-    const m = timeToMinutes(c.hora);
-    return m >= s && m < e;
-  }).length;
+    if (tipoId && String(c.tipoCitaId || '') !== tipoId) return false;
+    const cs = timeToMinutes(c.hora);
+    const cdur = Number.isFinite(Number(c.duracionMinutos)) ? Math.max(1, Math.floor(Number(c.duracionMinutos))) : 60;
+    const ce = cs + cdur;
+    return cs < fin && ce > inicio;
+  });
+  return ocupada ? 1 : 0;
 };
 
 const startOfHour = (d: Date) => {
@@ -112,9 +120,9 @@ export function AgendaCalendar({
       .filter((h) => h.dia && h.dia.includes('-') && (!desde || h.dia >= desde) && (!hasta || h.dia <= hasta))
       .map((h) => {
         const intervalo = Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60;
-        const slotKey = `${h.horaInicio}|${h.horaFin}|${intervalo}`;
+        const slotKey = `${h.horaInicio}|${h.horaFin}|${intervalo}|${h.tipoCitaId || ''}`;
         const cupoTotal = Number.isFinite(Number(h.cupoTotal)) ? Math.max(0, Math.floor(Number(h.cupoTotal))) : computeDefaultCupo(h);
-        const cupoOcupado = countCitasInWindow(citas, eventoId, especialidad, h.dia, h.horaInicio, h.horaFin);
+        const cupoOcupado = computeSlotsOcupados(citas, eventoId, especialidad, h);
         const disponibles = Math.max(0, cupoTotal - cupoOcupado);
         const ratio = cupoTotal > 0 ? disponibles / cupoTotal : 0;
         const color = cupoTotal <= 0 ? '#6B7280' : disponibles <= 0 ? '#3a65e8ff' : ratio < 0.25 ? '#F97316' : '#22C55E';
@@ -224,16 +232,9 @@ export function AgendaCalendar({
         eventTimeFormat={{ hour: '2-digit', minute: '2-digit', meridiem: false }}
         slotLabelFormat={{ hour: '2-digit', minute: '2-digit', meridiem: false }}
         eventContent={(arg) => {
-          const cupoTotal = Number(arg.event.extendedProps.cupoTotal) || 0;
-          const cupoOcupado = Number(arg.event.extendedProps.cupoOcupado) || 0;
-          const disponibles = Math.max(0, cupoTotal - cupoOcupado);
           return (
             <div className="px-1 py-0.5 text-[11px] leading-tight">
               <div className="font-medium">{arg.timeText}</div>
-              <div className="flex items-center justify-between gap-2">
-                <span>{cupoTotal > 0 ? `Disp: ${disponibles}/${cupoTotal}` : 'Sin cupo'}</span>
-                {cupoOcupado > 0 && <span>Ocup: {cupoOcupado}</span>}
-              </div>
             </div>
           );
         }}

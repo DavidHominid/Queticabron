@@ -39,6 +39,17 @@ const isEventoFinalizado = (fechaFin?: string | null) => {
   return Date.now() > end.getTime();
 };
 
+const normCiudad = (value: unknown) => {
+  const v = typeof value === 'string' ? value : value && typeof value === 'object' ? (value as any).codigo || (value as any).ciudad || '' : String(value ?? '');
+  return String(v ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\s+/g, '_')
+    .replace(/-+/g, '_');
+};
+
 export function Eventos() {
   const navigate = useNavigate();
   const { eventos, especialidadesCatalogo, ciudadesCatalogo, deleteEvento, addRegistroAuditoria, isInitialized } = useData();
@@ -47,25 +58,27 @@ export function Eventos() {
     .trim()
     .toLowerCase() === 'true';
 
+  const ciudadesUsuario = useMemo(() => {
+    const ciudadesExtra = Array.isArray((user as any)?.ciudades) ? ((user as any).ciudades as unknown[]) : [];
+    const base = ciudadesExtra.length ? ciudadesExtra : user?.ciudad ? [user.ciudad] : [];
+    const normalized = base.map(normCiudad).filter(Boolean);
+    return Array.from(new Set(normalized));
+  }, [user?.ciudad, (user as any)?.ciudades]);
+
   const sortedEventos = useMemo(
     () =>
       [...eventos]
         .filter((e) => {
           if (user?.rol === 'administrador') return true;
-          const ciudadesUsuario =
-            Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length
-              ? ((user as any).ciudades as string[])
-              : user?.ciudad
-                ? [user.ciudad]
-                : [];
-          return ciudadesUsuario.includes(e.ciudad);
+          if (ciudadesUsuario.length === 0) return false;
+          return ciudadesUsuario.includes(normCiudad(e.ciudad));
         })
         .sort((a, b) => {
         const dateA = a.fechaInicio || '';
         const dateB = b.fechaInicio || '';
         return dateB.localeCompare(dateA);
         }),
-    [eventos, user?.rol, user?.ciudad, (user as any)?.ciudades],
+    [ciudadesUsuario, eventos, user?.rol],
   );
 
   return (
@@ -93,12 +106,26 @@ export function Eventos() {
           </Card>
         )}
 
+        {isInitialized && user?.rol !== 'administrador' && ciudadesUsuario.length === 0 && (
+          <Card className="shadow-sm">
+            <CardContent className="p-4 text-sm text-amber-800 border border-amber-200 bg-amber-50 rounded-2xl">
+              Tu usuario no tiene ciudad asignada. Asigna una ciudad (o ciudades) al usuario para poder ver eventos.
+            </CardContent>
+          </Card>
+        )}
+
         {isInitialized && sortedEventos.length === 0 && (
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
               <CalendarDays className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay eventos registrados</h3>
-              <p className="text-gray-600 mb-6">Crea un evento para habilitar horarios y cupos.</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {user?.rol === 'administrador' ? 'No hay eventos registrados' : 'No hay eventos para tu ciudad'}
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {user?.rol === 'administrador'
+                  ? 'Crea un evento para habilitar horarios y cupos.'
+                  : `Ciudad asignada: ${(Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length ? (user as any).ciudades : user?.ciudad) || '---'}`}
+              </p>
               <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={() => navigate('/eventos/nuevo')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Crear evento

@@ -48,13 +48,14 @@ const timeToMinutes = (t: string) => {
 };
 
 const normalizeHorarios = (horarios: any[], daysLocal: string[]) => {
-  const out: Array<{ dia: string; horaInicio: string; horaFin: string; intervalo: number; cupoTotal: number }> = [];
+  const out: Array<{ dia: string; horaInicio: string; horaFin: string; intervalo: number; cupoTotal: number; tipoCitaId?: string }> = [];
 
   for (const raw of horarios || []) {
     const intervalo = Number.isFinite(Number(raw?.intervalo)) ? Math.max(1, Math.floor(Number(raw.intervalo))) : 60;
     const diaRaw = String(raw?.dia || '').trim();
     const horaInicio = String(raw?.horaInicio || '').trim();
     const horaFin = String(raw?.horaFin || '').trim();
+    const tipoCitaId = raw?.tipoCitaId ? String(raw.tipoCitaId) : undefined;
     if (!diaRaw || !horaInicio || !horaFin) continue;
 
     const durationHours = Math.max(1, Math.floor((timeToMinutes(horaFin) - timeToMinutes(horaInicio)) / 60) || 1);
@@ -62,7 +63,7 @@ const normalizeHorarios = (horarios: any[], daysLocal: string[]) => {
 
     if (isIsoDate(diaRaw)) {
       if (!daysLocal.length || daysLocal.includes(diaRaw)) {
-        out.push({ dia: diaRaw, horaInicio, horaFin, intervalo, cupoTotal });
+        out.push({ dia: diaRaw, horaInicio, horaFin, intervalo, cupoTotal, tipoCitaId });
       }
       continue;
     }
@@ -71,14 +72,14 @@ const normalizeHorarios = (horarios: any[], daysLocal: string[]) => {
     if (!target || !daysLocal.length) continue;
     for (const day of daysLocal) {
       if (normalizeWeekday(weekdayEs(day)) === target) {
-        out.push({ dia: day, horaInicio, horaFin, intervalo, cupoTotal });
+        out.push({ dia: day, horaInicio, horaFin, intervalo, cupoTotal, tipoCitaId });
       }
     }
   }
 
   const dedup: Record<string, (typeof out)[number]> = {};
   for (const h of out) {
-    dedup[`${h.dia}|${h.horaInicio}|${h.horaFin}|${h.intervalo}`] = h;
+    dedup[`${h.dia}|${h.horaInicio}|${h.horaFin}|${h.intervalo}|${h.tipoCitaId || ''}`] = h;
   }
   return Object.values(dedup);
 };
@@ -103,6 +104,7 @@ const createEspecialidad = (especialidad: Especialidad): EspecialidadEvento => (
   consultorio: '',
   horarios: [],
   costo: 0,
+  tiposCita: [],
 });
 
 const isEventoFinalizado = (fechaFin?: string | null) => {
@@ -132,7 +134,7 @@ export function EventoEditor() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [activeEspecialidad, setActiveEspecialidad] = useState<string>('');
-  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -147,6 +149,15 @@ export function EventoEditor() {
         : typeof (esp as any).practicante === 'string' && (esp as any).practicante.trim()
           ? [(esp as any).practicante.trim()]
           : [],
+      tiposCita: Array.isArray((esp as any).tiposCita)
+        ? (esp as any).tiposCita.map((t: any) => ({
+            id: t?.id ? String(t.id) : undefined,
+            nombre: String(t?.nombre || ''),
+            duracionMinutos: Number.isFinite(Number(t?.duracionMinutos)) ? Math.max(5, Math.floor(Number(t.duracionMinutos))) : 60,
+            precio: Number.isFinite(Number(t?.precio)) ? Number(t.precio) : 0,
+            medicoEncargado: String(t?.medicoEncargado || ''),
+          }))
+        : [],
       horarios: normalizeHorarios(esp.horarios || [], daysLocal),
     }));
 
@@ -186,11 +197,12 @@ export function EventoEditor() {
 
     const esp = qp.especialidad as Especialidad;
 
-    const [horaInicio, horaFin, intervaloRaw] = qp.slot.split('|');
+    const [horaInicio, horaFin, intervaloRaw, tipoCitaIdRaw] = qp.slot.split('|');
     const intervalo = Number(intervaloRaw);
     if (!horaInicio || !horaFin) return;
     const safeIntervalo = Number.isFinite(intervalo) ? Math.max(1, Math.floor(intervalo)) : 60;
     const durationHours = Math.max(1, Math.floor((timeToMinutes(horaFin) - timeToMinutes(horaInicio)) / 60) || 1);
+    const tipoCitaId = String(tipoCitaIdRaw || '').trim() || undefined;
 
     setForm((prev) => {
       const idx = prev.especialidades.findIndex((e) => e.especialidad === esp);
@@ -204,7 +216,16 @@ export function EventoEditor() {
           ? current.horarios
           : [
               ...(current.horarios || []),
-              { dia: qp.fecha, horaInicio, horaFin, intervalo: safeIntervalo, cupoTotal: durationHours },
+              {
+                dia: qp.fecha,
+                horaInicio,
+                horaFin,
+                intervalo: safeIntervalo,
+                cupoTotal: durationHours,
+                tipoCitaId:
+                  tipoCitaId ||
+                  (Array.isArray((current as any).tiposCita) ? String((current as any).tiposCita?.[0]?.id || '').trim() || undefined : undefined),
+              },
             ],
       };
 
@@ -272,15 +293,41 @@ export function EventoEditor() {
     return '';
   };
 
-  const validate = () => {
+  const validatePaso2 = () => {
     const eventInfoError = validateEventInfo();
     if (eventInfoError) return eventInfoError;
     if (!form.especialidades.length) return 'Debes agregar al menos una especialidad.';
 
     for (const esp of form.especialidades) {
-      if (!esp.medicoEncargado.trim()) return `Falta medico encargado en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
       if (!esp.consultorio.trim()) return `Falta consultorio en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
-      if (!(esp.horarios || []).length) return `Debes asignar al menos un horario en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+      const tipos = Array.isArray((esp as any).tiposCita) ? ((esp as any).tiposCita as any[]) : [];
+      if (!tipos.length) return `Debes agregar al menos un tipo de cita en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+      for (const t of tipos) {
+        if (!String(t?.nombre || '').trim()) return `Falta el nombre de un tipo de cita en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+        const dur = Number.isFinite(Number(t?.duracionMinutos)) ? Number(t.duracionMinutos) : 0;
+        if (dur < 5) return `La duración mínima es 0.1 h (5 min) en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+        const precio = Number.isFinite(Number(t?.precio)) ? Number(t.precio) : 0;
+        if (precio < 0) return `El precio no puede ser negativo en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+      }
+    }
+
+    return '';
+  };
+
+  const validatePaso3 = () => {
+    const base = validatePaso2();
+    if (base) return base;
+
+    for (const esp of form.especialidades) {
+      const horarios = Array.isArray(esp.horarios) ? esp.horarios : [];
+      if (!horarios.length) return `Debes asignar al menos un horario en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+      const tipos = Array.isArray((esp as any).tiposCita) ? ((esp as any).tiposCita as any[]) : [];
+      const ids = new Set(tipos.map((t) => String(t?.id || '').trim()).filter(Boolean));
+      for (const h of horarios) {
+        const id = String((h as any).tipoCitaId || '').trim();
+        if (!id) return `Falta asignar tipo de cita en un horario de ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+        if (ids.size > 0 && !ids.has(id)) return `Un horario tiene un tipo de cita inválido en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
+      }
     }
 
     return '';
@@ -296,9 +343,19 @@ export function EventoEditor() {
     setCurrentStep(2);
   };
 
+  const goToStepThree = () => {
+    const validationError = validatePaso2();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setError('');
+    setCurrentStep(3);
+  };
+
   const onSave = async () => {
     setError('');
-    const validationError = validate();
+    const validationError = validatePaso3();
     if (validationError) {
       setError(validationError);
       return;
@@ -349,8 +406,9 @@ export function EventoEditor() {
       }
 
       navigate('/eventos');
-    } catch {
-      setError('No se pudo guardar. Revisa tu conexion e intentalo de nuevo.');
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : 'No se pudo guardar. Revisa tu conexión e inténtalo de nuevo.';
+      setError(msg);
     } finally {
       setSaving(false);
     }
@@ -385,7 +443,7 @@ export function EventoEditor() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">{isEdit ? 'Editar evento' : 'Crear evento'}</h1>
-            <p className="mt-1 text-gray-600">Completa primero la información del evento y después agrega especialidades con sus horarios.</p>
+            <p className="mt-1 text-gray-600">Paso 1: información · Paso 2: configuración · Paso 3: horarios.</p>
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => navigate('/eventos')}>
@@ -399,14 +457,18 @@ export function EventoEditor() {
         )}
 
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className={`rounded-xl border px-4 py-3 ${currentStep === 1 ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
               <div className="text-sm font-semibold text-gray-900">Paso 1</div>
               <div className="text-sm text-gray-600">Información del evento</div>
             </div>
             <div className={`rounded-xl border px-4 py-3 ${currentStep === 2 ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
               <div className="text-sm font-semibold text-gray-900">Paso 2</div>
-              <div className="text-sm text-gray-600">Especialidades y horarios</div>
+              <div className="text-sm text-gray-600">Configuración</div>
+            </div>
+            <div className={`rounded-xl border px-4 py-3 ${currentStep === 3 ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
+              <div className="text-sm font-semibold text-gray-900">Paso 3</div>
+              <div className="text-sm text-gray-600">Horarios</div>
             </div>
           </div>
         </div>
@@ -426,15 +488,15 @@ export function EventoEditor() {
                 Cancelar
               </Button>
               <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={goToStepTwo}>
-                Continuar a Especialidades
+                Continuar a Configuración
               </Button>
             </div>
           </div>
-        ) : (
+        ) : currentStep === 2 ? (
           <div className="space-y-6">
             <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
               <div className="border-b px-6 py-5">
-                <h2 className="text-base font-semibold text-gray-900">Especialidades y horarios</h2>
+                <h2 className="text-base font-semibold text-gray-900">Configuración</h2>
               </div>
               <div className="space-y-6 p-6">
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
@@ -460,7 +522,7 @@ export function EventoEditor() {
                         ))}
                     </select>
                   </div>
-                  <div className="text-sm text-gray-500">Las tabs se generan conforme agregas especialidades.</div>
+                  <div className="text-sm text-gray-500">Selecciona especialidades y define consultorio, tipos de cita y practicantes.</div>
                 </div>
 
                 {form.especialidades.length > 0 ? (
@@ -486,6 +548,7 @@ export function EventoEditor() {
                           especialidadesCatalogo={especialidadesCatalogo}
                           eventoId={isEdit && id ? id : form.id}
                           citas={citas}
+                          modo="config"
                           onChange={(next) => updateEspecialidad(idx, next)}
                           onRemove={() => removeEspecialidad(idx)}
                         />
@@ -494,7 +557,7 @@ export function EventoEditor() {
                   </Tabs>
                 ) : (
                   <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-600">
-                    Agrega una especialidad para comenzar a configurar medicos, practicantes, consultorio y horarios.
+                    Agrega una especialidad para comenzar a configurar consultorio, tipos de cita y practicantes.
                   </div>
                 )}
               </div>
@@ -503,6 +566,60 @@ export function EventoEditor() {
             <div className="flex justify-between gap-2">
               <Button type="button" variant="outline" onClick={() => setCurrentStep(1)}>
                 Volver a Información
+              </Button>
+              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={goToStepThree}>
+                Continuar a Horarios
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="border-b px-6 py-5">
+                <h2 className="text-base font-semibold text-gray-900">Horarios</h2>
+              </div>
+              <div className="space-y-6 p-6">
+                {form.especialidades.length > 0 ? (
+                  <Tabs value={activeValue} onValueChange={setActiveEspecialidad}>
+                    <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 bg-transparent p-0">
+                      {form.especialidades.map((esp) => (
+                        <TabsTrigger
+                          key={esp.especialidad}
+                          value={esp.especialidad}
+                          className="h-10 flex-none rounded-lg border border-gray-200 px-4 data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50"
+                        >
+                          {labelEspecialidad(esp.especialidad, especialidadesCatalogo)}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+
+                    {form.especialidades.map((esp, idx) => (
+                      <TabsContent key={esp.especialidad} value={esp.especialidad} className="mt-4">
+                        <EspecialidadCardEditor
+                          days={days}
+                          value={esp}
+                          usuarios={usuarios}
+                          especialidadesCatalogo={especialidadesCatalogo}
+                          eventoId={isEdit && id ? id : form.id}
+                          citas={citas}
+                          modo="horarios"
+                          onChange={(next) => updateEspecialidad(idx, next)}
+                          onRemove={() => removeEspecialidad(idx)}
+                        />
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-600">
+                    Agrega especialidades en el paso 2.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <div className="flex justify-between gap-2">
+              <Button type="button" variant="outline" onClick={() => setCurrentStep(2)}>
+                Volver a Configuración
               </Button>
               <Button type="button" className="bg-blue-600 hover:bg-blue-700" disabled={saving} onClick={onSave}>
                 {saving ? 'Guardando...' : isEdit ? 'Guardar Cambios' : 'Crear Evento'}

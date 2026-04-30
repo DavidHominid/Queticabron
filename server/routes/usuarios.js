@@ -73,12 +73,26 @@ router.post('/login', async (req, res) => {
     if (result.rows.length > 0) {
       const row = result.rows[0];
       const especialidades = Array.isArray(row.especialidades) ? row.especialidades.map((x) => String(x)) : [];
-      const ciudades = Array.isArray(row.ciudades) ? row.ciudades.map((x) => String(x)) : [];
+      let ciudades = Array.isArray(row.ciudades) ? row.ciudades.map((x) => String(x)) : [];
       const hoy = fechaYmd();
       const activo = isUsuarioActivoEfectivo(row, hoy);
       if (!activo) {
         res.status(403).json({ error: 'Usuario inactivo. Contacta a un administrador.' });
         return;
+      }
+      const rol = String(row.rol || '').toLowerCase();
+      if (rol === 'recepcion') {
+        const ciudadPrimaria = String(row.ciudad || '').trim();
+        if (ciudadPrimaria && !ciudades.includes(ciudadPrimaria)) {
+          await pool.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(row.id)]);
+          await pool.query(
+            `INSERT INTO "${SCHEMA}".usuario_ciudades (usuario_id, ciudad_codigo)
+             VALUES ($1, $2)
+             ON CONFLICT (usuario_id, ciudad_codigo) DO NOTHING`,
+            [String(row.id), ciudadPrimaria],
+          );
+          ciudades = [ciudadPrimaria];
+        }
       }
       res.json({
         ...row,
@@ -89,7 +103,7 @@ router.post('/login', async (req, res) => {
         activo: Boolean(row.activo),
         activoDesde: row.activo_desde || null,
         activoHasta: row.activo_hasta || null,
-        ciudad: row.ciudad || ciudades[0] || '',
+        ciudad: ciudades[0] || row.ciudad || '',
       });
     } else {
       res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
@@ -268,7 +282,7 @@ router.post('/', async (req, res) => {
       activo: created.activo !== false,
       activoDesde: created.activo_desde || null,
       activoHasta: created.activo_hasta || null,
-      ciudad: created.ciudad || ciudades[0] || '',
+      ciudad: ciudades[0] || created.ciudad || '',
     });
   } catch (err) {
     console.error('❌ Error en POST /api/usuarios:', err.message);
@@ -381,6 +395,8 @@ router.put('/:id', async (req, res) => {
                ON CONFLICT (usuario_id, ciudad_codigo) DO NOTHING`,
               [String(updated.id), c0],
             );
+            await client.query(`UPDATE "${SCHEMA}".usuarios SET ciudad = $1 WHERE id = $2`, [c0, updated.id]);
+            updated.ciudad = c0;
           }
         } else {
           await client.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(updated.id)]);
@@ -430,10 +446,10 @@ router.put('/:id', async (req, res) => {
       activo: updated.activo !== false,
       activoDesde: updated.activo_desde || null,
       activoHasta: updated.activo_hasta || null,
-      ciudad: updated.ciudad || ciudadesFinal[0] || '',
+      ciudad: ciudadesFinal[0] || updated.ciudad || '',
     });
   } catch (err) {
-    console.error('❌ Error en PUT /api/usuarios/:id:', err.message);
+    console.error('Error en PUT /api/usuarios/:id:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

@@ -20,8 +20,8 @@ import {
 interface DataContextType {
   // Eventos
   eventos: Evento[];
-  addEvento: (evento: Evento) => void;
-  updateEvento: (id: string, evento: Partial<Evento>) => void;
+  addEvento: (evento: Evento) => Promise<Evento>;
+  updateEvento: (id: string, evento: Partial<Evento>) => Promise<Evento>;
   deleteEvento: (id: string, opts?: { force?: boolean }) => Promise<void>;
 
   // Pacientes
@@ -202,38 +202,33 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addEvento = async (evento: Evento) => {
-    try {
-      const res = await fetch('/api/eventos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(evento),
-      });
-      if (res.ok) {
-        const nuevo = await res.json();
-        setEventos((prev) => [...prev, nuevo]);
-      } else {
-        const err = await res.json();
-        console.error('❌ Error al crear evento:', err.error);
-      }
-    } catch (err) {
-      console.error(err);
+    const res = await fetch('/api/eventos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(evento),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo crear el evento.');
     }
+    const nuevo = await res.json();
+    setEventos((prev) => [...prev, nuevo]);
+    return nuevo;
   };
 
   const updateEvento = async (id: string, eventoUpdate: Partial<Evento>) => {
-    try {
-      const res = await fetch(`/api/eventos/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(eventoUpdate),
-      });
-      if (res.ok) {
-        const actualizado = await res.json();
-        setEventos(eventos.map((e) => (e.id === id ? actualizado : e)));
-      }
-    } catch (err) {
-      console.error(err);
+    const res = await fetch(`/api/eventos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(eventoUpdate),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo actualizar el evento.');
     }
+    const actualizado = await res.json();
+    setEventos(eventos.map((e) => (e.id === id ? actualizado : e)));
+    return actualizado;
   };
 
   const deleteEvento = async (id: string, opts?: { force?: boolean }) => {

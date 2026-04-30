@@ -57,7 +57,7 @@ const isEventoFinalizado = (fechaFin?: string | null) => {
 
 const slotKeyForHorario = (h: HorarioDisponible) => {
   const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 60;
-  return `${h.horaInicio}|${h.horaFin}|${intervalo}`;
+  return `${h.horaInicio}|${h.horaFin}|${intervalo}|${h.tipoCitaId || ''}`;
 };
 
 const timeToMinutes = (t: string) => {
@@ -68,7 +68,7 @@ const timeToMinutes = (t: string) => {
 
 const citasInWindow = (
   citas: Cita[],
-  payload: { eventoId: string; especialidad: Especialidad; fecha: string; horaInicio: string; horaFin: string },
+  payload: { eventoId: string; especialidad: Especialidad; fecha: string; horaInicio: string; horaFin: string; tipoCitaId?: string },
 ) => {
   const s = timeToMinutes(payload.horaInicio);
   const e = timeToMinutes(payload.horaFin);
@@ -77,19 +77,32 @@ const citasInWindow = (
     if (c.especialidad !== payload.especialidad) return false;
     if (c.fecha !== payload.fecha) return false;
     if (c.estado === 'cancelada') return false;
-    const m = timeToMinutes(c.hora);
-    return m >= s && m < e;
+    if (payload.tipoCitaId && String(c.tipoCitaId || '') !== String(payload.tipoCitaId)) return false;
+    const cs = timeToMinutes(c.hora);
+    const cdur = Number.isFinite(Number(c.duracionMinutos)) ? Math.max(1, Math.floor(Number(c.duracionMinutos))) : 60;
+    const ce = cs + cdur;
+    return cs < e && ce > s;
   });
 };
 
-const hasCita = (citas: Cita[], payload: { eventoId: string; especialidad: Especialidad; fecha: string; hora: string }) => {
+const hasCita = (
+  citas: Cita[],
+  payload: { eventoId: string; especialidad: Especialidad; fecha: string; horaInicio: string; horaFin: string; tipoCitaId?: string },
+) => {
+  const s = timeToMinutes(payload.horaInicio);
+  const e = timeToMinutes(payload.horaFin);
   return citas.some(
-    (c) =>
-      c.eventoId === payload.eventoId &&
-      c.especialidad === payload.especialidad &&
-      c.fecha === payload.fecha &&
-      c.hora === payload.hora &&
-      c.estado !== 'cancelada',
+    (c) => {
+      if (c.eventoId !== payload.eventoId) return false;
+      if (c.especialidad !== payload.especialidad) return false;
+      if (c.fecha !== payload.fecha) return false;
+      if (c.estado === 'cancelada') return false;
+      if (payload.tipoCitaId && String(c.tipoCitaId || '') !== String(payload.tipoCitaId)) return false;
+      const cs = timeToMinutes(c.hora);
+      const cdur = Number.isFinite(Number(c.duracionMinutos)) ? Math.max(1, Math.floor(Number(c.duracionMinutos))) : 60;
+      const ce = cs + cdur;
+      return cs < e && ce > s;
+    },
   );
 };
 
@@ -179,6 +192,7 @@ export function EventoDetalle() {
       fecha: payload.day,
       horaInicio: horario.horaInicio,
       horaFin: horario.horaFin,
+      tipoCitaId: horario.tipoCitaId,
     });
 
     if (ocupadas.length > 0) {
@@ -457,11 +471,21 @@ export function EventoDetalle() {
                 horario={agendarHorario}
                 citas={citas}
                 pacientes={pacientes}
-                onAgendar={async ({ paciente, hora }) => {
+                tipoCitaIdFijo={agendarHorario.tipoCitaId}
+                onAgendar={async ({ paciente, hora, tipoCita }) => {
                   const espCfg = evento.especialidades.find((e) => e.especialidad === (especialidad as Especialidad));
                   if (!espCfg) throw new Error('No se encontró la configuración de la especialidad en el evento.');
 
-                  if (hasCita(citas, { eventoId: evento.id, especialidad: especialidad as Especialidad, fecha: agendarHorario.dia, hora })) {
+                  if (
+                    hasCita(citas, {
+                      eventoId: evento.id,
+                      especialidad: especialidad as Especialidad,
+                      fecha: agendarHorario.dia,
+                      horaInicio: agendarHorario.horaInicio,
+                      horaFin: agendarHorario.horaFin,
+                      tipoCitaId: agendarHorario.tipoCitaId,
+                    })
+                  ) {
                     throw new Error('Esa hora ya fue ocupada.');
                   }
 
@@ -473,9 +497,12 @@ export function EventoDetalle() {
                     fecha: agendarHorario.dia,
                     hora,
                     consultorio: espCfg.consultorio || 'Consultorio 1',
-                    medicoEncargado: espCfg.medicoEncargado || '',
+                    tipoCitaId: tipoCita?.id ? String(tipoCita.id) : undefined,
+                    tipoCitaNombre: tipoCita?.nombre ? String(tipoCita.nombre) : undefined,
+                    duracionMinutos: tipoCita?.duracionMinutos ? Number(tipoCita.duracionMinutos) : undefined,
+                    medicoEncargado: String(tipoCita?.medicoEncargado || '').trim() || espCfg.medicoEncargado || '',
                     estado: 'programada',
-                    costoPagado: Number.isFinite(Number(espCfg.costo)) ? Number(espCfg.costo) : 0,
+                    costoPagado: Number.isFinite(Number(tipoCita?.precio)) ? Number(tipoCita?.precio) : Number.isFinite(Number(espCfg.costo)) ? Number(espCfg.costo) : 0,
                     fechaCreacion: new Date().toISOString().split('T')[0],
                   };
 
@@ -486,7 +513,7 @@ export function EventoDetalle() {
                     nombreUsuario: user?.nombre || '',
                     rol: user?.rol || 'recepcion',
                     accion: 'Agendar Cita',
-                    detalles: `Agendó cita para paciente ${paciente.nombre} (${paciente.numeroExpediente}) en ${nuevaCita.fecha} ${nuevaCita.hora} (${nuevaCita.especialidad})`,
+                    detalles: `Agendó cita para paciente ${paciente.nombre} (${paciente.numeroExpediente}) en ${nuevaCita.fecha} ${nuevaCita.hora} (${nuevaCita.especialidad}${nuevaCita.tipoCitaNombre ? ` · ${nuevaCita.tipoCitaNombre}` : ''})`,
                     fechaHora: new Date().toISOString(),
                     ciudad: user?.ciudad || evento.ciudad,
                   });

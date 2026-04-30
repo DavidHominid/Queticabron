@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { format } from 'date-fns';
+import { useEffect, useMemo, useState } from 'react';
+import { format, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { DateRange } from 'react-day-picker';
 import { Ciudad, CiudadCatalogo, Evento, UserRole } from '../../types';
@@ -34,6 +34,21 @@ export function EventoInfoForm({
   const ciudadesDisponibles = (ciudadesCatalogo || []).filter((c) => c.activa);
   const bloqueada = Boolean(ciudadBloqueada && String(ciudadBloqueada).trim());
   const [rangoActivo, setRangoActivo] = useState<'inscripciones' | 'evento'>('inscripciones');
+  const [mesesVisibles, setMesesVisibles] = useState(1);
+  const mesActual = useMemo(() => startOfMonth(new Date()), []);
+
+  useEffect(() => {
+    const mqLg = window.matchMedia('(min-width: 1024px)');
+    const mqMd = window.matchMedia('(min-width: 768px)');
+    const apply = () => setMesesVisibles(mqLg.matches ? 4 : mqMd.matches ? 2 : 1);
+    apply();
+    mqLg.addEventListener('change', apply);
+    mqMd.addEventListener('change', apply);
+    return () => {
+      mqLg.removeEventListener('change', apply);
+      mqMd.removeEventListener('change', apply);
+    };
+  }, []);
 
   const rangoInscripciones: DateRange | undefined = useMemo(() => {
     const from = parseIsoToDate(value.fechaInicioInscripcion);
@@ -126,7 +141,8 @@ export function EventoInfoForm({
             <div className="rounded-lg border border-gray-200 bg-white">
               <CalendarUI
                 mode="range"
-                numberOfMonths={2}
+                numberOfMonths={mesesVisibles}
+                fromMonth={mesActual}
                 selected={selected}
                 onSelect={(range) => {
                   const fromIso = range?.from ? format(range.from, 'yyyy-MM-dd') : '';

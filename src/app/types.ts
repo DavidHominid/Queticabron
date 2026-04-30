@@ -50,6 +50,15 @@ export interface EspecialidadEvento {
   consultorio: string;
   horarios: HorarioDisponible[];
   costo: number;
+  tiposCita?: TipoCitaEvento[];
+}
+
+export interface TipoCitaEvento {
+  id?: string;
+  nombre: string;
+  duracionMinutos: number;
+  precio: number;
+  medicoEncargado: string;
 }
 
 export interface HorarioDisponible {
@@ -58,6 +67,7 @@ export interface HorarioDisponible {
   horaFin: string;
   intervalo?: number;
   cupoTotal?: number;
+  tipoCitaId?: string;
 }
 
 // Paciente
@@ -86,6 +96,9 @@ export interface Cita {
   fecha: string;
   hora: string;
   consultorio: string;
+  tipoCitaId?: string;
+  tipoCitaNombre?: string;
+  duracionMinutos?: number;
   medicoEncargado?: string;
   estado: 'programada' | 'cancelada' | 'cedida' | 'en_triage' | 'en_consulta' | 'completada' | 'no_asistio';
   costoPagado: number;

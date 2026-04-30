@@ -3,12 +3,13 @@ import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
-import { Cita, Especialidad, HorarioDisponible } from '../../types';
+import { Cita, Especialidad, HorarioDisponible, TipoCitaEvento } from '../../types';
 
 const toYmd = (d: Date) => d.toISOString().slice(0, 10);
 const toHm = (d: Date) => d.toTimeString().slice(0, 5);
-const buildKey = (h: HorarioDisponible) => `${h.dia}|${h.horaInicio}|${h.horaFin}|${h.intervalo ?? 60}`;
+const buildKey = (h: HorarioDisponible) => `${h.dia}|${h.horaInicio}|${h.horaFin}|${h.intervalo ?? 60}|${h.tipoCitaId || ''}`;
 const toDurationHours = (start: Date, end: Date) => Math.max(1, Math.round((end.getTime() - start.getTime()) / 3600000));
+const tipoPalette = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#c026d3', '#0f766e', '#b91c1c', '#4f46e5'];
 
 const timeToMinutes = (t: string) => {
   const [hh, mm] = t.split(':').map((x) => Number(x));
@@ -16,7 +17,15 @@ const timeToMinutes = (t: string) => {
   return hh * 60 + mm;
 };
 
-const countCitasInWindow = (citas: Cita[], eventoId: string, esp: Especialidad, day: string, start: string, end: string) => {
+const countCitasInWindow = (
+  citas: Cita[],
+  eventoId: string,
+  esp: Especialidad,
+  day: string,
+  start: string,
+  end: string,
+  tipoCitaId?: string,
+) => {
   const s = timeToMinutes(start);
   const e = timeToMinutes(end);
   return citas.filter((c) => {
@@ -24,6 +33,7 @@ const countCitasInWindow = (citas: Cita[], eventoId: string, esp: Especialidad, 
     if (c.especialidad !== esp) return false;
     if (c.fecha !== day) return false;
     if (c.estado === 'cancelada') return false;
+    if (tipoCitaId && String(c.tipoCitaId || '') !== String(tipoCitaId)) return false;
     const m = timeToMinutes(c.hora);
     return m >= s && m < e;
   }).length;
@@ -41,21 +51,16 @@ const addHours = (d: Date, hours: number) => {
   return next;
 };
 
-const normalizeSelection = (start: Date, end: Date) => {
+const buildHorario = (start: Date, durHours: number, cupoTotal = 1, tipoCitaId?: string): HorarioDisponible => {
   const safeStart = startOfHour(start);
-  const safeEndRaw = startOfHour(end);
-  const safeEnd = safeEndRaw.getTime() <= safeStart.getTime() ? addHours(safeStart, 1) : safeEndRaw;
-  return { start: safeStart, end: safeEnd };
-};
-
-const buildHorario = (start: Date, end: Date, cupoTotal = 1): HorarioDisponible => {
-  const { start: safeStart, end: safeEnd } = normalizeSelection(start, end);
+  const safeEnd = addHours(safeStart, Math.max(1, Math.floor(durHours) || 1));
   return {
     dia: toYmd(safeStart),
     horaInicio: toHm(safeStart),
     horaFin: toHm(safeEnd),
     intervalo: 60,
     cupoTotal: Number.isFinite(Number(cupoTotal)) ? Math.max(1, Math.floor(Number(cupoTotal))) : 1,
+    tipoCitaId: tipoCitaId ? String(tipoCitaId) : undefined,
   };
 };
 
@@ -82,6 +87,8 @@ export function ScheduleCalendarEditor({
   value,
   onChange,
   defaultIntervalo = 60,
+  tiposCita = [],
+  tipoCitaIdActivo,
   eventoId,
   especialidad,
   citas = [],
@@ -91,6 +98,8 @@ export function ScheduleCalendarEditor({
   value: HorarioDisponible[];
   onChange: (next: HorarioDisponible[]) => void;
   defaultIntervalo?: number;
+  tiposCita?: TipoCitaEvento[];
+  tipoCitaIdActivo?: string;
   eventoId?: string;
   especialidad?: Especialidad;
   citas?: Cita[];
@@ -111,11 +120,31 @@ export function ScheduleCalendarEditor({
     const locked = new Set<string>();
     for (const h of value || []) {
       const key = buildKey(h);
-      const n = countCitasInWindow(citas || [], eventoId, especialidad, h.dia, h.horaInicio, h.horaFin);
+      const n = countCitasInWindow(citas || [], eventoId, especialidad, h.dia, h.horaInicio, h.horaFin, h.tipoCitaId);
       if (n > 0) locked.add(key);
     }
     return locked;
   }, [citas, especialidad, eventoId, value]);
+
+  const tipoNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of tiposCita || []) {
+      if (!t) continue;
+      const id = t.id ? String(t.id) : '';
+      if (!id) continue;
+      map.set(id, String(t.nombre || '').trim());
+    }
+    return map;
+  }, [tiposCita]);
+
+  const tipoColorById = useMemo(() => {
+    const map = new Map<string, string>();
+    const list = (tiposCita || []).filter((t) => t?.id && String(t?.nombre || '').trim());
+    list.forEach((t, i) => {
+      map.set(String(t.id), tipoPalette[i % tipoPalette.length]);
+    });
+    return map;
+  }, [tiposCita]);
 
   const events = useMemo(() => {
     return (value || []).map((h) => {
@@ -125,28 +154,79 @@ export function ScheduleCalendarEditor({
       const cupo = Number.isFinite(Number(h.cupoTotal)) ? Math.max(1, Math.floor(Number(h.cupoTotal))) : 1;
       const duration = toDurationHours(new Date(start), new Date(end));
       const locked = lockedKeys.has(key);
+      const tipoLabel = h.tipoCitaId ? tipoNameById.get(String(h.tipoCitaId)) || '' : '';
+      const tipoColor = h.tipoCitaId ? tipoColorById.get(String(h.tipoCitaId)) : undefined;
+      const color = locked ? '#9ca3af' : tipoColor || '#2563eb';
       return {
         id: key,
-        title: locked ? `Bloqueado (${duration}h)` : `${duration} hora${duration === 1 ? '' : 's'}`,
+        title: locked ? 'Bloqueado' : tipoLabel || '',
         start,
         end,
         editable: !locked,
         startEditable: !locked,
         durationEditable: !locked,
+        backgroundColor: color,
+        borderColor: color,
+        textColor: '#ffffff',
         extendedProps: {
           intervalo: 60,
           cupoTotal: cupo,
           duration,
           locked,
+          tipoCitaId: h.tipoCitaId ? String(h.tipoCitaId) : '',
         },
       };
     });
-  }, [defaultIntervalo, lockedKeys, value]);
+  }, [lockedKeys, tipoColorById, tipoNameById, value]);
+
+  const duracionHorasActiva = useMemo(() => {
+    const id = String(tipoCitaIdActivo || '').trim();
+    if (!id) return 1;
+    const t = (tiposCita || []).find((x) => String(x?.id || '') === id);
+    const mins = Number.isFinite(Number(t?.duracionMinutos)) ? Math.max(1, Math.floor(Number(t?.duracionMinutos))) : 60;
+    return Math.max(1, Math.ceil(mins / 60));
+  }, [tiposCita, tipoCitaIdActivo]);
+
+  const overlaps = (day: string, startHm: string, endHm: string, tipoCitaId?: string, ignoreKey?: string) => {
+    const s = timeToMinutes(startHm);
+    const e = timeToMinutes(endHm);
+    for (const h of value || []) {
+      if (ignoreKey && buildKey(h) === ignoreKey) continue;
+      if (String(h.dia) !== String(day)) continue;
+      if (tipoCitaId && String(h.tipoCitaId || '') !== String(tipoCitaId)) continue;
+      const hs = timeToMinutes(h.horaInicio);
+      const he = timeToMinutes(h.horaFin);
+      if (s < he && e > hs) return true;
+    }
+    return false;
+  };
+
+  const createBlocks = (start: Date) => {
+    if ((tiposCita || []).length > 0 && !String(tipoCitaIdActivo || '').trim()) {
+      setMensajeBloqueo('Selecciona un tipo de cita para asignarlo a los bloques.');
+      return;
+    }
+    const safeStart = startOfHour(start);
+    const day = toYmd(safeStart);
+    const end = addHours(safeStart, duracionHorasActiva);
+    if (toYmd(end) !== day) {
+      setMensajeBloqueo('El bloque no puede cruzar al siguiente día.');
+      return;
+    }
+    const startHm = toHm(safeStart);
+    const endHm = toHm(end);
+    if (overlaps(day, startHm, endHm, undefined, undefined)) {
+      setMensajeBloqueo('Ese horario se empalma con otro bloque.');
+      return;
+    }
+    const nuevo = buildHorario(safeStart, duracionHorasActiva, 1, tipoCitaIdActivo);
+    onChange(mergeHorarios([...(value || []), nuevo]));
+  };
 
   return (
     <div className="space-y-3">
       <div className="text-sm text-gray-700">
-        Selecciona en el calendario para crear un bloque. Por defecto inicia en 1 hora, pero puedes arrastrar o redimensionar para procedimientos de 2 o 3 horas.
+        Haz click en el calendario para crear un bloque. La altura del bloque refleja la duración del tipo de cita (en horas) y siempre inicia en una hora exacta.
       </div>
       {mensajeBloqueo && <div className="text-sm text-red-600">{mensajeBloqueo}</div>}
       <div className="rounded-lg border border-gray-200 overflow-hidden">
@@ -162,18 +242,17 @@ export function ScheduleCalendarEditor({
           slotLabelInterval="01:00:00"
           snapDuration="01:00:00"
           allDaySlot={false}
-          selectable={true}
-          selectMirror={true}
+          selectable={false}
+          selectMirror={false}
           editable={true}
-          eventDurationEditable={true}
+          eventDurationEditable={false}
           eventOverlap={false}
           selectOverlap={false}
           events={events}
           validRange={validRange}
-          select={(info) => {
+          dateClick={(info) => {
             setMensajeBloqueo('');
-            const nuevo = buildHorario(info.start, info.end, 1);
-            onChange(mergeHorarios([...(value || []), nuevo]));
+            createBlocks(info.date);
           }}
           eventDrop={(info) => {
             setMensajeBloqueo('');
@@ -183,27 +262,24 @@ export function ScheduleCalendarEditor({
               return;
             }
             const base = (value || []).filter((h) => buildKey(h) !== info.event.id);
-            const moved = buildHorario(
-              info.event.start!,
-              info.event.end || addHours(info.event.start!, 1),
-              Number(info.event.extendedProps.cupoTotal) || 1,
-            );
-            onChange(mergeHorarios([...base, moved]));
-          }}
-          eventResize={(info) => {
-            setMensajeBloqueo('');
-            if (lockedKeys.has(info.event.id)) {
+            const tipoCitaId = String(info.event.extendedProps.tipoCitaId || '').trim() || undefined;
+            const dur = Number.isFinite(Number(info.event.extendedProps.duration)) ? Math.max(1, Math.floor(Number(info.event.extendedProps.duration))) : 1;
+            const safeStart = info.event.start!;
+            const end = addHours(startOfHour(safeStart), dur);
+            if (toYmd(end) !== toYmd(safeStart)) {
               info.revert();
-              setMensajeBloqueo('No puedes redimensionar un horario que ya tiene citas agendadas.');
+              setMensajeBloqueo('El bloque no puede cruzar al siguiente día.');
               return;
             }
-            const base = (value || []).filter((h) => buildKey(h) !== info.event.id);
-            const resized = buildHorario(
-              info.event.start!,
-              info.event.end || addHours(info.event.start!, 1),
-              Number(info.event.extendedProps.cupoTotal) || 1,
-            );
-            onChange(mergeHorarios([...base, resized]));
+            const startHm = toHm(startOfHour(safeStart));
+            const endHm = toHm(end);
+            if (overlaps(toYmd(safeStart), startHm, endHm, undefined, info.event.id)) {
+              info.revert();
+              setMensajeBloqueo('Ese movimiento se empalma con otro bloque.');
+              return;
+            }
+            const moved = buildHorario(safeStart, dur, Number(info.event.extendedProps.cupoTotal) || 1, tipoCitaId);
+            onChange(mergeHorarios([...base, moved]));
           }}
           eventClick={(info) => {
             setMensajeBloqueo('');
@@ -220,7 +296,6 @@ export function ScheduleCalendarEditor({
           eventContent={(arg) => (
             <div className="px-1 py-0.5 text-[11px] leading-tight">
               <div className="font-medium">{arg.timeText}</div>
-              <div>{arg.event.title}</div>
             </div>
           )}
         />
