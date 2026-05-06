@@ -26,6 +26,7 @@ import { ModalNuevaCirugia } from '../components/cirugias/ModalNuevaCirugia';
 import { ModalEstudioSocioeconomico } from '../components/cirugias/ModalEstudioSocioeconomico';
 import { ModalSeguimiento } from '../components/cirugias/ModalSeguimiento';
 import { ModalDetalleCirugia } from '../components/cirugias/ModalDetalleCirugia';
+import { nowIso, todayYmd } from '../utils/clock';
 
 export function Cirugias() {
   const { 
@@ -60,7 +61,7 @@ export function Cirugias() {
       costoEstimado: data.costoEstimado || 0,
       estado: 'pendiente_estudio',
       notas: data.notas,
-      fechaRegistro: new Date().toISOString().split('T')[0],
+      fechaRegistro: todayYmd(),
     };
 
     addCirugia(nuevaCirugia);
@@ -71,7 +72,7 @@ export function Cirugias() {
       rol: user?.rol || 'medico',
       accion: 'Iniciar Proceso de Cirugía',
       detalles: `Inició proceso de cirugía para paciente: ${nuevaCirugia.diagnostico}`,
-      fechaHora: new Date().toISOString(),
+      fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     });
 
@@ -84,7 +85,7 @@ export function Cirugias() {
     const nuevoEstudio: EstudioSocioeconomico = {
       id: `est${Date.now()}`,
       pacienteId: selectedCirugia.pacienteId,
-      fechaEstudio: new Date().toISOString().split('T')[0],
+      fechaEstudio: todayYmd(),
       realizadoPor: user?.nombre || '',
       ingresoMensual: data.ingresoMensual || 0,
       numeroPersonasDependientes: data.numeroPersonasDependientes || 1,
@@ -111,7 +112,7 @@ export function Cirugias() {
       rol: user?.rol || 'recepcion',
       accion: 'Completar Estudio Socioeconómico',
       detalles: `Completó estudio socioeconómico para cirugía ${selectedCirugia.id}`,
-      fechaHora: new Date().toISOString(),
+      fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     });
 
@@ -126,8 +127,8 @@ export function Cirugias() {
       id: `seg${Date.now()}`,
       pacienteId: selectedCirugia.pacienteId,
       cirugiaId: selectedCirugia.id,
-      fecha: data.fecha || new Date().toISOString().split('T')[0],
-      fechaCreacion: new Date().toISOString().split('T')[0],
+      fecha: data.fecha || todayYmd(),
+      fechaCreacion: todayYmd(),
       medicoEncargado: data.medicoEncargado || '',
       estadoPaciente: data.estadoPaciente || '',
       observaciones: data.observaciones || '',
@@ -144,20 +145,25 @@ export function Cirugias() {
       rol: user?.rol || 'medico',
       accion: 'Registrar Seguimiento',
       detalles: `Registró seguimiento para cirugía ${selectedCirugia.id}`,
-      fechaHora: new Date().toISOString(),
+      fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     });
 
     setShowSeguimientoModal(false);
   };
-  const estadoBadgeColor = (estado: string) => {
+  const estadoBadgeStyle = (estado: string) => {
     switch (estado) {
-      case 'pendiente_estudio': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'estudio_completado': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'programada': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'realizada': return 'bg-green-100 text-green-800 border-green-200';
-      case 'cancelada': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'cancelada':
+        return { variant: 'destructive' as const, className: '' };
+      case 'realizada':
+        return { variant: 'default' as const, className: '' };
+      case 'programada':
+      case 'estudio_completado':
+        return { variant: 'secondary' as const, className: '' };
+      case 'pendiente_estudio':
+        return { variant: 'outline' as const, className: 'bg-accent text-accent-foreground border-transparent' };
+      default:
+        return { variant: 'outline' as const, className: 'bg-background' };
     }
   };
 
@@ -177,12 +183,12 @@ export function Cirugias() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Gestión de Cirugías</h1>
-            <p className="text-gray-600 mt-1">
+            <h1 className="text-2xl font-semibold text-foreground">Gestión de Cirugías</h1>
+            <p className="text-muted-foreground mt-1">
               Procesos quirúrgicos, estudios socioeconómicos y seguimientos
             </p>
           </div>
-          <Button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Iniciar Proceso de Cirugía
           </Button>
@@ -193,12 +199,12 @@ export function Cirugias() {
           <Card className="shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <ClipboardList className="w-6 h-6 text-orange-600" />
+                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
+                  <ClipboardList className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total</p>
-                  <p className="text-2xl font-semibold text-gray-900">{cirugias.length}</p>
+                  <p className="text-sm text-muted-foreground">Total</p>
+                  <p className="text-2xl font-semibold text-foreground">{cirugias.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -207,12 +213,12 @@ export function Cirugias() {
           <Card className="shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-yellow-600" />
+                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Pendientes</p>
-                  <p className="text-2xl font-semibold text-gray-900">
+                  <p className="text-sm text-muted-foreground">Pendientes</p>
+                  <p className="text-2xl font-semibold text-foreground">
                     {cirugias.filter((c) => c.estado === 'pendiente_estudio').length}
                   </p>
                 </div>
@@ -223,12 +229,12 @@ export function Cirugias() {
           <Card className="shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Programadas</p>
-                  <p className="text-2xl font-semibold text-gray-900">
+                  <p className="text-sm text-muted-foreground">Programadas</p>
+                  <p className="text-2xl font-semibold text-foreground">
                     {cirugias.filter((c) => c.estado === 'programada').length}
                   </p>
                 </div>
@@ -239,12 +245,12 @@ export function Cirugias() {
           <Card className="shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-green-600" />
+                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Realizadas</p>
-                  <p className="text-2xl font-semibold text-gray-900">
+                  <p className="text-sm text-muted-foreground">Realizadas</p>
+                  <p className="text-2xl font-semibold text-foreground">
                     {cirugias.filter((c) => c.estado === 'realizada').length}
                   </p>
                 </div>
@@ -255,12 +261,12 @@ export function Cirugias() {
           <Card className="shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Seguimientos</p>
-                  <p className="text-2xl font-semibold text-gray-900">{seguimientos.length}</p>
+                  <p className="text-sm text-muted-foreground">Seguimientos</p>
+                  <p className="text-2xl font-semibold text-foreground">{seguimientos.length}</p>
                 </div>
               </div>
             </CardContent>
@@ -278,7 +284,7 @@ export function Cirugias() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <select className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <select className="px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring">
                 <option value="">Todos los estados</option>
                 <option value="pendiente_estudio">Pendiente de Estudio</option>
                 <option value="estudio_completado">Estudio Completado</option>
@@ -301,15 +307,15 @@ export function Cirugias() {
               <Card key={cirugia.id} className="shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center flex-shrink-0">
-                      <Heart className="w-8 h-8 text-white" />
+                    <div className="w-16 h-16 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
+                      <Heart className="w-8 h-8 text-accent-foreground" />
                     </div>
 
                     <div className="flex-1">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <h3 className="font-semibold text-gray-900 text-lg">{cirugia.diagnostico}</h3>
-                          <div className="flex items-center gap-3 mt-1 text-sm text-gray-600">
+                          <h3 className="font-semibold text-foreground text-lg">{cirugia.diagnostico}</h3>
+                          <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User className="w-4 h-4" />
                               <span>{paciente?.nombre}</span>
@@ -327,39 +333,39 @@ export function Cirugias() {
                             )}
                           </div>
                         </div>
-                        <Badge className={estadoBadgeColor(cirugia.estado)}>
+                        <Badge variant={estadoBadgeStyle(cirugia.estado).variant} className={estadoBadgeStyle(cirugia.estado).className}>
                           {estadoTexto(cirugia.estado)}
                         </Badge>
                       </div>
 
                       <div className="grid grid-cols-4 gap-4 mt-4">
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-600">Especialidad</p>
-                          <p className="text-sm font-medium text-gray-900 capitalize mt-1">
+                        <div className="p-3 bg-muted/20 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Especialidad</p>
+                          <p className="text-sm font-medium text-foreground capitalize mt-1">
                             {cirugia.especialidad?.replace('_', ' ') || 'No especificada'}
                           </p>
                         </div>
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-600">Lugar</p>
-                          <p className="text-sm font-medium text-gray-900 mt-1">
+                        <div className="p-3 bg-muted/20 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Lugar</p>
+                          <p className="text-sm font-medium text-foreground mt-1">
                             {cirugia.lugarCirugia || 'No asignado'}
                           </p>
                         </div>
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-600">Costo Estimado</p>
-                          <p className="text-sm font-medium text-gray-900 mt-1">
+                        <div className="p-3 bg-muted/20 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Costo Estimado</p>
+                          <p className="text-sm font-medium text-foreground mt-1">
                             ${cirugia.costoEstimado?.toLocaleString() || '0'}
                           </p>
                         </div>
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-600">Seguimientos</p>
-                          <p className="text-sm font-medium text-gray-900 mt-1">
+                        <div className="p-3 bg-muted/20 rounded-lg">
+                          <p className="text-xs text-muted-foreground">Seguimientos</p>
+                          <p className="text-sm font-medium text-foreground mt-1">
                             {seguimientosCirugia.length}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex gap-2 mt-4 pt-4 border-t">
+                      <div className="flex gap-2 mt-4 pt-4 border-t border-border">
                         <Button
                           variant="outline"
                           size="sm"
@@ -380,7 +386,6 @@ export function Cirugias() {
                               setSelectedCirugia(cirugia);
                               setShowEstudioModal(true);
                             }}
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50"
                           >
                             <FileText className="w-4 h-4 mr-2" />
                             Realizar Estudio
@@ -395,7 +400,6 @@ export function Cirugias() {
                               setSelectedCirugia(cirugia);
                               setShowSeguimientoModal(true);
                             }}
-                            className="border-purple-300 text-purple-700 hover:bg-purple-50"
                           >
                             <ClipboardList className="w-4 h-4 mr-2" />
                             Agregar Seguimiento
@@ -412,14 +416,14 @@ export function Cirugias() {
         {cirugias.length === 0 && (
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
-              <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <Heart className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
                 No hay cirugías registradas
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-muted-foreground mb-6">
                 Comienza iniciando el primer proceso de cirugía
               </p>
-              <Button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Button onClick={() => setShowModal(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Iniciar Proceso de Cirugía
               </Button>

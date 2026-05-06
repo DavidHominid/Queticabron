@@ -5,6 +5,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { X, DollarSign, Home, Users, Briefcase, CheckCircle2 } from 'lucide-react';
 import { Paciente, EstudioSocioeconomico, Cirugia } from '../../types';
+import { todayYmd } from '../../utils/clock';
 
 interface ModalEstudioSocioeconomicoProps {
   cirugia: Cirugia;
@@ -20,7 +21,7 @@ export function ModalEstudioSocioeconomico({
   onSubmit 
 }: ModalEstudioSocioeconomicoProps) {
   const [estudioForm, setEstudioForm] = useState<Partial<EstudioSocioeconomico>>({
-    fechaEstudio: new Date().toISOString().split('T')[0],
+    fechaEstudio: todayYmd(),
     ingresoMensual: 0,
     numeroPersonasDependientes: 1,
     vivienda: {

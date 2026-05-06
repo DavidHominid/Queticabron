@@ -85,18 +85,18 @@ export function Variables() {
     return (
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b">
+          <thead className="bg-muted/30 border-b border-border">
             <tr>
-              <th className="text-left p-4 text-sm font-medium text-gray-700">Nombre</th>
-              <th className="text-left p-4 text-sm font-medium text-gray-700">Código</th>
-              <th className="text-left p-4 text-sm font-medium text-gray-700">Estado</th>
-              <th className="text-left p-4 text-sm font-medium text-gray-700">Acciones</th>
+              <th className="text-left p-4 text-sm font-medium text-muted-foreground">Nombre</th>
+              <th className="text-left p-4 text-sm font-medium text-muted-foreground">Código</th>
+              <th className="text-left p-4 text-sm font-medium text-muted-foreground">Estado</th>
+              <th className="text-left p-4 text-sm font-medium text-muted-foreground">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.codigo} className="border-b hover:bg-gray-50">
-                <td className="p-4 text-sm text-gray-900">
+              <tr key={r.codigo} className="border-b border-border hover:bg-muted/40">
+                <td className="p-4 text-sm text-foreground">
                   {editando?.tipo === tipo && editando?.codigo === r.codigo ? (
                     <Input
                       value={editando.nombre}
@@ -107,12 +107,14 @@ export function Variables() {
                     r.nombre
                   )}
                 </td>
-                <td className="p-4 text-sm font-mono text-gray-700">{r.codigo}</td>
+                <td className="p-4 text-sm font-mono text-muted-foreground">{r.codigo}</td>
                 <td className="p-4">
                   {r.activa ? (
-                    <Badge className="bg-green-100 text-green-700">Activa</Badge>
+                    <Badge>Activa</Badge>
                   ) : (
-                    <Badge className="bg-gray-100 text-gray-700">Inactiva</Badge>
+                    <Badge variant="outline" className="bg-background">
+                      Inactiva
+                    </Badge>
                   )}
                 </td>
                 <td className="p-4">
@@ -132,9 +134,8 @@ export function Variables() {
                     {editando?.tipo === tipo && editando?.codigo === r.codigo && (
                       <>
                         <Button
-                          variant="outline"
+                          variant="default"
                           size="sm"
-                          className="border-green-300 text-green-700 hover:bg-green-50"
                           disabled={savingEdit}
                           onClick={async () => {
                             const nombre = String(editando?.nombre || '').trim();
@@ -162,9 +163,8 @@ export function Variables() {
                     )}
                     {r.activa ? (
                       <Button
-                        variant="outline"
+                        variant="destructive"
                         size="sm"
-                        className="border-red-300 text-red-700 hover:bg-red-50"
                         disabled={savingEdit}
                         onClick={async () => {
                           if (!confirm(`¿Desactivar "${r.nombre}"?`)) return;
@@ -175,7 +175,7 @@ export function Variables() {
                       </Button>
                     ) : (
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         disabled={savingEdit}
                         onClick={async () => {
@@ -192,7 +192,7 @@ export function Variables() {
           </tbody>
         </table>
 
-        {rows.length === 0 && <div className="p-12 text-center text-gray-600">No hay registros.</div>}
+        {rows.length === 0 && <div className="p-12 text-center text-muted-foreground">No hay registros.</div>}
       </div>
     );
   };
@@ -201,8 +201,8 @@ export function Variables() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Variables</h1>
-          <p className="mt-1 text-gray-600">Administra catálogos como especialidades y ciudades.</p>
+          <h1 className="text-2xl font-semibold text-foreground">Variables</h1>
+          <p className="mt-1 text-muted-foreground">Administra catálogos como especialidades y ciudades.</p>
         </div>
 
         <Tabs defaultValue="especialidades">
@@ -239,7 +239,7 @@ export function Variables() {
                     />
                   </div>
                   <div className="flex items-end gap-2">
-                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loadingEspecialidad}>
+                    <Button type="submit" disabled={loadingEspecialidad}>
                       <Plus className="mr-2 h-4 w-4" />
                       Crear
                     </Button>
@@ -298,7 +298,7 @@ export function Variables() {
                     />
                   </div>
                   <div className="flex items-end gap-2">
-                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={loadingCiudad}>
+                    <Button type="submit" disabled={loadingCiudad}>
                       <Plus className="mr-2 h-4 w-4" />
                       Crear
                     </Button>

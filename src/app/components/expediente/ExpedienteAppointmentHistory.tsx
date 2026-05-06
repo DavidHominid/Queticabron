@@ -9,12 +9,16 @@ interface ExpedienteAppointmentHistoryProps {
   citas: Cita[];
   onVerConsulta: (citaId: string) => void;
   obtenerDatosCompletoCita: (citaId: string) => any;
+  selectedCitaId?: string | null;
+  maxHeightClassName?: string;
 }
 
 export function ExpedienteAppointmentHistory({ 
   citas, 
   onVerConsulta, 
-  obtenerDatosCompletoCita 
+  obtenerDatosCompletoCita,
+  selectedCitaId,
+  maxHeightClassName
 }: ExpedienteAppointmentHistoryProps) {
   const estadoCitaBadge = (estado: string) => {
     const colores: { [key: string]: string } = {
@@ -33,11 +37,16 @@ export function ExpedienteAppointmentHistory({
         <CardTitle className="text-lg text-gray-900">Historial de Citas ({citas.length})</CardTitle>
       </CardHeader>
       <CardContent className="p-4">
-        <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+        <div className={`space-y-3 overflow-y-auto pr-2 custom-scrollbar ${maxHeightClassName ?? 'max-h-96'}`}>
           {citas.slice().reverse().map((cita) => {
-            const tieneConsulta = obtenerDatosCompletoCita(cita.id) !== null && cita.estado === 'completada';
+            const tieneRegistro = obtenerDatosCompletoCita(cita.id) !== null;
+            const selected = String(selectedCitaId || '') === String(cita.id);
             return (
-              <div key={cita.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors bg-white">
+              <div
+                key={cita.id}
+                className={`p-4 border rounded-lg transition-colors bg-white cursor-pointer ${selected ? 'border-blue-300 bg-blue-50/40' : 'hover:bg-gray-50'}`}
+                onClick={() => onVerConsulta(cita.id)}
+              >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <p className="font-medium text-gray-900 capitalize text-base">
@@ -62,17 +71,18 @@ export function ExpedienteAppointmentHistory({
                     <Badge className={estadoCitaBadge(cita.estado)}>
                       {cita.estado.replace('_', ' ')}
                     </Badge>
-                    {tieneConsulta && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onVerConsulta(cita.id)}
-                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        Ver Consulta
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onVerConsulta(cita.id);
+                      }}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      {tieneRegistro ? 'Ver Detalle' : 'Ver'}
+                    </Button>
                   </div>
                 </div>
                 <p className="text-sm text-gray-600">Consultorio: {cita.consultorio}</p>

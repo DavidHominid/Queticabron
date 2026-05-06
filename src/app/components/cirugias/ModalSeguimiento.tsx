@@ -5,6 +5,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { X, ClipboardList } from 'lucide-react';
 import { Paciente, Seguimiento, Cirugia } from '../../types';
+import { todayYmd } from '../../utils/clock';
 
 interface ModalSeguimientoProps {
   cirugia: Cirugia;
@@ -16,7 +17,7 @@ interface ModalSeguimientoProps {
 export function ModalSeguimiento({ cirugia, paciente, onClose, onSubmit }: ModalSeguimientoProps) {
   const [seguimientoForm, setSeguimientoForm] = useState<Partial<Seguimiento>>({
     cirugiaId: cirugia.id,
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: todayYmd(),
     medicoEncargado: '',
     estadoPaciente: '',
     observaciones: '',

@@ -5,9 +5,12 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
-import { format } from 'date-fns';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { nowIso, todayYmd } from '../utils/clock';
+import { pickEventoActivoParaTriageConCitas, triageCanSeeCita } from '../utils/triageAccess';
+import { normalizeCiudad } from '../utils/ciudades';
+import { labelEspecialidad } from '../utils/especialidades';
 import {
   Activity,
   Heart,
@@ -32,6 +35,7 @@ export function TriageNuevo() {
     citas,
     pacientes,
     eventos,
+    especialidadesCatalogo,
     addCita,
     addRegistroTriage,
     updateCita,
@@ -65,9 +69,9 @@ export function TriageNuevo() {
       : user?.ciudad
         ? [user.ciudad]
         : [];
-  const eventoActivo = eventos.find((e) => e.estado === 'activo' && ciudadesUsuario.includes(e.ciudad));
-
-  const hoy = format(new Date(), 'yyyy-MM-dd');
+  const ciudadesNorm = Array.from(new Set(ciudadesUsuario.map(normalizeCiudad).filter(Boolean)));
+  const hoy = todayYmd();
+  const eventoActivo = pickEventoActivoParaTriageConCitas(eventos, citas, user, hoy, ciudadesNorm);
 
   // Comparación de fechas segura contra zona horaria:
   // c.fecha viene como "2026-03-22" o "2026-03-22T07:00:00.000Z"
@@ -78,12 +82,16 @@ export function TriageNuevo() {
   const citasHoy = citas.filter(
     (c) =>
       c.eventoId === eventoActivo?.id &&
+      normalizarFecha(c.fecha) === hoy &&
       (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
   );
+  const citasVisibles = citasHoy.filter((c) => triageCanSeeCita(eventoActivo || null, c, user));
 
   // Obtener pacientes con citas hoy
-  const pacientesDisponibles = citasHoy.map((cita) => {
+  const pacientesDisponibles = citasVisibles
+    .map((cita) => {
     const paciente = pacientes.find((p) => p.id === cita.pacienteId);
+    if (!paciente) return null;
     const triageCompletado = registrosTriage.find((t) => t.citaId === cita.id);
     const enProceso = triageEnProceso[cita.id];
 
@@ -100,13 +108,14 @@ export function TriageNuevo() {
       estado,
       triageCompletado,
     };
-  });
+    })
+    .filter((v): v is NonNullable<typeof v> => Boolean(v));
 
   // Filtrar pacientes por búsqueda (mostrar todos, incluyendo completados)
   const pacientesFiltrados = pacientesDisponibles.filter(
     (p) =>
-      p?.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p?.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase())
+      p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleSeleccionarPaciente = (paciente: any) => {
@@ -161,7 +170,7 @@ export function TriageNuevo() {
       id: `tri${Date.now()}`,
       pacienteId: selectedPaciente.id,
       citaId: selectedPaciente.cita.id,
-      fechaHora: new Date().toISOString(),
+      fechaHora: nowIso(),
       signosVitales: signosForm,
       observaciones: observaciones || undefined,
       realizadoPor: user?.nombre || '',
@@ -182,7 +191,7 @@ export function TriageNuevo() {
       rol: user?.rol || 'triage',
       accion: 'Registrar Triage',
       detalles: `Registró signos vitales para ${selectedPaciente.nombre}`,
-      fechaHora: new Date().toISOString(),
+      fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     });
 
@@ -428,6 +437,14 @@ export function TriageNuevo() {
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-gray-900 truncate">{paciente?.nombre}</h3>
                         <p className="text-sm text-gray-600 mt-1">{paciente?.numeroExpediente}</p>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                          <Badge className="bg-blue-100 text-blue-700">
+                            {labelEspecialidad(paciente.cita.especialidad, especialidadesCatalogo)}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {String(paciente.cita.tipoCitaNombre || '').trim() || 'Sin tipo de cita'}
+                          </Badge>
+                        </div>
                         <div className="flex flex-col gap-1 mt-2 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-3 h-3 text-blue-500" />
@@ -485,6 +502,14 @@ export function TriageNuevo() {
                   <Badge variant="outline">{selectedPaciente.numeroExpediente}</Badge>
                   <span className="text-sm text-gray-600">Cita: {selectedPaciente.cita.hora}</span>
                   {getEstadoBadge(selectedPaciente.estado)}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <Badge className="bg-blue-100 text-blue-700">
+                    {labelEspecialidad(selectedPaciente.cita.especialidad, especialidadesCatalogo)}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {String(selectedPaciente.cita.tipoCitaNombre || '').trim() || 'Sin tipo de cita'}
+                  </Badge>
                 </div>
               </div>
               <button

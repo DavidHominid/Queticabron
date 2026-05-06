@@ -1,22 +1,29 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { FileText, Search, User, Calendar, Phone, MapPin } from 'lucide-react';
+import { FileText, Search, User, Calendar } from 'lucide-react';
 
 export function Expedientes() {
-  const { pacientes, citas, consultasMedicas } = useData();
+  const navigate = useNavigate();
+  const { pacientes, citas } = useData();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const especialidadesUsuario = (user?.especialidades?.length ? user.especialidades : user?.especialidad ? [user.especialidad] : []).filter(Boolean);
+  const esCitaDelMedico = (c: any) => c?.medicoEncargado && (c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre);
 
   // Filtrar pacientes que han tenido citas con este médico
-  const pacientesDelMedico = pacientes.filter((paciente) =>
-    citas.some((cita) => cita.pacienteId === paciente.id && especialidadesUsuario.includes(cita.especialidad))
-  );
+  const pacientesDelMedico = pacientes.filter((paciente) => {
+    if (user?.rol === 'administrador') return true;
+    if (user?.rol === 'medico') {
+      return citas.some((cita) => cita.pacienteId === paciente.id && esCitaDelMedico(cita));
+    }
+    return citas.some((cita) => cita.pacienteId === paciente.id && especialidadesUsuario.includes(cita.especialidad));
+  });
 
   const pacientesFiltrados = pacientesDelMedico.filter(
     (p) =>
@@ -49,11 +56,19 @@ export function Expedientes() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {pacientesFiltrados.map((paciente) => {
             const citasCount = citas.filter(
-              (c) => c.pacienteId === paciente.id && especialidadesUsuario.includes(c.especialidad)
+              (c) =>
+                c.pacienteId === paciente.id &&
+                (user?.rol === 'medico' ? esCitaDelMedico(c) : especialidadesUsuario.includes(c.especialidad))
             ).length;
 
             return (
-              <Card key={paciente.id} className="shadow-sm hover:shadow-md transition-all cursor-pointer">
+              <Card
+                key={paciente.id}
+                className="shadow-sm hover:shadow-md transition-all cursor-pointer"
+                onClick={() => {
+                  navigate(`/expediente/${paciente.id}`);
+                }}
+              >
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
@@ -96,6 +111,7 @@ export function Expedientes() {
           </Card>
         )}
       </div>
+
     </DashboardLayout>
   );
 }

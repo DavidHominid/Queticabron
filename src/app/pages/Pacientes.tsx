@@ -1,33 +1,30 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
-import { ExpedienteCompleto } from '../components/ExpedienteCompleto';
 import { PacienteCard } from '../components/PacienteCard';
-import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
-import { Calendar as CalendarUI } from '../components/ui/calendar';
+import { ModalNuevaCirugia } from '../components/cirugias/ModalNuevaCirugia';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
-import { cn, formatDateSafe } from '../components/ui/utils';
+import { formatDateSafe } from '../components/ui/utils';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Search, User, Phone, Calendar as CalendarIcon, MapPin, FileText, X, Activity } from 'lucide-react';
+import { Plus, Search, User, Phone, MapPin, FileText, X, Heart } from 'lucide-react';
 import { Paciente, Ciudad } from '../types';
+import { now, nowIso, todayYmd } from '../utils/clock';
 
 export function Pacientes() {
-  const { pacientes, citas, consultasMedicas, addPaciente, updatePaciente, addRegistroAuditoria, addCita, eventos, ciudadesCatalogo } = useData();
+  const navigate = useNavigate();
+  const { pacientes, citas, consultasMedicas, addPaciente, updatePaciente, addRegistroAuditoria, addCirugia, ciudadesCatalogo } = useData();
   const { user } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPaciente, setSelectedPaciente] = useState<Paciente | null>(null);
-  const [showExpediente, setShowExpediente] = useState(false);
-  const [showAgendarModal, setShowAgendarModal] = useState(false);
-  const [showCalendarUI, setShowCalendarUI] = useState(false);
-  const [citaForm, setCitaForm] = useState({ fecha: '', hora: '08:00' });
+  const [showCirugiaModal, setShowCirugiaModal] = useState(false);
   const [filterType, setFilterType] = useState<'todos' | 'agendados' | 'atendidos'>('todos');
   const ciudadDefault =
     (user?.ciudad || '') ||
@@ -48,6 +45,7 @@ export function Pacientes() {
   const [formData, setFormData] = useState<Partial<Paciente>>(initialFormData);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
 
   const resetForm = () => {
     setFormData(initialFormData);
@@ -56,6 +54,19 @@ export function Pacientes() {
   };
 
   const isMedico = user?.rol === 'medico';
+  const esCitaDelMedico = (c: any) => c?.medicoEncargado && (c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre);
+
+  useEffect(() => {
+    if (!imageFile) {
+      setImagePreviewUrl('');
+      return;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [imageFile]);
 
 
 
@@ -123,7 +134,7 @@ export function Pacientes() {
     }
 
     // Generar número de expediente
-    const año = new Date().getFullYear();
+    const año = now().getFullYear();
     const numeroSecuencial = String(pacientes.length + 1).padStart(3, '0');
     const numeroExpediente = `EXP-${año}-${numeroSecuencial}`;
 
@@ -136,7 +147,7 @@ export function Pacientes() {
       sexo: formData.sexo || 'Masculino',
       telefono: formData.telefono || '',
       ciudad: (formData.ciudad as Ciudad) || user?.ciudad || 'sonoyta',
-      fechaRegistro: new Date().toISOString().split('T')[0],
+      fechaRegistro: todayYmd(),
       imagen: uploadedUrl,
       nacionalidad: formData.nacionalidad || 'Mexicana',
       identificacion: idValue,
@@ -171,85 +182,108 @@ export function Pacientes() {
     resetForm();
   };
 
-  const handleAgendarCita = async () => {
-    if (!selectedPaciente || !citaForm.fecha) return;
-    const eventoActivo = eventos.find(e => e.estado === 'activo' && e.ciudad === user?.ciudad);
-    if (!eventoActivo) {
-      alert("No hay un evento activo para esta cita.");
-      return;
-    }
+  const handleIniciarCirugia = (data: any) => {
+    if (!selectedPaciente) return;
+    addCirugia({
+      id: `cir${Date.now()}`,
+      pacienteId: data.pacienteId || selectedPaciente.id,
+      diagnostico: data.diagnostico || '',
+      medicoACargo: data.medicoACargo || user?.nombre || '',
+      especialidad: data.especialidad || 'medicina_familiar',
+      fechaCirugia: data.fechaCirugia || '',
+      horaEstimada: data.horaEstimada || '',
+      lugarCirugia: data.lugarCirugia || '',
+      costoEstimado: data.costoEstimado || 0,
+      estado: 'pendiente_estudio',
+      notas: data.notas,
+      fechaRegistro: todayYmd(),
+    } as any);
 
-    try {
-      await addCita({
-        id: `cita${Date.now()}`,
-        eventoId: eventoActivo.id,
-        pacienteId: selectedPaciente.id,
-        fecha: citaForm.fecha,
-        hora: citaForm.hora,
-        estado: 'programada',
-        especialidad: 'medicina_familiar',
-        consultorio: 'Consultorio 1',
-        costoPagado: 0,
-        fechaCreacion: new Date().toISOString()
-      } as any);
+    addRegistroAuditoria({
+      id: `aud${Date.now()}`,
+      usuarioId: user?.id || '',
+      nombreUsuario: user?.nombre || '',
+      rol: user?.rol || 'medico',
+      accion: 'Iniciar Proceso de Cirugía',
+      detalles: `Inició proceso de cirugía para ${selectedPaciente.nombre} - Diagnóstico: ${data.diagnostico || ''}`,
+      fechaHora: nowIso(),
+      ciudad: user?.ciudad || 'sonoyta',
+    } as any);
 
-      addRegistroAuditoria({
-        id: `aud${Date.now()}`,
-        usuarioId: user?.id || '',
-        nombreUsuario: user?.nombre || '',
-        rol: user?.rol || 'recepcion',
-        accion: 'Agendó Cita',
-        detalles: `Agendó cita para ${selectedPaciente.nombre} el día ${citaForm.fecha}`,
-        fechaHora: new Date().toISOString(),
-        ciudad: user?.ciudad || 'sonoyta',
-      } as any);
-
-      setShowAgendarModal(false);
-      setSelectedPaciente(null);
-      setCitaForm({ fecha: '', hora: '08:00' });
-    } catch (err) {
-      console.error('Error al agendar cita:', err);
-    }
+    setShowCirugiaModal(false);
   };
 
-  // Filtrar pacientes según rol y búsqueda
-  const pacientesFiltrados = pacientes.filter((p) => {
-    const term = searchTerm.toLowerCase();
-    const matchSearch = 
-      (p.nombre || '').toLowerCase().includes(term) ||
-      (p.id || '').toLowerCase().includes(term) ||
-      (p.numeroExpediente || '').toLowerCase().includes(term) ||
-      (p.telefono || '').includes(searchTerm);
-
-    if (!isMedico) return matchSearch;
-
-    let matchFilter = true;
-    if (filterType === 'agendados') {
-      matchFilter = citas.some(c => c.pacienteId === p.id && (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta'));
-    } else if (filterType === 'atendidos') {
-      matchFilter = consultasMedicas.some(cm => cm.pacienteId === p.id);
+  const pacienteStatsById = useMemo(() => {
+    const map = new Map<string, { totalCitas: number; consultasCompletadas: number; citasPendientes: number }>();
+    for (const p of pacientes) {
+      map.set(p.id, { totalCitas: 0, consultasCompletadas: 0, citasPendientes: 0 });
     }
-    // Si filterType === 'todos', matchFilter sigue siendo true
 
-    return matchSearch && matchFilter;
-  });
+    for (const c of citas) {
+      const id = c?.pacienteId;
+      if (!id || !map.has(id)) continue;
+      const s = map.get(id)!;
+      s.totalCitas += 1;
+      if (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta') s.citasPendientes += 1;
+    }
+
+    for (const cm of consultasMedicas) {
+      const id = (cm as any)?.pacienteId;
+      if (!id || !map.has(id)) continue;
+      const s = map.get(id)!;
+      s.consultasCompletadas += 1;
+    }
+
+    return map;
+  }, [citas, consultasMedicas, pacientes]);
+
+  const pacientesFiltrados = useMemo(() => {
+    const termLower = searchTerm.trim().toLowerCase();
+    const termRaw = searchTerm.trim();
+
+    return pacientes.filter((p) => {
+      const matchSearch =
+        (p.nombre || '').toLowerCase().includes(termLower) ||
+        (p.id || '').toLowerCase().includes(termLower) ||
+        (p.numeroExpediente || '').toLowerCase().includes(termLower) ||
+        (p.telefono || '').includes(termRaw);
+
+      if (!matchSearch) return false;
+      if (!isMedico) return true;
+
+      if (filterType === 'agendados') {
+        return citas.some(
+          (c) =>
+            c.pacienteId === p.id &&
+            esCitaDelMedico(c) &&
+            (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta'),
+        );
+      }
+
+      if (filterType === 'atendidos') {
+        return citas.some((c) => c.pacienteId === p.id && esCitaDelMedico(c) && c.estado === 'completada');
+      }
+
+      return citas.some((c) => c.pacienteId === p.id && esCitaDelMedico(c));
+    });
+  }, [citas, esCitaDelMedico, filterType, isMedico, pacientes, searchTerm]);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">
+            <h1 className="text-2xl font-semibold text-foreground">
               {isMedico ? 'Mis Pacientes' : 'Gestión de Pacientes'}
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-muted-foreground mt-1">
               {isMedico 
                 ? 'Pacientes que han asistido o están agendados en el sistema' 
                 : 'Registra y administra los expedientes de pacientes'}
             </p>
           </div>
           {!isMedico && (
-            <Button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={() => { resetForm(); setShowModal(true); }}>
               <Plus className="w-4 h-4 mr-2" />
               Nuevo Paciente
             </Button>
@@ -260,7 +294,7 @@ export function Pacientes() {
         <Card className="shadow-sm">
           <CardContent className="p-4 space-y-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
               <Input
                 placeholder="Buscar por nombre, expediente o teléfono..."
                 value={searchTerm}
@@ -295,14 +329,12 @@ export function Pacientes() {
                 paciente={paciente}
                 onClick={() => {
                   setSelectedPaciente(paciente);
-                  setShowExpediente(false);
-                  setShowAgendarModal(false);
                 }}
               />
               {isMedico && (
                 <div className="absolute bottom-4 right-4 flex gap-2 pointer-events-none">
-                  <Badge variant="secondary" className="bg-blue-50 text-blue-700">
-                    {getPacienteStats(paciente.id).totalCitas} citas
+                  <Badge variant="secondary">
+                  {(pacienteStatsById.get(paciente.id)?.totalCitas ?? 0)} citas
                   </Badge>
                 </div>
               )}
@@ -313,13 +345,13 @@ export function Pacientes() {
         {pacientesFiltrados.length === 0 && (
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
-              <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No se encontraron pacientes</h3>
-              <p className="text-gray-600 mb-6">
+              <User className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No se encontraron pacientes</h3>
+              <p className="text-muted-foreground mb-6">
                 {searchTerm ? 'Intenta con otro término de búsqueda' : 'Comienza registrando tu primer paciente'}
               </p>
               {!searchTerm && (
-                <Button onClick={() => { resetForm(); setShowModal(true); }} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={() => { resetForm(); setShowModal(true); }}>
                   <Plus className="w-4 h-4 mr-2" />
                   Registrar Primer Paciente
                 </Button>
@@ -329,20 +361,18 @@ export function Pacientes() {
         )}
       </div>
 
-      {/* Modal para crear paciente */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto text-black">
-          <Card className="w-full max-w-2xl my-8">
-            <CardHeader className="border-b">
-              <div className="flex items-center justify-between">
-                <CardTitle>Registrar Nuevo Paciente</CardTitle>
-                <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-700">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl overflow-auto p-0">
+          <DialogHeader className="border-b px-6 py-5">
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle>Registrar Nuevo Paciente</DialogTitle>
+              <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+          </DialogHeader>
+          <div className="px-6 py-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label htmlFor="nombre">Nombre Completo</Label>
                   <Input
@@ -370,7 +400,7 @@ export function Pacientes() {
                     <Label htmlFor="sexo">Sexo</Label>
                     <select
                       id="sexo"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                       value={formData.sexo}
                       onChange={(e) => setFormData({ ...formData, sexo: e.target.value as 'Masculino' | 'Femenino' })}
                     >
@@ -397,7 +427,7 @@ export function Pacientes() {
                     <Label htmlFor="ciudad">Ciudad</Label>
                     <select
                       id="ciudad"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                       value={formData.ciudad}
                       onChange={(e) => setFormData({ ...formData, ciudad: e.target.value as Ciudad })}
                     >
@@ -417,7 +447,7 @@ export function Pacientes() {
                     <Label htmlFor="nacionalidad">Nacionalidad</Label>
                     <select
                       id="nacionalidad"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                       value={formData.nacionalidad || 'Mexicana'}
                       onChange={(e) => setFormData({ ...formData, nacionalidad: e.target.value })}
                     >
@@ -445,22 +475,22 @@ export function Pacientes() {
                   <div className="mt-2 flex items-center gap-4">
                     {imageFile && (
                       <img
-                        src={URL.createObjectURL(imageFile)}
+                        src={imagePreviewUrl}
                         alt="Preview"
-                        className="w-16 h-16 object-cover rounded-full border border-gray-200"
+                        className="w-16 h-16 object-cover rounded-full border border-border"
                       />
                     )}
                     {!imageFile && formData.imagen && (
                       <img
                         src={formData.imagen}
                         alt="Current"
-                        className="w-16 h-16 object-cover rounded-full border border-gray-200"
+                        className="w-16 h-16 object-cover rounded-full border border-border"
                       />
                     )}
                     <div className="flex flex-col gap-1">
                       <Label
                         htmlFor="imagen"
-                        className="cursor-pointer bg-blue-50 text-blue-700 hover:bg-blue-100 px-4 py-2 rounded-lg font-semibold text-sm transition-colors border border-blue-200 inline-flex items-center justify-center"
+                        className="cursor-pointer bg-muted/20 text-foreground hover:bg-muted/30 px-4 py-2 rounded-lg font-semibold text-sm transition-colors border border-border inline-flex items-center justify-center"
                       >
                         Seleccionar Imagen
                       </Label>
@@ -475,50 +505,52 @@ export function Pacientes() {
                           }
                         }}
                       />
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground/70">
                         {imageFile ? imageFile.name : 'Ningún archivo seleccionado'}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-900">
+                <div className="bg-muted/20 border border-border rounded-lg p-4">
+                  <p className="text-sm text-foreground">
                     <strong>Nota:</strong> Se generará automáticamente un número de expediente único para este paciente.
                   </p>
                 </div>
 
-                <div className="flex gap-3 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="flex-1" disabled={saving}>
+                <DialogFooter className="pt-4">
+                  <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={saving}>
                     Cancelar
                   </Button>
-                  <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={saving}>
+                  <Button type="submit" disabled={saving}>
                     {saving ? 'Guardando...' : 'Registrar Paciente'}
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Drawer de detalles del paciente */}
-      <Sheet open={!!selectedPaciente && !showExpediente} onOpenChange={(open) => {
-        if (!open && !showExpediente) setSelectedPaciente(null);
-      }}>
-        <SheetContent side="right" className="w-full sm:w-[500px] sm:max-w-md p-0 flex flex-col h-full bg-slate-50 border-l border-gray-200">
+      <Sheet
+        open={!!selectedPaciente}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPaciente(null);
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:w-[500px] sm:max-w-md p-0 flex flex-col h-full bg-background border-l border-border">
           {selectedPaciente && (
             <>
-              <SheetHeader className="border-b bg-gradient-to-r from-blue-50 to-white pb-6 pt-6 px-6">
+              <SheetHeader className="border-b border-border bg-muted/20 pb-6 pt-6 px-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
                     {selectedPaciente.imagen ? (
-                      <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-sm flex-shrink-0 bg-white">
+                      <div className="w-16 h-16 rounded-full overflow-hidden border border-border shadow-sm flex-shrink-0 bg-card">
                         <img src={selectedPaciente.imagen} alt={selectedPaciente.nombre} className="w-full h-full object-cover" />
                       </div>
                     ) : (
-                      <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center border-2 border-white shadow-sm flex-shrink-0">
-                        <User className="w-8 h-8 text-blue-600" />
+                      <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center border border-border shadow-sm flex-shrink-0">
+                        <User className="w-8 h-8 text-secondary-foreground" />
                       </div>
                     )}
                     <div className="text-left">
@@ -531,110 +563,59 @@ export function Pacientes() {
                 </div>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto p-6">
-                <div className="grid grid-cols-2 gap-6 bg-white p-5 rounded-xl border border-gray-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+                <div className="grid grid-cols-2 gap-6 bg-card p-5 rounded-xl border border-border shadow-sm">
                   <div>
-                    <p className="text-sm text-gray-500">Edad</p>
-                    <p className="text-base font-semibold text-gray-900">{selectedPaciente.edad} años</p>
+                    <p className="text-sm text-muted-foreground">Edad</p>
+                    <p className="text-base font-semibold text-foreground">{selectedPaciente.edad} años</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Sexo</p>
-                    <p className="text-base font-semibold text-gray-900">{selectedPaciente.sexo}</p>
+                    <p className="text-sm text-muted-foreground">Sexo</p>
+                    <p className="text-base font-semibold text-foreground">{selectedPaciente.sexo}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Nacimiento</p>
-                    <p className="text-base font-semibold text-gray-900">
+                    <p className="text-sm text-muted-foreground">Nacimiento</p>
+                    <p className="text-base font-semibold text-foreground">
                       {formatDateSafe(selectedPaciente.fechaNacimiento)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Teléfono</p>
-                    <p className="text-base font-semibold text-gray-900">{selectedPaciente.telefono}</p>
+                    <p className="text-sm text-muted-foreground">Teléfono</p>
+                    <p className="text-base font-semibold text-foreground">{selectedPaciente.telefono}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Ciudad</p>
-                    <p className="text-base font-semibold text-gray-900 capitalize">
+                    <p className="text-sm text-muted-foreground">Ciudad</p>
+                    <p className="text-base font-semibold text-foreground capitalize">
                       {selectedPaciente.ciudad.replace('_', ' ')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Registro</p>
-                    <p className="text-base font-semibold text-gray-900">
+                    <p className="text-sm text-muted-foreground">Registro</p>
+                    <p className="text-base font-semibold text-foreground">
                       {formatDateSafe(selectedPaciente.fechaRegistro)}
                     </p>
                   </div>
                 </div>
 
                 <div className="mt-8 flex flex-col gap-3">
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700 h-11" onClick={() => setShowExpediente(true)}>
+                  <Button
+                    className="w-full h-11"
+                    onClick={() => {
+                      navigate(`/expediente/${selectedPaciente.id}`);
+                      setSelectedPaciente(null);
+                    }}
+                  >
                     <FileText className="w-4 h-4 mr-2" />
                     Ver Expediente Completo
                   </Button>
-                  {user?.rol === 'recepcion' && citas.some(c => c.pacienteId === selectedPaciente.id && c.fecha && c.fecha.startsWith(new Date().toISOString().split('T')[0]) && ['programada', 'en_triage', 'en_consulta'].includes(c.estado)) ? (
-                    <Button className="w-full bg-gray-400 cursor-not-allowed h-11" disabled>
-                      <Activity className="w-4 h-4 mr-2" />
-                      Paciente ya en fila (hoy)
+                  {(user?.rol === 'medico' || user?.rol === 'administrador') && (
+                    <Button
+                      variant="secondary"
+                      className="w-full h-11"
+                      onClick={() => setShowCirugiaModal(true)}
+                    >
+                      <Heart className="w-4 h-4 mr-2" />
+                      Iniciar Proceso de Cirugía
                     </Button>
-                  ) : (user?.rol === 'recepcion' || user?.rol === 'administrador') && (
-                    <div className="w-full">
-                      {!showAgendarModal ? (
-                        <Button className="w-full bg-green-600 hover:bg-green-700 h-11" onClick={() => setShowAgendarModal(true)}>
-                          <CalendarIcon className="w-4 h-4 mr-2" />
-                          Agendar Cita
-                        </Button>
-                      ) : (
-                        <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100 space-y-4 shadow-sm animate-in fade-in slide-in-from-top-2">
-                          <h4 className="font-semibold text-blue-900 border-b border-blue-100 pb-2">Programar Nueva Cita</h4>
-                          <div className="relative">
-                            <Label htmlFor="fechaCita" className="text-blue-800">Fecha de Cita</Label>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full justify-start text-left font-normal mt-1 border-white bg-white shadow-sm",
-                                !citaForm.fecha && "text-muted-foreground"
-                              )}
-                              onClick={() => setShowCalendarUI(!showCalendarUI)}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {citaForm.fecha ? format(new Date(citaForm.fecha + 'T12:00:00'), "dd/MM/yyyy") : <span>Seleccionar día...</span>}
-                            </Button>
-
-                            {showCalendarUI && (
-                              <div className="absolute top-[65px] left-0 right-0 max-w-max mx-auto md:mx-0 z-[1000] bg-white border border-gray-200 rounded-lg shadow-2xl animate-in fade-in zoom-in-95">
-                                <CalendarUI
-                                  mode="single"
-                                  selected={citaForm.fecha ? new Date(citaForm.fecha + 'T12:00:00') : undefined}
-                                  onSelect={(date) => { 
-                                    setCitaForm({ ...citaForm, fecha: date ? format(date, "yyyy-MM-dd") : '' });
-                                    setShowCalendarUI(false);
-                                  }}
-                                  initialFocus
-                                  locale={es}
-                                  className="p-3 pointer-events-auto"
-                                />
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <Label htmlFor="horaCita" className="text-blue-800">Hora de Cita</Label>
-                            <Input 
-                              type="time" 
-                              id="horaCita" 
-                              value={citaForm.hora} 
-                              onChange={(e) => setCitaForm({ ...citaForm, hora: e.target.value })}
-                              className="mt-1 border-white bg-white shadow-sm"
-                            />
-                          </div>
-                          <div className="flex gap-3 pt-2">
-                            <Button variant="outline" onClick={() => setShowAgendarModal(false)} className="flex-1 bg-white hover:bg-gray-50 border-gray-200">
-                              Cancelar
-                            </Button>
-                            <Button onClick={handleAgendarCita} className="flex-1 bg-blue-600 hover:bg-blue-700" disabled={!citaForm.fecha}>
-                              Confirmar
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
                   )}
                 </div>
               </div>
@@ -644,10 +625,14 @@ export function Pacientes() {
       </Sheet>
 
       {/* Modal de expediente completo */}
-      {showExpediente && selectedPaciente && (
-        <ExpedienteCompleto paciente={selectedPaciente} onClose={() => {
-          setShowExpediente(false);
-        }} />
+      {showCirugiaModal && selectedPaciente && (
+        <ModalNuevaCirugia
+          pacientes={[selectedPaciente]}
+          initialPacienteId={selectedPaciente.id}
+          initialMedicoACargo={user?.nombre || ''}
+          onClose={() => setShowCirugiaModal(false)}
+          onSubmit={handleIniciarCirugia}
+        />
       )}
     </DashboardLayout>
   );

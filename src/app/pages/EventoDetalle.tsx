@@ -22,6 +22,7 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, Usuario } from '../types';
 import { labelEspecialidad } from '../utils/especialidades';
+import { nowIso, nowMs, todayYmd } from '../utils/clock';
 
 const listDaysInclusive = (start: string, end: string) => {
   if (!start || !end) return [] as string[];
@@ -52,7 +53,7 @@ const isEventoFinalizado = (fechaFin?: string | null) => {
   if (!fechaFin) return false;
   const end = new Date(`${fechaFin}T23:59:59`);
   if (Number.isNaN(end.getTime())) return false;
-  return Date.now() > end.getTime();
+  return nowMs() > end.getTime();
 };
 
 const slotKeyForHorario = (h: HorarioDisponible) => {
@@ -219,8 +220,8 @@ export function EventoDetalle() {
       <DashboardLayout>
         <Card className="shadow-sm">
           <CardContent className="p-12 text-center">
-            <h2 className="text-lg font-semibold text-gray-900">Evento no encontrado</h2>
-            <p className="mt-2 text-gray-600">El evento seleccionado no existe o fue eliminado.</p>
+            <h2 className="text-lg font-semibold text-foreground">Evento no encontrado</h2>
+            <p className="mt-2 text-muted-foreground">El evento seleccionado no existe o fue eliminado.</p>
             <Button type="button" className="mt-6" onClick={() => navigate('/eventos')}>
               Volver a eventos
             </Button>
@@ -235,17 +236,20 @@ export function EventoDetalle() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <button type="button" onClick={() => navigate('/eventos')} className="mb-3 inline-flex items-center text-sm text-gray-600 hover:text-gray-900">
+            <button
+              type="button"
+              onClick={() => navigate('/eventos')}
+              className="mb-3 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+            >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Volver a eventos
             </button>
-            <h1 className="text-2xl font-semibold text-gray-900">{evento?.nombre || 'Evento'}</h1>
-            <p className="mt-1 text-gray-600">Consulta la información general del evento y su agenda por especialidad.</p>
+            <h1 className="text-2xl font-semibold text-foreground">{evento?.nombre || 'Evento'}</h1>
+            <p className="mt-1 text-muted-foreground">Consulta la información general del evento y su agenda por especialidad.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              className="bg-blue-600 hover:bg-blue-700"
               onClick={() => (evento ? navigate(`/eventos/${evento.id}/editar`) : null)}
               disabled={!evento || bloqueado}
             >
@@ -255,7 +259,7 @@ export function EventoDetalle() {
             {evento && user?.rol === 'administrador' && !bloqueado && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button type="button" variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                  <Button type="button" variant="destructive">
                     <Trash2 className="mr-2 h-4 w-4" />
                     Eliminar
                   </Button>
@@ -270,7 +274,7 @@ export function EventoDetalle() {
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
                     <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700"
+                      className="bg-destructive text-white hover:bg-destructive/90"
                       onClick={async () => {
                         try {
                           await deleteEvento(evento.id);
@@ -281,7 +285,7 @@ export function EventoDetalle() {
                             rol: user?.rol || 'administrador',
                             accion: 'Eliminar Evento',
                             detalles: `Eliminó evento: ${evento.nombre} (${evento.id})`,
-                            fechaHora: new Date().toISOString(),
+                            fechaHora: nowIso(),
                             ciudad: (user?.ciudad || 'sonoyta') as any,
                           });
                           navigate('/eventos');
@@ -299,7 +303,7 @@ export function EventoDetalle() {
             {evento && user?.rol === 'administrador' && bloqueado && modoPruebas && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button type="button" variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                  <Button type="button" variant="destructive">
                     <Trash2 className="mr-2 h-4 w-4" />
                     Eliminar (pruebas)
                   </Button>
@@ -314,7 +318,7 @@ export function EventoDetalle() {
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
                     <AlertDialogAction
-                      className="bg-red-600 hover:bg-red-700"
+                      className="bg-destructive text-white hover:bg-destructive/90"
                       onClick={async () => {
                         try {
                           await deleteEvento(evento.id, { force: true });
@@ -325,7 +329,7 @@ export function EventoDetalle() {
                             rol: user?.rol || 'administrador',
                             accion: 'Eliminar Evento (Pruebas)',
                             detalles: `Eliminó evento (pruebas): ${evento.nombre} (${evento.id})`,
-                            fechaHora: new Date().toISOString(),
+                            fechaHora: nowIso(),
                             ciudad: (user?.ciudad || 'sonoyta') as any,
                           });
                           navigate('/eventos');
@@ -346,8 +350,8 @@ export function EventoDetalle() {
         {!evento ? (
           <Card className="shadow-sm">
             <CardContent className="p-8">
-              <div className="h-6 w-40 animate-pulse rounded bg-gray-200" />
-              <div className="mt-4 h-24 animate-pulse rounded bg-gray-100" />
+              <div className="h-6 w-40 animate-pulse rounded bg-muted" />
+              <div className="mt-4 h-24 animate-pulse rounded bg-muted/60" />
             </CardContent>
           </Card>
         ) : (
@@ -359,28 +363,28 @@ export function EventoDetalle() {
                 </CardHeader>
                 <CardContent className="space-y-4 p-6 text-sm">
                   <div>
-                    <div className="text-gray-500">Ciudad</div>
-                    <div className="font-medium text-gray-900">{evento.ciudad}</div>
+                    <div className="text-muted-foreground">Ciudad</div>
+                    <div className="font-medium text-foreground">{evento.ciudad}</div>
                   </div>
                   <div>
-                    <div className="text-gray-500">Inscripciones</div>
-                    <div className="font-medium text-gray-900">
+                    <div className="text-muted-foreground">Inscripciones</div>
+                    <div className="font-medium text-foreground">
                       {formatDate(evento.fechaInicioInscripcion)} - {formatDate(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-gray-500">Evento</div>
-                    <div className="font-medium text-gray-900">
+                    <div className="text-muted-foreground">Evento</div>
+                    <div className="font-medium text-foreground">
                       {formatDate(evento.fechaInicio)} - {formatDate(evento.fechaFin)}
                     </div>
                   </div>
                   <div>
-                    <div className="text-gray-500">Estado</div>
-                    <div className="font-medium capitalize text-gray-900">{evento.estado}</div>
+                    <div className="text-muted-foreground">Estado</div>
+                    <div className="font-medium capitalize text-foreground">{evento.estado}</div>
                   </div>
                   <div>
-                    <div className="text-gray-500">Especialidades</div>
-                    <div className="font-medium text-gray-900">{evento.especialidades.length}</div>
+                    <div className="text-muted-foreground">Especialidades</div>
+                    <div className="font-medium text-foreground">{evento.especialidades.length}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -392,9 +396,9 @@ export function EventoDetalle() {
                 <CardContent className="space-y-6 p-6">
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-900">Especialidad</label>
+                      <label className="mb-2 block text-sm font-medium text-foreground">Especialidad</label>
                       <select
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                         value={especialidad}
                         onChange={(e) => setEspecialidad(e.target.value as Especialidad)}
                       >
@@ -408,10 +412,10 @@ export function EventoDetalle() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-900">Desde</label>
+                      <label className="mb-2 block text-sm font-medium text-foreground">Desde</label>
                       <input
                         type="date"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                         value={desde}
                         onChange={(e) => setDesde(e.target.value)}
                         min={evento.fechaInicio || undefined}
@@ -420,10 +424,10 @@ export function EventoDetalle() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-900">Hasta</label>
+                      <label className="mb-2 block text-sm font-medium text-foreground">Hasta</label>
                       <input
                         type="date"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                         value={hasta}
                         onChange={(e) => setHasta(e.target.value)}
                         min={evento.fechaInicio || undefined}
@@ -433,17 +437,17 @@ export function EventoDetalle() {
                   </div>
 
                   {!especialidad ? (
-                    <div className="text-sm text-gray-600">Selecciona una especialidad para visualizar la agenda.</div>
+                    <div className="text-sm text-muted-foreground">Selecciona una especialidad para visualizar la agenda.</div>
                   ) : days.length === 0 ? (
-                    <div className="text-sm text-gray-600">Selecciona un rango de fechas válido.</div>
+                    <div className="text-sm text-muted-foreground">Selecciona un rango de fechas válido.</div>
                   ) : horarios.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center">
-                      <CalendarDays className="mx-auto mb-4 h-12 w-12 text-gray-300" />
-                      <div className="text-sm text-gray-600">Esta especialidad aún no tiene horarios configurados.</div>
+                    <div className="rounded-xl border border-dashed border-border p-10 text-center">
+                      <CalendarDays className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
+                      <div className="text-sm text-muted-foreground">Esta especialidad aún no tiene horarios configurados.</div>
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {agendaMensaje && <div className="text-sm text-red-600">{agendaMensaje}</div>}
+                      {agendaMensaje && <div className="text-sm text-destructive">{agendaMensaje}</div>}
                       <AgendaCalendar
                         eventoId={evento.id}
                         especialidad={especialidad as Especialidad}
@@ -503,7 +507,7 @@ export function EventoDetalle() {
                     medicoEncargado: String(tipoCita?.medicoEncargado || '').trim() || espCfg.medicoEncargado || '',
                     estado: 'programada',
                     costoPagado: Number.isFinite(Number(tipoCita?.precio)) ? Number(tipoCita?.precio) : Number.isFinite(Number(espCfg.costo)) ? Number(espCfg.costo) : 0,
-                    fechaCreacion: new Date().toISOString().split('T')[0],
+                    fechaCreacion: todayYmd(),
                   };
 
                   await addCita(nuevaCita);
@@ -514,7 +518,7 @@ export function EventoDetalle() {
                     rol: user?.rol || 'recepcion',
                     accion: 'Agendar Cita',
                     detalles: `Agendó cita para paciente ${paciente.nombre} (${paciente.numeroExpediente}) en ${nuevaCita.fecha} ${nuevaCita.hora} (${nuevaCita.especialidad}${nuevaCita.tipoCitaNombre ? ` · ${nuevaCita.tipoCitaNombre}` : ''})`,
-                    fechaHora: new Date().toISOString(),
+                    fechaHora: nowIso(),
                     ciudad: user?.ciudad || evento.ciudad,
                   });
                 }}

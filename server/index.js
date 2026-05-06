@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool from './config/db.js';
+import { migrateDoctorFksToUsuarios, migrateExpedienteCitaToExpediente } from './helpers/migrations.js';
 
 // Importación de rutas
 import pacientesRoutes from './routes/pacientes.js';
@@ -19,6 +20,8 @@ import informacionMedicaRoutes from './routes/informacion-medica.js';
 import uploadRoutes from './routes/upload.js';
 import especialidadesRoutes from './routes/especialidades.js';
 import ciudadesRoutes from './routes/ciudades.js';
+import expedienteCitaRoutes from './routes/expediente-cita.js';
+import expedienteRoutes from './routes/expediente.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +50,12 @@ async function diagnoseDB() {
   }
 }
 diagnoseDB();
+migrateDoctorFksToUsuarios().catch((err) => {
+  console.error('❌ Error migrando doctor -> usuarios:', err.message);
+});
+migrateExpedienteCitaToExpediente().catch((err) => {
+  console.error('❌ Error migrando expediente:', err.message);
+});
 
 // Montaje de rutas
 app.use('/api/pacientes', pacientesRoutes);
@@ -62,6 +71,8 @@ app.use('/api/especialidades', especialidadesRoutes);
 app.use('/api/ciudades', ciudadesRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
 app.use('/api/informacion-medica', informacionMedicaRoutes);
+app.use('/api/expediente-cita', expedienteCitaRoutes);
+app.use('/api/expediente', expedienteRoutes);
 app.use('/api/upload', uploadRoutes);
 
 // Caso especial para el login

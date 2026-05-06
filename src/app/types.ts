@@ -315,6 +315,16 @@ export interface ExpedienteCompleto {
   seguimientos: Seguimiento[];
 }
 
+export interface ExpedienteCita {
+  id: string;
+  citaId: string;
+  pacienteId: string;
+  triageData: any;
+  consultaData: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Auditoría
 export interface RegistroAuditoria {
   id: string;

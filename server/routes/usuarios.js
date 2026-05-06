@@ -35,10 +35,40 @@ const aplicarAutoDesactivacion = async () => {
   );
 };
 
+let hasUsuariosCiudadArrayCache = null;
+const hasUsuariosCiudadArray = async () => {
+  if (hasUsuariosCiudadArrayCache !== null) return hasUsuariosCiudadArrayCache;
+  try {
+    const res = await pool.query(
+      `
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = $1
+        AND table_name = 'usuarios'
+        AND column_name = 'ciudad'
+        AND data_type = 'ARRAY'
+      LIMIT 1
+      `,
+      [SCHEMA],
+    );
+    hasUsuariosCiudadArrayCache = res.rows.length > 0;
+    return hasUsuariosCiudadArrayCache;
+  } catch {
+    hasUsuariosCiudadArrayCache = false;
+    return false;
+  }
+};
+
+const normalizeCiudades = (raw) => {
+  const base = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return Array.from(new Set(base.map((x) => String(x || '').trim()).filter(Boolean)));
+};
+
 router.post('/login', async (req, res) => {
   const { usuario, password } = req.body;
   try {
     await aplicarAutoDesactivacion();
+    const isCiudadArray = await hasUsuariosCiudadArray();
     const result = await pool.query(
       `SELECT 
          u.id,
@@ -49,14 +79,6 @@ router.post('/login', async (req, res) => {
          u.activo,
          u.activo_desde,
          u.activo_hasta,
-         COALESCE(
-           (
-             SELECT array_agg(uc.ciudad_codigo ORDER BY uc.ciudad_codigo)
-             FROM "${SCHEMA}".usuario_ciudades uc
-             WHERE uc.usuario_id = u.id::text
-           ),
-           '{}'::text[]
-         ) AS ciudades,
          COALESCE(
            (
              SELECT array_agg(ue.especialidad_codigo ORDER BY ue.especialidad_codigo)
@@ -73,7 +95,7 @@ router.post('/login', async (req, res) => {
     if (result.rows.length > 0) {
       const row = result.rows[0];
       const especialidades = Array.isArray(row.especialidades) ? row.especialidades.map((x) => String(x)) : [];
-      let ciudades = Array.isArray(row.ciudades) ? row.ciudades.map((x) => String(x)) : [];
+      let ciudades = isCiudadArray ? normalizeCiudades(row.ciudad) : normalizeCiudades(row.ciudad ? [row.ciudad] : []);
       const hoy = fechaYmd();
       const activo = isUsuarioActivoEfectivo(row, hoy);
       if (!activo) {
@@ -82,17 +104,7 @@ router.post('/login', async (req, res) => {
       }
       const rol = String(row.rol || '').toLowerCase();
       if (rol === 'recepcion') {
-        const ciudadPrimaria = String(row.ciudad || '').trim();
-        if (ciudadPrimaria && !ciudades.includes(ciudadPrimaria)) {
-          await pool.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(row.id)]);
-          await pool.query(
-            `INSERT INTO "${SCHEMA}".usuario_ciudades (usuario_id, ciudad_codigo)
-             VALUES ($1, $2)
-             ON CONFLICT (usuario_id, ciudad_codigo) DO NOTHING`,
-            [String(row.id), ciudadPrimaria],
-          );
-          ciudades = [ciudadPrimaria];
-        }
+        ciudades = ciudades[0] ? [ciudades[0]] : [];
       }
       res.json({
         ...row,
@@ -103,7 +115,7 @@ router.post('/login', async (req, res) => {
         activo: Boolean(row.activo),
         activoDesde: row.activo_desde || null,
         activoHasta: row.activo_hasta || null,
-        ciudad: ciudades[0] || row.ciudad || '',
+        ciudad: ciudades[0] || '',
       });
     } else {
       res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
@@ -116,17 +128,10 @@ router.post('/login', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     await aplicarAutoDesactivacion();
+    const isCiudadArray = await hasUsuariosCiudadArray();
     const result = await pool.query(
       `SELECT 
          u.*,
-         COALESCE(
-           (
-             SELECT array_agg(uc.ciudad_codigo ORDER BY uc.ciudad_codigo)
-             FROM "${SCHEMA}".usuario_ciudades uc
-             WHERE uc.usuario_id = u.id::text
-           ),
-           '{}'::text[]
-         ) AS ciudades,
          COALESCE(
            (
              SELECT array_agg(ue.especialidad_codigo ORDER BY ue.especialidad_codigo)
@@ -140,7 +145,7 @@ router.get('/', async (req, res) => {
     res.json(
       result.rows.map((u) => {
         const especialidades = Array.isArray(u.especialidades) ? u.especialidades.map((x) => String(x)) : [];
-        const ciudades = Array.isArray(u.ciudades) ? u.ciudades.map((x) => String(x)) : [];
+        const ciudades = isCiudadArray ? normalizeCiudades(u.ciudad) : normalizeCiudades(u.ciudad ? [u.ciudad] : []);
         return {
           ...u,
           id: String(u.id),
@@ -152,7 +157,7 @@ router.get('/', async (req, res) => {
           activo: u.activo !== false,
           activoDesde: u.activo_desde || null,
           activoHasta: u.activo_hasta || null,
-          ciudad: u.ciudad || ciudades[0] || '',
+          ciudad: ciudades[0] || '',
         };
       }),
     );
@@ -177,6 +182,7 @@ router.post('/', async (req, res) => {
   const ciudades = Array.from(new Set(rawCiudades.map((x) => String(x || '').trim()).filter(Boolean)));
   try {
     const client = await pool.connect();
+    const isCiudadArray = await hasUsuariosCiudadArray();
     const maxIdRes = await pool.query(`SELECT MAX(CAST(id AS INTEGER)) as max_id FROM "${SCHEMA}".usuarios`);
     const nextId = (maxIdRes.rows[0].max_id || 0) + 1;
 
@@ -185,6 +191,9 @@ router.post('/', async (req, res) => {
 
     const activoDesde = normalizarYmd(u.activoDesde || u.activo_desde);
     const activoHasta = normalizarYmd(u.activoHasta || u.activo_hasta);
+    const rol = String(u.rol || '').toLowerCase();
+    const ciudadesFinal =
+      rol === 'medico' || rol === 'triage' ? ciudades : rol === 'recepcion' ? (ciudades[0] ? [ciudades[0]] : []) : [];
     const incomingData = {
       id: nextId,
       nombre: u.nombre,
@@ -192,7 +201,7 @@ router.post('/', async (req, res) => {
       email: u.email || u.usuario,
       password: u.password,
       rol: u.rol,
-      ciudad: (ciudades[0] || u.ciudad || null),
+      ciudad: isCiudadArray ? ciudadesFinal : (ciudadesFinal[0] || null),
       especialidad: especialidades[0] || u.especialidad || null,
       activo: u.activo ?? true,
       activo_desde: activoDesde,
@@ -232,31 +241,6 @@ router.post('/', async (req, res) => {
         await client.query(`DELETE FROM "${SCHEMA}".usuario_especialidades WHERE usuario_id = $1`, [String(created.id)]);
       }
 
-      const rol = String(u.rol || '').toLowerCase();
-      if (rol === 'medico' || rol === 'triage') {
-        await client.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(created.id)]);
-        for (const c of ciudades) {
-          await client.query(
-            `INSERT INTO "${SCHEMA}".usuario_ciudades (usuario_id, ciudad_codigo)
-             VALUES ($1, $2)
-             ON CONFLICT (usuario_id, ciudad_codigo) DO NOTHING`,
-            [String(created.id), c],
-          );
-        }
-      } else if (rol === 'recepcion') {
-        await client.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(created.id)]);
-        if (ciudades[0]) {
-          await client.query(
-            `INSERT INTO "${SCHEMA}".usuario_ciudades (usuario_id, ciudad_codigo)
-             VALUES ($1, $2)
-             ON CONFLICT (usuario_id, ciudad_codigo) DO NOTHING`,
-            [String(created.id), ciudades[0]],
-          );
-        }
-      } else {
-        await client.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(created.id)]);
-      }
-
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');
@@ -278,11 +262,11 @@ router.post('/', async (req, res) => {
       email: created.email || created.usuario,
       especialidades,
       especialidad: especialidades[0] || created.especialidad || null,
-      ciudades,
+      ciudades: ciudadesFinal,
       activo: created.activo !== false,
       activoDesde: created.activo_desde || null,
       activoHasta: created.activo_hasta || null,
-      ciudad: ciudades[0] || created.ciudad || '',
+      ciudad: ciudadesFinal[0] || '',
     });
   } catch (err) {
     console.error('❌ Error en POST /api/usuarios:', err.message);
@@ -313,18 +297,28 @@ router.put('/:id', async (req, res) => {
       : Array.from(new Set(rawCiudades.map((x) => String(x || '').trim()).filter(Boolean)));
   try {
     const client = await pool.connect();
+    const isCiudadArray = await hasUsuariosCiudadArray();
     const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".usuarios LIMIT 0`);
     const dbCols = tableInfo.fields.map(f => f.name);
 
     const activoDesde = u.activoDesde !== undefined || u.activo_desde !== undefined ? normalizarYmd(u.activoDesde || u.activo_desde) : undefined;
     const activoHasta = u.activoHasta !== undefined || u.activo_hasta !== undefined ? normalizarYmd(u.activoHasta || u.activo_hasta) : undefined;
+    const rolFinalIncoming = u.rol !== undefined ? String(u.rol || '').toLowerCase() : '';
+    const ciudadArrayToApply =
+      ciudades === undefined
+        ? undefined
+        : rolFinalIncoming === 'medico' || rolFinalIncoming === 'triage'
+          ? ciudades
+          : rolFinalIncoming === 'recepcion'
+            ? (ciudades[0] ? [ciudades[0]] : [])
+            : [];
     const incomingData = {
       nombre: u.nombre,
       usuario: u.email || u.usuario,
       email: u.email || u.usuario,
       password: u.password,
       rol: u.rol,
-      ciudad: u.ciudad,
+      ciudad: ciudadArrayToApply !== undefined ? (isCiudadArray ? ciudadArrayToApply : (ciudadArrayToApply[0] || null)) : u.ciudad,
       especialidad: especialidades ? (especialidades[0] || null) : u.especialidad,
       activo: u.activo,
       activo_desde: activoDesde,
@@ -373,43 +367,6 @@ router.put('/:id', async (req, res) => {
         }
       }
 
-      if (ciudades !== undefined || u.rol !== undefined || u.ciudad !== undefined) {
-        const rolFinal = String(u.rol || updated.rol || '').toLowerCase();
-        if (rolFinal === 'medico' || rolFinal === 'triage') {
-          await client.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(updated.id)]);
-          for (const c of ciudades || []) {
-            await client.query(
-              `INSERT INTO "${SCHEMA}".usuario_ciudades (usuario_id, ciudad_codigo)
-               VALUES ($1, $2)
-               ON CONFLICT (usuario_id, ciudad_codigo) DO NOTHING`,
-              [String(updated.id), c],
-            );
-          }
-        } else if (rolFinal === 'recepcion') {
-          await client.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(updated.id)]);
-          const c0 = (ciudades && ciudades[0]) || (u.ciudad ? String(u.ciudad) : '');
-          if (c0) {
-            await client.query(
-              `INSERT INTO "${SCHEMA}".usuario_ciudades (usuario_id, ciudad_codigo)
-               VALUES ($1, $2)
-               ON CONFLICT (usuario_id, ciudad_codigo) DO NOTHING`,
-              [String(updated.id), c0],
-            );
-            await client.query(`UPDATE "${SCHEMA}".usuarios SET ciudad = $1 WHERE id = $2`, [c0, updated.id]);
-            updated.ciudad = c0;
-          }
-        } else {
-          await client.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(updated.id)]);
-        }
-
-        if (rolFinal === 'medico' || rolFinal === 'triage') {
-          if (ciudades && ciudades[0]) {
-            await client.query(`UPDATE "${SCHEMA}".usuarios SET ciudad = $1 WHERE id = $2`, [ciudades[0], updated.id]);
-            updated.ciudad = ciudades[0];
-          }
-        }
-      }
-
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');
@@ -428,13 +385,7 @@ router.put('/:id', async (req, res) => {
       ? espRes.rows[0].especialidades.map((x) => String(x))
       : [];
 
-    const ciudadesRes = await pool.query(
-      `SELECT COALESCE(array_agg(ciudad_codigo ORDER BY ciudad_codigo), '{}'::text[]) AS ciudades
-       FROM "${SCHEMA}".usuario_ciudades
-       WHERE usuario_id = $1`,
-      [String(updated.id)],
-    );
-    const ciudadesFinal = Array.isArray(ciudadesRes.rows?.[0]?.ciudades) ? ciudadesRes.rows[0].ciudades.map((x) => String(x)) : [];
+    const ciudadesFinal = isCiudadArray ? normalizeCiudades(updated?.ciudad) : normalizeCiudades(updated?.ciudad ? [updated.ciudad] : []);
 
     res.json({
       ...updated,
@@ -446,7 +397,7 @@ router.put('/:id', async (req, res) => {
       activo: updated.activo !== false,
       activoDesde: updated.activo_desde || null,
       activoHasta: updated.activo_hasta || null,
-      ciudad: ciudadesFinal[0] || updated.ciudad || '',
+      ciudad: ciudadesFinal[0] || '',
     });
   } catch (err) {
     console.error('Error en PUT /api/usuarios/:id:', err.message);
@@ -458,7 +409,6 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query(`DELETE FROM "${SCHEMA}".usuario_especialidades WHERE usuario_id = $1`, [String(parseInt(id) || id)]);
-    await pool.query(`DELETE FROM "${SCHEMA}".usuario_ciudades WHERE usuario_id = $1`, [String(parseInt(id) || id)]);
     await pool.query(`DELETE FROM "${SCHEMA}".usuarios WHERE id = $1`, [parseInt(id) || id]);
     res.json({ success: true });
   } catch (err) {

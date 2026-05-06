@@ -9,6 +9,10 @@ import { Citas } from './pages/Citas';
 import { TriageNuevo } from './pages/TriageNuevo';
 import { Consultas } from './pages/Consultas';
 import { Expedientes } from './pages/Expedientes';
+import { ExpedientePaciente } from './pages/ExpedientePaciente';
+import { ExpedienteResumen } from './pages/expediente/ExpedienteResumen';
+import { ExpedienteCitas } from './pages/expediente/ExpedienteCitas';
+import { ExpedienteCitaDetalle } from './pages/expediente/ExpedienteCitaDetalle.tsx';
 import { Seguimientos } from './pages/Seguimientos';
 import { Auditoria } from './pages/Auditoria';
 import { Cirugias } from './pages/Cirugias';
@@ -69,6 +73,24 @@ export const router = createBrowserRouter([
       {
         path: 'expedientes',
         Component: Expedientes,
+      },
+      {
+        path: 'expediente/:pacienteId',
+        Component: ExpedientePaciente,
+        children: [
+          {
+            index: true,
+            Component: ExpedienteResumen,
+          },
+          {
+            path: 'citas',
+            Component: ExpedienteCitas,
+          },
+          {
+            path: 'citas/:citaId',
+            Component: ExpedienteCitaDetalle,
+          },
+        ],
       },
       {
         path: 'cirugias',

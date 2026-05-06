@@ -10,14 +10,17 @@ interface ModalNuevaCirugiaProps {
   pacientes: Paciente[];
   onClose: () => void;
   onSubmit: (nuevaCirugia: Partial<Cirugia>) => void;
+  initialPacienteId?: string;
+  initialMedicoACargo?: string;
+  initialEspecialidad?: Especialidad;
 }
 
-export function ModalNuevaCirugia({ pacientes, onClose, onSubmit }: ModalNuevaCirugiaProps) {
-  const [pacienteId, setPacienteId] = useState('');
+export function ModalNuevaCirugia({ pacientes, onClose, onSubmit, initialPacienteId, initialMedicoACargo, initialEspecialidad }: ModalNuevaCirugiaProps) {
+  const [pacienteId, setPacienteId] = useState(initialPacienteId || '');
   const [formData, setFormData] = useState<Partial<Cirugia>>({
     diagnostico: '',
-    medicoACargo: '',
-    especialidad: 'medicina_familiar',
+    medicoACargo: initialMedicoACargo || '',
+    especialidad: initialEspecialidad || 'medicina_familiar',
     fechaCirugia: '',
     horaEstimada: '',
     lugarCirugia: '',
@@ -39,7 +42,7 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit }: ModalNuevaCi
         <CardHeader className="border-b">
           <div className="flex items-center justify-between">
             <CardTitle>Iniciar Proceso de Cirugía</CardTitle>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -50,7 +53,7 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit }: ModalNuevaCi
               <Label htmlFor="paciente">Paciente *</Label>
               <select
                 id="paciente"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                 value={pacienteId}
                 onChange={(e) => setPacienteId(e.target.value)}
                 required
@@ -90,7 +93,7 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit }: ModalNuevaCi
                 <Label htmlFor="especialidad">Especialidad *</Label>
                 <select
                   id="especialidad"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                   value={formData.especialidad}
                   onChange={(e) =>
                     setFormData({ ...formData, especialidad: e.target.value as Especialidad })
@@ -139,7 +142,7 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit }: ModalNuevaCi
               <div>
                 <Label htmlFor="costo">Costo Estimado *</Label>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     id="costo"
                     type="number"
@@ -158,7 +161,7 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit }: ModalNuevaCi
               <Label htmlFor="notas">Notas Adicionales</Label>
               <textarea
                 id="notas"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                 rows={3}
                 value={formData.notas}
                 onChange={(e) => setFormData({ ...formData, notas: e.target.value })}
@@ -166,12 +169,12 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit }: ModalNuevaCi
               />
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-muted/20 border border-border rounded-lg p-4">
               <div className="flex gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-900">
+                <AlertCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-foreground">
                   <p className="font-medium mb-1">Próximo Paso</p>
-                  <p>
+                  <p className="text-muted-foreground">
                     Después de iniciar el proceso, se deberá realizar un estudio socioeconómico
                     del paciente antes de programar la cirugía.
                   </p>
@@ -183,7 +186,7 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit }: ModalNuevaCi
               <Button type="button" variant="outline" onClick={onClose} className="flex-1">
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" className="flex-1">
                 Iniciar Proceso
               </Button>
             </div>

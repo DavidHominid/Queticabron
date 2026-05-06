@@ -545,11 +545,15 @@ router.delete('/:id', async (req, res) => {
       .map((r) => Number(r.id_cita))
       .filter((n) => Number.isFinite(n));
 
+    let deletedExpedienteCita = 0;
     let deletedTriage = 0;
     let deletedNotas = 0;
     let deletedCitas = 0;
 
     if (citaIds.length > 0) {
+      const expDel = await client.query(`DELETE FROM "${SCHEMA}".expediente WHERE id_cita = ANY($1::int[])`, [citaIds]);
+      deletedExpedienteCita = expDel.rowCount || 0;
+
       const triageDel = await client.query(`DELETE FROM "${SCHEMA}".triaje WHERE id_cita = ANY($1::int[])`, [citaIds]);
       deletedTriage = triageDel.rowCount || 0;
 
@@ -614,6 +618,7 @@ router.delete('/:id', async (req, res) => {
         citas: deletedCitas,
         notas_medicas: deletedNotas,
         triaje: deletedTriage,
+        expediente_cita: deletedExpedienteCita,
       },
     });
   } catch (err) {

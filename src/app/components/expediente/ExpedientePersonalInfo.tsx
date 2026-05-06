@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { User, Phone, MapPin } from 'lucide-react';
+import { User, Phone, MapPin, IdCard } from 'lucide-react';
 import { Paciente } from '../../types';
 import { formatDateSafe } from '../ui/utils';
 
@@ -17,6 +17,13 @@ export function ExpedientePersonalInfo({ paciente }: ExpedientePersonalInfoProps
         </CardTitle>
       </CardHeader>
       <CardContent className="p-4 space-y-3">
+        <div>
+          <p className="text-sm text-gray-600">Identificación</p>
+          <div className="flex items-center gap-2">
+            <IdCard className="w-4 h-4 text-gray-500" />
+            <p className="font-medium text-gray-900">{paciente.identificacion || '—'}</p>
+          </div>
+        </div>
         <div>
           <p className="text-sm text-gray-600">Fecha de Nacimiento</p>
           <p className="font-medium text-gray-900">

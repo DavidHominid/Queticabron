@@ -33,14 +33,26 @@ export function DashboardAdmin() {
     .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime())
     .slice(0, 5);
 
+  const rolBadgeStyle = (rol: string) => {
+    if (rol === 'administrador') {
+      return { variant: 'outline' as const, className: 'bg-accent text-accent-foreground border-transparent capitalize' };
+    }
+    if (rol === 'medico') {
+      return { variant: 'outline' as const, className: 'bg-primary text-primary-foreground border-transparent capitalize' };
+    }
+    if (rol === 'triage') {
+      return { variant: 'outline' as const, className: 'bg-secondary text-secondary-foreground border-transparent capitalize' };
+    }
+    return { variant: 'outline' as const, className: 'bg-background capitalize' };
+  };
+
   return (
     <div className="space-y-6">
       {/* Welcome Card */}
       <WelcomeCard
         title="¡Buenos días, Administrador!"
         subtitle="Panel de administración y gestión del sistema"
-        gradientFrom="from-orange-600"
-        gradientTo="to-orange-700"
+        tone="accent"
         icon={Shield}
         badgeText="Control total del sistema médico"
       />
@@ -51,17 +63,17 @@ export function DashboardAdmin() {
           title="Usuarios Activos"
           value={usuariosActivos.length.toString()}
           icon={Users}
-          color="bg-blue-500"
+          tone="primary"
         />
-        <StatCard title="Total Pacientes" value={pacientes.length.toString()} icon={Users} color="bg-green-500" />
-        <StatCard title="Registros Auditoría" value={registrosAuditoria.length.toString()} icon={FileText} color="bg-purple-500" />
-        <StatCard title="Roles Configurados" value="4" icon={Shield} color="bg-orange-500" />
+        <StatCard title="Total Pacientes" value={pacientes.length.toString()} icon={Users} tone="secondary" />
+        <StatCard title="Registros Auditoría" value={registrosAuditoria.length.toString()} icon={FileText} tone="accent" />
+        <StatCard title="Roles Configurados" value="4" icon={Shield} tone="muted" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Usuarios por Rol */}
         <Card className="lg:col-span-2 shadow-sm">
-          <CardHeader className="border-b bg-gray-50">
+          <CardHeader className="border-b border-border bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Usuarios del Sistema</CardTitle>
               <Badge variant="secondary">{totalUsuarios} usuarios</Badge>
@@ -69,53 +81,53 @@ export function DashboardAdmin() {
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="p-4 bg-muted/30 border border-border rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-blue-900">Recepción</span>
-                  <Badge className="bg-blue-600 text-white">{usuariosPorRol.recepcion}</Badge>
+                  <span className="text-sm font-medium text-foreground">Recepción</span>
+                  <Badge variant="secondary">{usuariosPorRol.recepcion}</Badge>
                 </div>
-                <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-blue-600 rounded-full"
+                    className="h-full bg-primary rounded-full"
                     style={{ width: `${totalUsuarios > 0 ? (usuariosPorRol.recepcion / totalUsuarios) * 100 : 0}%` }}
                   />
                 </div>
               </div>
 
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="p-4 bg-muted/30 border border-border rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-green-900">Triage</span>
-                  <Badge className="bg-green-600 text-white">{usuariosPorRol.triage}</Badge>
+                  <span className="text-sm font-medium text-foreground">Triage</span>
+                  <Badge variant="secondary">{usuariosPorRol.triage}</Badge>
                 </div>
-                <div className="h-2 bg-green-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-green-600 rounded-full"
+                    className="h-full bg-primary rounded-full"
                     style={{ width: `${totalUsuarios > 0 ? (usuariosPorRol.triage / totalUsuarios) * 100 : 0}%` }}
                   />
                 </div>
               </div>
 
-              <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="p-4 bg-muted/30 border border-border rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-purple-900">Médico</span>
-                  <Badge className="bg-purple-600 text-white">{usuariosPorRol.medico}</Badge>
+                  <span className="text-sm font-medium text-foreground">Médico</span>
+                  <Badge variant="secondary">{usuariosPorRol.medico}</Badge>
                 </div>
-                <div className="h-2 bg-purple-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-purple-600 rounded-full"
+                    className="h-full bg-primary rounded-full"
                     style={{ width: `${totalUsuarios > 0 ? (usuariosPorRol.medico / totalUsuarios) * 100 : 0}%` }}
                   />
                 </div>
               </div>
 
-              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="p-4 bg-muted/30 border border-border rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-orange-900">Administrador</span>
-                  <Badge className="bg-orange-600 text-white">{usuariosPorRol.administrador}</Badge>
+                  <span className="text-sm font-medium text-foreground">Administrador</span>
+                  <Badge variant="secondary">{usuariosPorRol.administrador}</Badge>
                 </div>
-                <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-orange-600 rounded-full"
+                    className="h-full bg-primary rounded-full"
                     style={{ width: `${totalUsuarios > 0 ? (usuariosPorRol.administrador / totalUsuarios) * 100 : 0}%` }}
                   />
                 </div>
@@ -134,23 +146,23 @@ export function DashboardAdmin() {
         {/* Acciones y Estado */}
         <div className="space-y-6">
           <Card className="shadow-sm">
-            <CardHeader className="border-b bg-gray-50">
+            <CardHeader className="border-b border-border bg-muted/30">
               <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 justify-start" onClick={() => navigate('/usuarios')}>
+              <Button className="w-full justify-start" onClick={() => navigate('/usuarios')}>
                 <UserCog className="w-4 h-4 mr-2" />
                 Crear Usuario
               </Button>
-              <Button className="w-full bg-indigo-600 hover:bg-indigo-700 justify-start" onClick={() => navigate('/variables')}>
+              <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/variables')}>
                 <SlidersHorizontal className="w-4 h-4 mr-2" />
                 Variables
               </Button>
-              <Button className="w-full bg-purple-600 hover:bg-purple-700 justify-start" onClick={() => navigate('/auditoria')}>
+              <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/auditoria')}>
                 <FileText className="w-4 h-4 mr-2" />
                 Ver Auditoría
               </Button>
-              <Button className="w-full bg-green-600 hover:bg-green-700 justify-start" onClick={() => navigate('/pacientes')}>
+              <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/pacientes')}>
                 <Users className="w-4 h-4 mr-2" />
                 Gestionar Pacientes
               </Button>
@@ -158,30 +170,32 @@ export function DashboardAdmin() {
           </Card>
 
           <Card className="shadow-sm">
-            <CardHeader className="border-b bg-gray-50">
+            <CardHeader className="border-b border-border bg-muted/30">
               <CardTitle className="text-lg">Estado del Sistema</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-sm text-gray-600">Sistema Operativo</span>
+                  <div className="w-2 h-2 rounded-full bg-primary" />
+                  <span className="text-sm text-muted-foreground">Sistema Operativo</span>
                 </div>
-                <Badge className="bg-green-100 text-green-700">Normal</Badge>
+                <Badge>Normal</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                  <span className="text-sm text-gray-600">Base de Datos</span>
+                  <div className="w-2 h-2 rounded-full bg-secondary" />
+                  <span className="text-sm text-muted-foreground">Base de Datos</span>
                 </div>
-                <Badge className="bg-blue-100 text-blue-700">Activa</Badge>
+                <Badge variant="secondary">Activa</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-sm text-gray-600">Conectividad</span>
+                  <div className="w-2 h-2 rounded-full bg-accent" />
+                  <span className="text-sm text-muted-foreground">Conectividad</span>
                 </div>
-                <Badge className="bg-green-100 text-green-700">Óptima</Badge>
+                <Badge variant="outline" className="bg-background">
+                  Óptima
+                </Badge>
               </div>
             </CardContent>
           </Card>
@@ -190,7 +204,7 @@ export function DashboardAdmin() {
 
       {/* Auditoría Reciente */}
       <Card className="shadow-sm">
-        <CardHeader className="border-b bg-gray-50">
+        <CardHeader className="border-b border-border bg-muted/30">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Actividad Reciente</CardTitle>
             <Button variant="outline" size="sm" onClick={() => navigate('/auditoria')}>
@@ -202,30 +216,23 @@ export function DashboardAdmin() {
           <div className="divide-y overflow-hidden rounded-b-xl">
             {auditoriaReciente.length > 0 ? (
               auditoriaReciente.map((registro) => (
-                <div key={registro.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div key={registro.id} className="p-4 hover:bg-muted/40 transition-colors">
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                      <ClipboardList className="w-5 h-5 text-blue-600" />
+                    <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
+                      <ClipboardList className="w-5 h-5 text-secondary-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-gray-900">{registro.nombreUsuario}</p>
+                        <p className="font-medium text-foreground">{registro.nombreUsuario}</p>
                         <Badge
-                          className={
-                            registro.rol === 'recepcion'
-                              ? 'bg-blue-100 text-blue-700'
-                              : registro.rol === 'triage'
-                              ? 'bg-green-100 text-green-700'
-                              : registro.rol === 'medico'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-orange-100 text-orange-700'
-                          }
+                          variant={rolBadgeStyle(registro.rol).variant}
+                          className={rolBadgeStyle(registro.rol).className}
                         >
                           {registro.rol}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600">{registro.detalles}</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-sm text-muted-foreground">{registro.detalles}</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">
                         {new Date(registro.fechaHora).toLocaleString('es-MX', {
                           year: 'numeric',
                           month: 'long',
@@ -239,7 +246,7 @@ export function DashboardAdmin() {
                 </div>
               ))
             ) : (
-              <div className="p-8 text-center text-gray-500">
+              <div className="p-8 text-center text-muted-foreground">
                 No hay actividad reciente registrada en la base de datos.
               </div>
             )}

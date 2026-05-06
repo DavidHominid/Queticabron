@@ -73,6 +73,16 @@ export const toDBEstado = (feEstado) => {
   return map[feEstado] ?? 'pendiente';
 };
 
+export const normalizeHora = (hora) => {
+  const s = String(hora || '').trim();
+  if (!s) return null;
+  const [hRaw, mRaw] = s.split(':');
+  const hh = Number(hRaw);
+  const mm = Number(mRaw ?? 0);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+};
+
 export const mapCita = (c) => {
   let feEstado = toFEEstado(c.estado);
   
@@ -85,7 +95,7 @@ export const mapCita = (c) => {
     pacienteId: String(c.id_paciente || ''),
     eventoId: c.evento_id ? String(c.evento_id) : '',
     fecha: c.fecha_cita ? formatDate(c.fecha_cita) : c.fecha,
-    hora: c.hora || '08:00',
+    hora: normalizeHora(c.hora) || '08:00',
     especialidad: c.especialidad,
     tipoCitaId: c.tipo_cita_id ? String(c.tipo_cita_id) : undefined,
     tipoCitaNombre: c.tipo_cita_nombre ? String(c.tipo_cita_nombre) : undefined,
@@ -119,6 +129,39 @@ export const mapTriage = (t) => ({
   observaciones: t.observaciones,
   realizadoPor: t.realizado_por || t.encargado_triaje || 'Sistema'
 });
+
+const parseJsonArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+export const mapConsultaMedica = (n) => {
+  const fechaRaw = n.fecha_hora || n.fecha || n.fecha_nota || n.fechaHora || n.fecha_hora || n.created_at || n.createdAt;
+  const fechaHora = fechaRaw ? new Date(String(fechaRaw).length === 10 ? `${String(fechaRaw)}T12:00:00` : fechaRaw).toISOString() : new Date().toISOString();
+
+  return {
+    id: String(n.id_nota ?? n.id ?? ''),
+    citaId: String(n.id_cita ?? n.cita_id ?? n.citaId ?? ''),
+    pacienteId: String(n.id_paciente ?? n.paciente_id ?? n.pacienteId ?? ''),
+    medicoEncargado: String(n.medico_usuario_id ?? n.id_doctor ?? n.medico_encargado ?? n.medicoEncargado ?? n.medico ?? ''),
+    especialidad: n.especialidad ?? 'medicina_familiar',
+    fechaHora,
+    motivoConsulta: String(n.motivo_consulta ?? n.motivoConsulta ?? ''),
+    padecimientoActual: String(n.padecimiento_actual ?? n.padecimientoActual ?? ''),
+    exploracionFisica: String(n.exploracion_fisica ?? n.exploracionFisica ?? ''),
+    diagnostico: String(n.diagnostico ?? ''),
+    tratamiento: String(n.tratamiento ?? n.plan_tratamiento ?? ''),
+    medicamentosRecetados: parseJsonArray(n.medicamentos ?? n.medicamentos_recetados ?? n.medicamentosRecetados),
+    recomendaciones: String(n.indicaciones ?? n.recomendaciones ?? ''),
+    proximaConsulta: n.proxima_cita ?? n.proximaConsulta ?? undefined,
+  };
+};
 
 export const mapEvento = (e) => ({
   id: String(e.id || ''),

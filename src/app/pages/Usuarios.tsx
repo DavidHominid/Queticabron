@@ -12,6 +12,7 @@ import { Plus, Search, Edit, Trash2, X, UserPlus, Users, Shield, Key, Power, Fil
 import { Usuario, Rol, Ciudad, Especialidad } from '../types';
 import { labelEspecialidad } from '../utils/especialidades';
 import { labelCiudad } from '../utils/ciudades';
+import { nowIso, todayYmd } from '../utils/clock';
 
 export function Usuarios() {
   const { usuarios, especialidadesCatalogo, ciudadesCatalogo, addUsuario, updateUsuario, deleteUsuario, addRegistroAuditoria } = useData();
@@ -24,7 +25,7 @@ export function Usuarios() {
   const [filtroCiudad, setFiltroCiudad] = useState<'todas' | Ciudad>('todas');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'activos' | 'inactivos' | 'fuera_vigencia' | 'inactivos_manual'>('todos');
   const [orden, setOrden] = useState<'nombre_asc' | 'nombre_desc' | 'rol' | 'ciudad'>('nombre_asc');
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = todayYmd();
   const showColCiudad = filtroRol === 'recepcion';
   const showColCiudades = filtroRol === 'medico' || filtroRol === 'triage';
   const showColEspecialidades = filtroRol === 'medico';
@@ -117,7 +118,7 @@ export function Usuarios() {
         rol: user?.rol || 'administrador',
         accion: 'Actualizar Usuario',
         detalles: `Actualizó usuario: ${formData.nombre} (${formData.email})`,
-        fechaHora: new Date().toISOString(),
+        fechaHora: nowIso(),
         ciudad: user?.ciudad || 'sonoyta',
       });
     } else {
@@ -145,7 +146,7 @@ export function Usuarios() {
         rol: user?.rol || 'administrador',
         accion: 'Crear Usuario',
         detalles: `Creó nuevo usuario: ${nuevoUsuario.nombre} - Rol: ${nuevoUsuario.rol}`,
-        fechaHora: new Date().toISOString(),
+        fechaHora: nowIso(),
         ciudad: user?.ciudad || 'sonoyta',
       });
     }
@@ -189,14 +190,14 @@ export function Usuarios() {
         rol: user?.rol || 'administrador',
         accion: 'Eliminar Usuario',
         detalles: `Eliminó usuario: ${usuario.nombre} (${usuario.email})`,
-        fechaHora: new Date().toISOString(),
+        fechaHora: nowIso(),
         ciudad: user?.ciudad || 'sonoyta',
       });
     }
   };
 
   const toggleEstado = (usuario: Usuario) => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = todayYmd();
     const hasta = usuario.activoHasta ? String(usuario.activoHasta) : null;
     const activar = !usuario.activo;
     const clearVigencia = activar && hasta && hasta < hoy;
@@ -211,7 +212,7 @@ export function Usuarios() {
       rol: user?.rol || 'administrador',
       accion: usuario.activo ? 'Desactivar Usuario' : 'Activar Usuario',
       detalles: `${usuario.activo ? 'Desactivó' : 'Activó'} usuario: ${usuario.nombre}`,
-      fechaHora: new Date().toISOString(),
+      fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     });
   };
@@ -235,13 +236,10 @@ export function Usuarios() {
   };
 
   const rolBadgeColor = (rol: string) => {
-    const colores: { [key: string]: string } = {
-      administrador: 'bg-purple-100 text-purple-700',
-      recepcion: 'bg-blue-100 text-blue-700',
-      triage: 'bg-green-100 text-green-700',
-      medico: 'bg-orange-100 text-orange-700',
-    };
-    return colores[rol] || 'bg-gray-100 text-gray-700';
+    if (rol === 'administrador') return { variant: 'outline' as const, className: 'bg-accent text-accent-foreground border-transparent capitalize' };
+    if (rol === 'medico') return { variant: 'outline' as const, className: 'bg-primary text-primary-foreground border-transparent capitalize' };
+    if (rol === 'triage') return { variant: 'outline' as const, className: 'bg-secondary text-secondary-foreground border-transparent capitalize' };
+    return { variant: 'outline' as const, className: 'bg-background capitalize' };
   };
 
   const filteredUsuarios = [...usuarios]
@@ -287,10 +285,10 @@ export function Usuarios() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Gestión de Usuarios</h1>
-            <p className="text-gray-600 mt-1">Administra los usuarios del sistema</p>
+            <h1 className="text-2xl font-semibold text-foreground">Gestión de Usuarios</h1>
+            <p className="text-muted-foreground mt-1">Administra los usuarios del sistema</p>
           </div>
-          <Button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700">
+          <Button onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Crear Usuario
           </Button>
@@ -308,7 +306,7 @@ export function Usuarios() {
             <div className="lg:col-span-2">
               <Label htmlFor="buscarUsuarios">Buscar</Label>
               <div className="relative mt-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="buscarUsuarios"
                   placeholder="Nombre, email, rol, ciudad o especialidad..."
@@ -323,7 +321,7 @@ export function Usuarios() {
               <Label htmlFor="filtroRol">Rol</Label>
               <select
                 id="filtroRol"
-                className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                 value={filtroRol}
                 onChange={(e) => setFiltroRol(e.target.value as any)}
               >
@@ -339,7 +337,7 @@ export function Usuarios() {
               <Label htmlFor="filtroCiudad">Ciudad</Label>
               <select
                 id="filtroCiudad"
-                className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                 value={filtroCiudad}
                 onChange={(e) => setFiltroCiudad(e.target.value as any)}
               >
@@ -358,7 +356,7 @@ export function Usuarios() {
               <Label htmlFor="filtroEstado">Estado</Label>
               <select
                 id="filtroEstado"
-                className="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value as any)}
               >
@@ -375,7 +373,7 @@ export function Usuarios() {
               <div className="mt-2 flex gap-2">
                 <select
                   id="ordenUsuarios"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                   value={orden}
                   onChange={(e) => setOrden(e.target.value as any)}
                 >
@@ -413,80 +411,89 @@ export function Usuarios() {
                 Usuarios
               </CardTitle>
               <div className="flex flex-wrap gap-2">
-                <Badge className="bg-gray-100 text-gray-800">Mostrando: {filteredUsuarios.length}</Badge>
-                <Badge className="bg-green-100 text-green-700">Activos: {usuarios.filter(esActivoEfectivo).length}</Badge>
-                <Badge className="bg-gray-100 text-gray-700">Inactivos: {usuarios.length - usuarios.filter(esActivoEfectivo).length}</Badge>
+                <Badge variant="secondary">Mostrando: {filteredUsuarios.length}</Badge>
+                <Badge>Activos: {usuarios.filter(esActivoEfectivo).length}</Badge>
+                <Badge variant="outline" className="bg-background">
+                  Inactivos: {usuarios.length - usuarios.filter(esActivoEfectivo).length}
+                </Badge>
               </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="relative max-h-[70vh] overflow-auto">
               <table className="w-full">
-                <thead className="sticky top-0 z-10 bg-gray-50 border-b">
+                <thead className="sticky top-0 z-10 bg-muted/30 border-b border-border">
                   <tr>
-                    <th className="text-left p-4 text-sm font-medium text-gray-700">Usuario</th>
-                    <th className="text-left p-4 text-sm font-medium text-gray-700">Email</th>
-                    <th className="text-left p-4 text-sm font-medium text-gray-700">Rol</th>
-                    {showColCiudad && <th className="text-left p-4 text-sm font-medium text-gray-700">Ciudad</th>}
-                    {showColCiudades && <th className="text-left p-4 text-sm font-medium text-gray-700">Ciudades</th>}
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Usuario</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Email</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Rol</th>
+                    {showColCiudad && <th className="text-left p-4 text-sm font-medium text-muted-foreground">Ciudad</th>}
+                    {showColCiudades && <th className="text-left p-4 text-sm font-medium text-muted-foreground">Ciudades</th>}
                     {showColEspecialidades && (
-                      <th className="text-left p-4 text-sm font-medium text-gray-700">Especialidad</th>
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Especialidad</th>
                     )}
                     {showColVigencia && (
-                      <th className="text-left p-4 text-sm font-medium text-gray-700">Vigencia</th>
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Vigencia</th>
                     )}
-                    <th className="text-left p-4 text-sm font-medium text-gray-700">Estado</th>
-                    <th className="text-left p-4 text-sm font-medium text-gray-700">Acciones</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Estado</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsuarios.map((usuario, idx) => (
-                    <tr key={usuario.id} className={`border-b ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'} hover:bg-blue-50/40`}>
+                    <tr
+                      key={usuario.id}
+                      className={`border-b border-border ${idx % 2 === 0 ? 'bg-background' : 'bg-muted/20'} hover:bg-muted/40`}
+                    >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                            <span className="text-white font-semibold">
+                          <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
+                            <span className="text-secondary-foreground font-semibold">
                               {usuario.nombre.charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900">{usuario.nombre}</p>
-                            <p className="text-xs text-gray-500">ID: {usuario.id}</p>
+                            <p className="font-medium text-foreground">{usuario.nombre}</p>
+                            <p className="text-xs text-muted-foreground/70">ID: {usuario.id}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="p-4 text-sm text-gray-900">{usuario.email}</td>
+                      <td className="p-4 text-sm text-foreground">{usuario.email}</td>
                       <td className="p-4">
-                        <Badge className={rolBadgeColor(usuario.rol)}>{usuario.rol}</Badge>
+                        <Badge variant={rolBadgeColor(usuario.rol).variant} className={rolBadgeColor(usuario.rol).className}>
+                          {usuario.rol}
+                        </Badge>
                       </td>
                       {showColCiudad && (
-                        <td className="p-4 text-sm text-gray-900">
-                          {labelCiudad(usuario.ciudad, ciudadesCatalogo) || <span className="text-gray-400">—</span>}
+                        <td className="p-4 text-sm text-foreground">
+                          {labelCiudad(usuario.ciudad, ciudadesCatalogo) || <span className="text-muted-foreground/40">—</span>}
                         </td>
                       )}
                       {showColCiudades && (
-                        <td className="p-4 text-sm text-gray-900">
+                        <td className="p-4 text-sm text-foreground">
                           {Array.isArray((usuario as any).ciudades) && (usuario as any).ciudades.length ? (
                             <div className="flex flex-wrap gap-1">
                               {(usuario as any).ciudades.map((c: string) => (
-                                <Badge key={c} className="bg-gray-100 text-gray-800">
+                                <Badge key={c} variant="outline" className="bg-background">
                                   {labelCiudad(c, ciudadesCatalogo)}
                                 </Badge>
                               ))}
                             </div>
                           ) : usuario.ciudad ? (
-                            <Badge className="bg-gray-100 text-gray-800">{labelCiudad(usuario.ciudad, ciudadesCatalogo)}</Badge>
+                            <Badge variant="outline" className="bg-background">
+                              {labelCiudad(usuario.ciudad, ciudadesCatalogo)}
+                            </Badge>
                           ) : (
-                            <span className="text-gray-400">—</span>
+                            <span className="text-muted-foreground/40">—</span>
                           )}
                         </td>
                       )}
                       {showColEspecialidades && (
-                        <td className="p-4 text-sm text-gray-900">
+                        <td className="p-4 text-sm text-foreground">
                           {Array.isArray(usuario.especialidades) && usuario.especialidades.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {usuario.especialidades.map((e) => (
-                                <Badge key={e} className="bg-gray-100 text-gray-800">
+                                <Badge key={e} variant="outline" className="bg-background">
                                   {labelEspecialidad(e, especialidadesCatalogo)}
                                 </Badge>
                               ))}
@@ -494,21 +501,21 @@ export function Usuarios() {
                           ) : usuario.especialidad ? (
                             <span className="capitalize">{labelEspecialidad(usuario.especialidad, especialidadesCatalogo)}</span>
                           ) : (
-                            <span className="text-gray-400">N/A</span>
+                            <span className="text-muted-foreground/40">N/A</span>
                           )}
                         </td>
                       )}
                       {showColVigencia && (
-                        <td className="p-4 text-sm text-gray-700">
+                        <td className="p-4 text-sm text-muted-foreground">
                           {usuario.activoDesde || usuario.activoHasta ? (
                             <div className="flex items-center gap-2">
-                              <CalendarRange className="h-4 w-4 text-gray-400" />
+                              <CalendarRange className="h-4 w-4 text-muted-foreground" />
                               <span className="whitespace-nowrap">
                                 {formatYmd(usuario.activoDesde) || '—'} → {formatYmd(usuario.activoHasta) || '—'}
                               </span>
                             </div>
                           ) : (
-                            <span className="text-gray-400">—</span>
+                            <span className="text-muted-foreground/40">—</span>
                           )}
                         </td>
                       )}
@@ -516,23 +523,19 @@ export function Usuarios() {
                         <div className="flex flex-col gap-1">
                           <Button
                             type="button"
-                            variant="outline"
+                            variant={esActivoEfectivo(usuario) ? 'default' : 'outline'}
                             size="sm"
                             onClick={() => toggleEstado(usuario)}
-                            className={`min-w-28 justify-center gap-2 ${
-                              esActivoEfectivo(usuario)
-                                ? 'border-green-300 text-green-700 hover:bg-green-50'
-                                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                            }`}
+                            className="min-w-28 justify-center gap-2"
                           >
                             <Power className="h-4 w-4" />
                             {esActivoEfectivo(usuario) ? 'Activo' : 'Inactivo'}
                           </Button>
                           {usuario.activo && !esActivoEfectivo(usuario) && (
-                            <span className="text-xs text-amber-700">Fuera de vigencia</span>
+                            <span className="text-xs text-muted-foreground">Fuera de vigencia</span>
                           )}
                           {!usuario.activo && (usuario.activoDesde || usuario.activoHasta) && (
-                            <span className="text-xs text-gray-500">Inactivo manual</span>
+                            <span className="text-xs text-muted-foreground/70">Inactivo manual</span>
                           )}
                         </div>
                       </td>
@@ -547,10 +550,9 @@ export function Usuarios() {
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button
-                            variant="outline"
+                            variant="destructive"
                             size="sm"
                             onClick={() => handleDelete(usuario)}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
                             disabled={usuario.id === user?.id}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -564,9 +566,9 @@ export function Usuarios() {
 
               {filteredUsuarios.length === 0 && (
                 <div className="p-12 text-center">
-                  <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-900 font-medium">No se encontraron usuarios</p>
-                  <p className="text-gray-600 mt-1">Ajusta los filtros o cambia el texto de búsqueda.</p>
+                  <Users className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
+                  <p className="text-foreground font-medium">No se encontraron usuarios</p>
+                  <p className="text-muted-foreground mt-1">Ajusta los filtros o cambia el texto de búsqueda.</p>
                 </div>
               )}
             </div>
@@ -586,7 +588,7 @@ export function Usuarios() {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -622,7 +624,7 @@ export function Usuarios() {
                     Contraseña {editingUser ? '(dejar en blanco para no cambiar)' : '*'}
                   </Label>
                   <div className="relative">
-                    <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                       id="password"
                       type="password"
@@ -640,7 +642,7 @@ export function Usuarios() {
                     <Label htmlFor="rol">Rol *</Label>
                     <select
                       id="rol"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                       value={formData.rol}
                       onChange={(e) => {
                         const nuevoRol = e.target.value as Rol;
@@ -679,7 +681,7 @@ export function Usuarios() {
                     {formData.rol === 'recepcion' && (
                       <select
                         id="ciudad"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                         value={formData.ciudad}
                         onChange={(e) => setFormData({ ...formData, ciudad: e.target.value as Ciudad, ciudades: [e.target.value as any] })}
                         required
@@ -695,7 +697,7 @@ export function Usuarios() {
                     )}
 
                     {(formData.rol === 'medico' || formData.rol === 'triage') && (
-                      <div className="rounded-lg border border-gray-200 p-3">
+                      <div className="rounded-lg border border-border bg-muted/20 p-3">
                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                           {(ciudadesCatalogo || [])
                             .filter((c) => c.activa)
@@ -703,7 +705,7 @@ export function Usuarios() {
                               const base = Array.isArray((formData as any).ciudades) ? ((formData as any).ciudades as any[]) : [];
                               const selected = base.includes(c.codigo);
                               return (
-                                <label key={c.codigo} className="flex items-center gap-2 text-sm text-gray-800">
+                                <label key={c.codigo} className="flex items-center gap-2 text-sm text-foreground">
                                   <Checkbox
                                     checked={selected}
                                     onCheckedChange={(next) => {
@@ -722,26 +724,26 @@ export function Usuarios() {
                             })}
                         </div>
                         {Array.isArray((formData as any).ciudades) && (formData as any).ciudades.length === 0 && (
-                          <div className="mt-2 text-sm text-red-700">Selecciona al menos una ciudad.</div>
+                          <div className="mt-2 text-sm text-destructive">Selecciona al menos una ciudad.</div>
                         )}
                       </div>
                     )}
 
-                    {formData.rol === 'administrador' && <div className="mt-2 text-sm text-gray-600">No aplica</div>}
+                    {formData.rol === 'administrador' && <div className="mt-2 text-sm text-muted-foreground">No aplica</div>}
                   </div>
                 </div>
 
                 {formData.rol === 'medico' && (
                   <div>
                     <Label htmlFor="especialidad">Especialidad *</Label>
-                    <div className="rounded-lg border border-gray-200 p-3">
+                    <div className="rounded-lg border border-border bg-muted/20 p-3">
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {(especialidadesCatalogo || [])
                           .filter((x) => x.activa)
                           .map((esp) => {
                             const selected = Array.isArray(formData.especialidades) ? formData.especialidades.includes(esp.codigo) : false;
                             return (
-                              <label key={esp.codigo} className="flex items-center gap-2 text-sm text-gray-800">
+                              <label key={esp.codigo} className="flex items-center gap-2 text-sm text-foreground">
                                 <Checkbox
                                   checked={selected}
                                   onCheckedChange={(next) => {
@@ -763,33 +765,29 @@ export function Usuarios() {
                           })}
                       </div>
                       {Array.isArray(formData.especialidades) && formData.especialidades.length === 0 && (
-                        <div className="mt-2 text-sm text-red-700">Selecciona al menos una especialidad para el médico.</div>
+                        <div className="mt-2 text-sm text-destructive">Selecciona al menos una especialidad para el médico.</div>
                       )}
                     </div>
                   </div>
                 )}
 
                 {formData.rol === 'triage' && (
-                  <div className="space-y-4 rounded-lg border border-gray-200 p-4">
+                  <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-medium text-gray-900">Usuario activo</div>
+                      <div className="text-sm font-medium text-foreground">Usuario activo</div>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant={formData.activo ?? true ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => setFormData({ ...formData, activo: !(formData.activo ?? true) })}
-                        className={`min-w-28 justify-center gap-2 ${
-                          formData.activo ?? true
-                            ? 'border-green-300 text-green-700 hover:bg-green-50'
-                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className="min-w-28 justify-center gap-2"
                       >
                         <Power className="h-4 w-4" />
                         {formData.activo ?? true ? 'Activo' : 'Inactivo'}
                       </Button>
                     </div>
 
-                    <label className="flex items-center gap-2 text-sm text-gray-800">
+                    <label className="flex items-center gap-2 text-sm text-foreground">
                       <Checkbox
                         checked={vigenciaHabilitada}
                         onCheckedChange={(next) => {
@@ -827,15 +825,15 @@ export function Usuarios() {
                         </div>
                       </div>
                     )}
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground/70">
                       Si llega la fecha “Activo hasta”, el usuario se desactiva automáticamente, pero puedes reactivarlo manualmente cuando quieras.
                     </div>
                   </div>
                 )}
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-medium text-blue-900 mb-2">Permisos del Rol</h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
+                <div className="bg-muted/20 border border-border rounded-lg p-4">
+                  <h4 className="font-medium text-foreground mb-2">Permisos del Rol</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
                     {formData.rol === 'administrador' && (
                       <>
                         <li>• Acceso completo a todas las funcionalidades</li>
@@ -884,7 +882,7 @@ export function Usuarios() {
                   >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                  <Button type="submit" className="flex-1">
                     {editingUser ? 'Actualizar Usuario' : 'Crear Usuario'}
                   </Button>
                 </div>

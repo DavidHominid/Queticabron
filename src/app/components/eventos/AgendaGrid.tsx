@@ -26,11 +26,11 @@ export function AgendaGrid({
   onCreateOrEdit: (day: string, slotKey: string) => void;
 }) {
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <div className="w-full overflow-x-auto rounded-lg border border-border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="sticky left-0 z-10 bg-white min-w-[180px]">Horario</TableHead>
+            <TableHead className="sticky left-0 z-10 bg-card min-w-[180px]">Horario</TableHead>
             {days.map((d) => (
               <TableHead key={d} className="min-w-[160px]">
                 {new Date(d).toLocaleDateString('es-MX', {
@@ -45,10 +45,10 @@ export function AgendaGrid({
         <TableBody>
           {slotRows.map((row) => (
             <TableRow key={row.key}>
-              <TableCell className="sticky left-0 z-10 bg-white align-top">
+              <TableCell className="sticky left-0 z-10 bg-card align-top">
                 <div className="flex flex-col">
-                  <span className="font-medium text-gray-900">{row.horaInicio}–{row.horaFin}</span>
-                  <span className="text-xs text-gray-500">Intervalo: {row.intervalo} min</span>
+                  <span className="font-medium text-foreground">{row.horaInicio}–{row.horaFin}</span>
+                  <span className="text-xs text-muted-foreground">Intervalo: {row.intervalo} min</span>
                 </div>
               </TableCell>
               {days.map((day) => {
@@ -79,17 +79,17 @@ export function AgendaGrid({
                       onClick={() => onCreateOrEdit(day, row.key)}
                       className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
                         full
-                          ? 'border-red-200 bg-red-50 hover:bg-red-100'
-                          : 'border-green-200 bg-green-50 hover:bg-green-100'
+                          ? 'border-destructive/20 bg-destructive/10 hover:bg-destructive/15'
+                          : 'border-border bg-muted/20 hover:bg-muted/30'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <Badge className={full ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}>
+                        <Badge variant={full ? 'destructive' : 'secondary'}>
                           {cell.cupoOcupado}/{cell.cupoTotal}
                         </Badge>
-                        <span className="text-xs text-gray-700">Disp: {disponible}</span>
+                        <span className="text-xs text-muted-foreground">Disp: {disponible}</span>
                       </div>
-                      <div className="mt-2 text-xs text-gray-600">Editar en evento</div>
+                      <div className="mt-2 text-xs text-muted-foreground">Editar en evento</div>
                     </button>
                   </TableCell>
                 );
@@ -101,4 +101,3 @@ export function AgendaGrid({
     </div>
   );
 }
-

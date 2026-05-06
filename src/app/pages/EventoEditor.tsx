@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { EspecialidadCardEditor } from '../components/eventos/EspecialidadCardEditor';
@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Ciudad, Especialidad, EspecialidadEvento, Evento } from '../types';
 import { labelEspecialidad } from '../utils/especialidades';
+import { nowIso, nowMs } from '../utils/clock';
 
 const listDaysInclusive = (start: string, end: string) => {
   if (!start || !end) return [] as string[];
@@ -111,7 +112,7 @@ const isEventoFinalizado = (fechaFin?: string | null) => {
   if (!fechaFin) return false;
   const end = new Date(`${fechaFin}T23:59:59`);
   if (Number.isNaN(end.getTime())) return false;
-  return Date.now() > end.getTime();
+  return nowMs() > end.getTime();
 };
 
 export function EventoEditor() {
@@ -135,11 +136,14 @@ export function EventoEditor() {
   const [saving, setSaving] = useState(false);
   const [activeEspecialidad, setActiveEspecialidad] = useState<string>('');
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const initEditRef = useRef<string>('');
 
   useEffect(() => {
     if (!isEdit) return;
-    const found = eventos.find((e) => e.id === id);
+    const found = eventos.find((e) => e.id === id) || null;
     if (!found) return;
+    if (initEditRef.current === String(found.id)) return;
+    initEditRef.current = String(found.id);
 
     const daysLocal = listDaysInclusive(found.fechaInicio || '', found.fechaFin || '');
     const especialidades = (found.especialidades || []).map((esp) => ({
@@ -388,7 +392,7 @@ export function EventoEditor() {
           rol: user?.rol || 'recepcion',
           accion: 'Editar Evento',
           detalles: `Edito evento: ${payload.nombre}`,
-          fechaHora: new Date().toISOString(),
+          fechaHora: nowIso(),
           ciudad: user?.ciudad || 'sonoyta',
         });
       } else {
@@ -400,7 +404,7 @@ export function EventoEditor() {
           rol: user?.rol || 'recepcion',
           accion: 'Crear Evento',
           detalles: `Creo evento: ${payload.nombre} con ${payload.especialidades.length} especialidades`,
-          fechaHora: new Date().toISOString(),
+          fechaHora: nowIso(),
           ciudad: user?.ciudad || 'sonoyta',
         });
       }
@@ -421,8 +425,8 @@ export function EventoEditor() {
       <DashboardLayout>
         <Card className="shadow-sm">
           <CardContent className="p-12 text-center">
-            <h2 className="text-lg font-semibold text-gray-900">Evento finalizado</h2>
-            <p className="mt-2 text-gray-600">Este evento ya finalizó y es de solo lectura. No se puede editar ni modificar.</p>
+            <h2 className="text-lg font-semibold text-foreground">Evento finalizado</h2>
+            <p className="mt-2 text-muted-foreground">Este evento ya finalizó y es de solo lectura. No se puede editar ni modificar.</p>
             <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
               <Button type="button" onClick={() => navigate(`/eventos/${id}`)}>
                 Ver evento
@@ -442,8 +446,8 @@ export function EventoEditor() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{isEdit ? 'Editar evento' : 'Crear evento'}</h1>
-            <p className="mt-1 text-gray-600">Paso 1: información · Paso 2: configuración · Paso 3: horarios.</p>
+            <h1 className="text-2xl font-semibold text-foreground">{isEdit ? 'Editar evento' : 'Crear evento'}</h1>
+            <p className="mt-1 text-muted-foreground">Paso 1: información · Paso 2: configuración · Paso 3: horarios.</p>
           </div>
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={() => navigate('/eventos')}>
@@ -453,22 +457,22 @@ export function EventoEditor() {
         </div>
 
         {error && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}</div>
+          <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">{error}</div>
         )}
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <div className={`rounded-xl border px-4 py-3 ${currentStep === 1 ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="text-sm font-semibold text-gray-900">Paso 1</div>
-              <div className="text-sm text-gray-600">Información del evento</div>
+            <div className={`rounded-xl border px-4 py-3 ${currentStep === 1 ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'}`}>
+              <div className="text-sm font-semibold text-foreground">Paso 1</div>
+              <div className="text-sm text-muted-foreground">Información del evento</div>
             </div>
-            <div className={`rounded-xl border px-4 py-3 ${currentStep === 2 ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="text-sm font-semibold text-gray-900">Paso 2</div>
-              <div className="text-sm text-gray-600">Configuración</div>
+            <div className={`rounded-xl border px-4 py-3 ${currentStep === 2 ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'}`}>
+              <div className="text-sm font-semibold text-foreground">Paso 2</div>
+              <div className="text-sm text-muted-foreground">Configuración</div>
             </div>
-            <div className={`rounded-xl border px-4 py-3 ${currentStep === 3 ? 'border-blue-600 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
-              <div className="text-sm font-semibold text-gray-900">Paso 3</div>
-              <div className="text-sm text-gray-600">Horarios</div>
+            <div className={`rounded-xl border px-4 py-3 ${currentStep === 3 ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'}`}>
+              <div className="text-sm font-semibold text-foreground">Paso 3</div>
+              <div className="text-sm text-muted-foreground">Horarios</div>
             </div>
           </div>
         </div>
@@ -487,23 +491,23 @@ export function EventoEditor() {
               <Button type="button" variant="outline" onClick={() => navigate('/eventos')}>
                 Cancelar
               </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={goToStepTwo}>
+              <Button type="button" onClick={goToStepTwo}>
                 Continuar a Configuración
               </Button>
             </div>
           </div>
         ) : currentStep === 2 ? (
           <div className="space-y-6">
-            <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <div className="border-b px-6 py-5">
-                <h2 className="text-base font-semibold text-gray-900">Configuración</h2>
+            <section className="rounded-2xl border border-border bg-card shadow-sm">
+              <div className="border-b border-border px-6 py-5">
+                <h2 className="text-base font-semibold text-foreground">Configuración</h2>
               </div>
               <div className="space-y-6 p-6">
                 <div className="flex flex-col gap-3 xl:flex-row xl:items-end">
                   <div className="xl:max-w-sm xl:flex-1">
-                    <label className="mb-2 block text-sm font-medium text-gray-900">Agregar especialidad</label>
+                    <label className="mb-2 block text-sm font-medium text-foreground">Agregar especialidad</label>
                     <select
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                       value=""
                       onChange={(e) => {
                         const value = e.target.value as Especialidad;
@@ -522,7 +526,7 @@ export function EventoEditor() {
                         ))}
                     </select>
                   </div>
-                  <div className="text-sm text-gray-500">Selecciona especialidades y define consultorio, tipos de cita y practicantes.</div>
+                  <div className="text-sm text-muted-foreground">Selecciona especialidades y define consultorio, tipos de cita y practicantes.</div>
                 </div>
 
                 {form.especialidades.length > 0 ? (
@@ -532,7 +536,7 @@ export function EventoEditor() {
                         <TabsTrigger
                           key={esp.especialidad}
                           value={esp.especialidad}
-                          className="h-10 flex-none rounded-lg border border-gray-200 px-4 data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50"
+                          className="h-10 flex-none rounded-lg border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-muted/30"
                         >
                           {labelEspecialidad(esp.especialidad, especialidadesCatalogo)}
                         </TabsTrigger>
@@ -556,7 +560,7 @@ export function EventoEditor() {
                     ))}
                   </Tabs>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-600">
+                  <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
                     Agrega una especialidad para comenzar a configurar consultorio, tipos de cita y practicantes.
                   </div>
                 )}
@@ -567,16 +571,16 @@ export function EventoEditor() {
               <Button type="button" variant="outline" onClick={() => setCurrentStep(1)}>
                 Volver a Información
               </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={goToStepThree}>
+              <Button type="button" onClick={goToStepThree}>
                 Continuar a Horarios
               </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-6">
-            <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <div className="border-b px-6 py-5">
-                <h2 className="text-base font-semibold text-gray-900">Horarios</h2>
+            <section className="rounded-2xl border border-border bg-card shadow-sm">
+              <div className="border-b border-border px-6 py-5">
+                <h2 className="text-base font-semibold text-foreground">Horarios</h2>
               </div>
               <div className="space-y-6 p-6">
                 {form.especialidades.length > 0 ? (
@@ -586,7 +590,7 @@ export function EventoEditor() {
                         <TabsTrigger
                           key={esp.especialidad}
                           value={esp.especialidad}
-                          className="h-10 flex-none rounded-lg border border-gray-200 px-4 data-[state=active]:border-blue-600 data-[state=active]:bg-blue-50"
+                          className="h-10 flex-none rounded-lg border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-muted/30"
                         >
                           {labelEspecialidad(esp.especialidad, especialidadesCatalogo)}
                         </TabsTrigger>
@@ -610,7 +614,7 @@ export function EventoEditor() {
                     ))}
                   </Tabs>
                 ) : (
-                  <div className="rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-600">
+                  <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
                     Agrega especialidades en el paso 2.
                   </div>
                 )}
@@ -621,7 +625,7 @@ export function EventoEditor() {
               <Button type="button" variant="outline" onClick={() => setCurrentStep(2)}>
                 Volver a Configuración
               </Button>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" disabled={saving} onClick={onSave}>
+              <Button type="button" disabled={saving} onClick={onSave}>
                 {saving ? 'Guardando...' : isEdit ? 'Guardar Cambios' : 'Crear Evento'}
               </Button>
             </div>

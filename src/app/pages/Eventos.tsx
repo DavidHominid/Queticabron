@@ -15,11 +15,13 @@ import {
   AlertDialogTrigger,
 } from '../components/ui/alert-dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Especialidad, Evento } from '../types';
 import { labelCiudad } from '../utils/ciudades';
 import { labelEspecialidad } from '../utils/especialidades';
+import { nowIso, nowMs } from '../utils/clock';
 
 const formatDate = (value?: string | null) => {
   if (!value) return 'Sin fecha';
@@ -36,7 +38,7 @@ const isEventoFinalizado = (fechaFin?: string | null) => {
   if (!fechaFin) return false;
   const end = new Date(`${fechaFin}T23:59:59`);
   if (Number.isNaN(end.getTime())) return false;
-  return Date.now() > end.getTime();
+  return nowMs() > end.getTime();
 };
 
 const normCiudad = (value: unknown) => {
@@ -86,11 +88,13 @@ export function Eventos() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Agenda de eventos</h1>
-            <p className="text-gray-600 mt-1">Visualiza los eventos como tarjetas y entra a su detalle para consultar información, especialidades y agenda.</p>
+            <h1 className="text-2xl font-semibold text-foreground">Agenda de eventos</h1>
+            <p className="text-muted-foreground mt-1">
+              Visualiza los eventos como tarjetas y entra a su detalle para consultar información, especialidades y agenda.
+            </p>
           </div>
           <div className="flex gap-2">
-            <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={() => navigate('/eventos/nuevo')}>
+            <Button type="button" onClick={() => navigate('/eventos/nuevo')}>
               <Plus className="h-4 w-4 mr-2" />
               Nuevo evento
             </Button>
@@ -100,15 +104,15 @@ export function Eventos() {
         {!isInitialized && (
           <Card className="shadow-sm">
             <CardContent className="p-8">
-              <div className="animate-pulse h-6 w-40 bg-gray-200 rounded" />
-              <div className="mt-4 animate-pulse h-24 bg-gray-100 rounded" />
+              <div className="animate-pulse h-6 w-40 bg-muted rounded" />
+              <div className="mt-4 animate-pulse h-24 bg-muted/60 rounded" />
             </CardContent>
           </Card>
         )}
 
         {isInitialized && user?.rol !== 'administrador' && ciudadesUsuario.length === 0 && (
           <Card className="shadow-sm">
-            <CardContent className="p-4 text-sm text-amber-800 border border-amber-200 bg-amber-50 rounded-2xl">
+            <CardContent className="p-4 text-sm text-muted-foreground border border-border bg-muted/20 rounded-2xl">
               Tu usuario no tiene ciudad asignada. Asigna una ciudad (o ciudades) al usuario para poder ver eventos.
             </CardContent>
           </Card>
@@ -117,16 +121,16 @@ export function Eventos() {
         {isInitialized && sortedEventos.length === 0 && (
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
-              <CalendarDays className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <CalendarDays className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
                 {user?.rol === 'administrador' ? 'No hay eventos registrados' : 'No hay eventos para tu ciudad'}
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-muted-foreground mb-6">
                 {user?.rol === 'administrador'
                   ? 'Crea un evento para habilitar horarios y cupos.'
                   : `Ciudad asignada: ${(Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length ? (user as any).ciudades : user?.ciudad) || '---'}`}
               </p>
-              <Button type="button" className="bg-blue-600 hover:bg-blue-700" onClick={() => navigate('/eventos/nuevo')}>
+              <Button type="button" onClick={() => navigate('/eventos/nuevo')}>
                 <Plus className="h-4 w-4 mr-2" />
                 Crear evento
               </Button>
@@ -155,25 +159,25 @@ export function Eventos() {
                       navigate(`/eventos/${evento.id}`);
                     }
                   }}
-                  className="h-full cursor-pointer overflow-hidden border-gray-200 text-left shadow-sm transition hover:-translate-y-1 hover:border-blue-300 hover:shadow-md"
+                  className="h-full cursor-pointer overflow-hidden border-border text-left shadow-sm transition hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
                 >
-                  <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-white">
+                  <CardHeader className="border-b border-border bg-muted/20">
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1">
                         <CardTitle className="text-lg">{evento.nombre}</CardTitle>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MapPin className="h-4 w-4" />
                           <span>{labelCiudad(evento.ciudad, ciudadesCatalogo)}</span>
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+                        <Badge variant="secondary" className="capitalize">
                           {evento.estado}
-                        </span>
+                        </Badge>
                         {bloqueado && (
-                          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                          <Badge variant="outline" className="bg-background">
                             Solo lectura
-                          </span>
+                          </Badge>
                         )}
                       </div>
                     </div>
@@ -181,14 +185,14 @@ export function Eventos() {
                   <CardContent className="space-y-4 p-6">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <div className="text-gray-500">Inscripciones</div>
-                        <div className="font-medium text-gray-900">
+                        <div className="text-muted-foreground">Inscripciones</div>
+                        <div className="font-medium text-foreground">
                           {formatDate(evento.fechaInicioInscripcion)} - {formatDate(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-gray-500">Evento</div>
-                        <div className="font-medium text-gray-900">
+                        <div className="text-muted-foreground">Evento</div>
+                        <div className="font-medium text-foreground">
                           {formatDate(evento.fechaInicio)} - {formatDate(evento.fechaFin)}
                         </div>
                       </div>
@@ -197,16 +201,16 @@ export function Eventos() {
                       <div className="flex flex-wrap gap-2">
                         {especialidades.length > 0 ? (
                           especialidades.map((item) => (
-                            <span key={item} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">
+                            <Badge key={item} variant="outline" className="bg-background">
                               {item}
-                            </span>
+                            </Badge>
                           ))
                         ) : (
-                          <span className="text-sm text-gray-500">Sin especialidades registradas</span>
+                          <span className="text-sm text-muted-foreground">Sin especialidades registradas</span>
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between border-t pt-4 text-sm text-gray-600">
+                      <div className="flex items-center justify-between border-t border-border pt-4 text-sm text-muted-foreground">
                         <span>{evento.especialidades.length} especialidades</span>
                         <span>{totalHorarios} horarios</span>
                       </div>
@@ -214,7 +218,7 @@ export function Eventos() {
                       <div className="flex gap-2 pt-1">
                         <Button
                           type="button"
-                          className="flex-1 bg-blue-600 hover:bg-blue-700"
+                          className="flex-1"
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/eventos/${evento.id}`);
@@ -240,8 +244,7 @@ export function Eventos() {
                             <AlertDialogTrigger asChild>
                               <Button
                                 type="button"
-                                variant="outline"
-                                className="border-red-300 text-red-700 hover:bg-red-50"
+                                variant="destructive"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -258,7 +261,7 @@ export function Eventos() {
                               <AlertDialogFooter>
                                 <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
-                                  className="bg-red-600 hover:bg-red-700"
+                                  className="bg-destructive text-white hover:bg-destructive/90"
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
@@ -270,7 +273,7 @@ export function Eventos() {
                                         rol: user?.rol || 'administrador',
                                         accion: 'Eliminar Evento',
                                         detalles: `Eliminó evento: ${evento.nombre} (${evento.id})`,
-                                        fechaHora: new Date().toISOString(),
+                                        fechaHora: nowIso(),
                                         ciudad: (user?.ciudad || 'sonoyta') as any,
                                       });
                                     } catch (err: any) {
@@ -289,8 +292,7 @@ export function Eventos() {
                             <AlertDialogTrigger asChild>
                               <Button
                                 type="button"
-                                variant="outline"
-                                className="border-red-300 text-red-700 hover:bg-red-50"
+                                variant="destructive"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -307,7 +309,7 @@ export function Eventos() {
                               <AlertDialogFooter>
                                 <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
                                 <AlertDialogAction
-                                  className="bg-red-600 hover:bg-red-700"
+                                  className="bg-destructive text-white hover:bg-destructive/90"
                                   onClick={async (e) => {
                                     e.stopPropagation();
                                     try {
@@ -319,7 +321,7 @@ export function Eventos() {
                                         rol: user?.rol || 'administrador',
                                         accion: 'Eliminar Evento (Pruebas)',
                                         detalles: `Eliminó evento (pruebas): ${evento.nombre} (${evento.id})`,
-                                        fechaHora: new Date().toISOString(),
+                                        fechaHora: nowIso(),
                                         ciudad: (user?.ciudad || 'sonoyta') as any,
                                       });
                                     } catch (err: any) {

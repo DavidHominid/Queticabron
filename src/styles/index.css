@@ -3,8 +3,6 @@
 @import './theme.css';
 
 /* PrimeReact Core Styles */
-@import 'primereact/resources/themes/lara-light-blue/theme.css';
+@import 'primereact/resources/themes/lara-light-teal/theme.css';
 @import 'primereact/resources/primereact.min.css';
 @import 'primeicons/primeicons.css';
-
-@import '../app/pages/citas-calendar-styles.css';

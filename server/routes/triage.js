@@ -51,6 +51,53 @@ router.post('/', async (req, res) => {
 
     const query = `INSERT INTO "${SCHEMA}".triaje (${queryCols}) VALUES (${placeholders}) RETURNING *`;
     const result = await pool.query(query, values);
+    const triageMapped = mapTriage(result.rows[0]);
+
+    if (t.citaId && t.pacienteId) {
+      const citaId = parseInt(t.citaId);
+      const pacienteId = parseInt(t.pacienteId);
+      if (Number.isFinite(citaId) && Number.isFinite(pacienteId)) {
+        const payload = {
+          ...triageMapped,
+          observaciones: triageMapped.observaciones || t.observaciones || '',
+        };
+        try {
+          await pool.query(
+            `
+          INSERT INTO "${SCHEMA}".expediente (id_cita, id_paciente, triage, updated_at)
+            VALUES ($1, $2, $3::jsonb, NOW())
+            ON CONFLICT (id_cita)
+            DO UPDATE SET triage = EXCLUDED.triage, updated_at = NOW()
+            `,
+            [citaId, pacienteId, JSON.stringify(payload)],
+          );
+        } catch (err) {
+          await pool.query(
+            `
+            CREATE TABLE IF NOT EXISTS "${SCHEMA}".expediente (
+              id SERIAL PRIMARY KEY,
+              id_cita INTEGER NOT NULL,
+              id_paciente INTEGER NOT NULL,
+              triage JSONB,
+              consulta JSONB,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              UNIQUE (id_cita)
+            )
+            `,
+          );
+          await pool.query(
+            `
+            INSERT INTO "${SCHEMA}".expediente (id_cita, id_paciente, triage, updated_at)
+            VALUES ($1, $2, $3::jsonb, NOW())
+            ON CONFLICT (id_cita)
+            DO UPDATE SET triage = EXCLUDED.triage, updated_at = NOW()
+            `,
+            [citaId, pacienteId, JSON.stringify(payload)],
+          );
+        }
+      }
+    }
 
     // AUTOMATIZACIÓN: Actualizar estado de la cita a 'confirmada'
     if (t.citaId) {
@@ -58,7 +105,7 @@ router.post('/', async (req, res) => {
       console.log('✅ Cita actualizada a confirmada:', t.citaId);
     }
 
-    res.status(201).json(mapTriage(result.rows[0]));
+    res.status(201).json(triageMapped);
 
     await recordAudit({
       accion: 'Triage Completado',

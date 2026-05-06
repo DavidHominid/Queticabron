@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, TipoCitaEvento } from '../../types';
+import { CrearPacienteDialog } from '../pacientes/CrearPacienteDialog';
 
 const timeToMinutes = (t: string) => {
   const [hh, mm] = t.split(':').map((x) => Number(x));
@@ -47,10 +49,9 @@ export function AgendarCitaDialog({
   const [horaSeleccionada, setHoraSeleccionada] = useState('');
   const [tipoSeleccionadoId, setTipoSeleccionadoId] = useState<string>('');
   const [error, setError] = useState('');
+  const errorId = useId();
   const [guardando, setGuardando] = useState(false);
-  const [comboAbierto, setComboAbierto] = useState(false);
-  const [comboActivoIdx, setComboActivoIdx] = useState<number>(-1);
-  const comboRef = useRef<HTMLDivElement | null>(null);
+  const [crearPacienteOpen, setCrearPacienteOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -60,20 +61,7 @@ export function AgendarCitaDialog({
     setTipoSeleccionadoId('');
     setError('');
     setGuardando(false);
-    setComboAbierto(false);
-    setComboActivoIdx(-1);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onMouseDown = (ev: MouseEvent) => {
-      const el = comboRef.current;
-      if (!el) return;
-      if (ev.target instanceof Node && el.contains(ev.target)) return;
-      closeCombo();
-    };
-    document.addEventListener('mousedown', onMouseDown);
-    return () => document.removeEventListener('mousedown', onMouseDown);
+    setCrearPacienteOpen(false);
   }, [open]);
 
   const cupoTotal = useMemo(() => {
@@ -152,29 +140,24 @@ export function AgendarCitaDialog({
     setHoraSeleccionada(horasDisponibles[0] || '');
   }, [horasDisponibles, open]);
 
+  const pacientesOrdenados = useMemo(() => {
+    return [...pacientes].sort((a, b) => String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' }));
+  }, [pacientes]);
+
   const pacientesFiltrados = useMemo(() => {
-    const effectiveQuery = pacienteSeleccionado && query === pacienteSeleccionado.nombre ? '' : query;
-    const q = effectiveQuery.trim().toLowerCase();
-    if (!q) return pacientes.slice(0, 8);
-    return pacientes
-      .filter((p) => p.numeroExpediente.toLowerCase().includes(q) || p.nombre.toLowerCase().includes(q) || p.telefono.toLowerCase().includes(q))
-      .slice(0, 12);
-  }, [pacienteSeleccionado, pacientes, query]);
-
-  const openCombo = () => {
-    setComboAbierto(true);
-    setComboActivoIdx(-1);
-  };
-
-  const closeCombo = () => {
-    setComboAbierto(false);
-    setComboActivoIdx(-1);
-  };
+    const q = query.trim().toLowerCase();
+    if (!q) return pacientesOrdenados;
+    return pacientesOrdenados.filter((p) => {
+      const exp = String(p.numeroExpediente || '').toLowerCase();
+      const nom = String(p.nombre || '').toLowerCase();
+      const tel = String(p.telefono || '').toLowerCase();
+      return exp.includes(q) || nom.includes(q) || tel.includes(q);
+    });
+  }, [pacientesOrdenados, query]);
 
   const selectPaciente = (p: Paciente) => {
     setPacienteSeleccionado(p);
-    setQuery(p.nombre);
-    closeCombo();
+    setError('');
   };
 
   const submit = async () => {
@@ -201,21 +184,32 @@ export function AgendarCitaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="border-b px-6 py-5">
           <DialogTitle>Agendar cita</DialogTitle>
-          <DialogDescription>
-            {evento.nombre} · {horario.dia} · {horario.horaInicio}-{horario.horaFin}
-          </DialogDescription>
+          <DialogDescription>{evento.nombre} · {horario.dia}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-auto px-6 py-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border bg-muted/10 px-4 py-3">
+              <div className="text-xs text-muted-foreground">Horario</div>
+              <div className="mt-1 text-sm font-semibold text-foreground">
+                {horario.horaInicio}-{horario.horaFin}
+              </div>
+            </div>
+            <div className="rounded-xl border bg-muted/10 px-4 py-3">
+              <div className="text-xs text-muted-foreground">Duración</div>
+              <div className="mt-1 text-sm font-semibold text-foreground">{duracionMinutos} min</div>
+            </div>
+          </div>
+
           {tiposCita.length > 0 && !(tipoCitaIdFijo && String(tipoCitaIdFijo).trim()) && (
             <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-900">Tipo de cita</div>
+              <div className="text-sm font-medium text-foreground">Tipo de cita</div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <select
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                   value={tipoSeleccionado?.id || ''}
                   onChange={(e) => setTipoSeleccionadoId(e.target.value)}
                 >
@@ -225,118 +219,91 @@ export function AgendarCitaDialog({
                     </option>
                   ))}
                 </select>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                  Duración: {duracionMinutos} min
+                <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                  ${Number.isFinite(Number(tipoSeleccionado?.precio)) ? Number(tipoSeleccionado?.precio) : 0}
                 </div>
               </div>
             </div>
           )}
 
           <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-900">Paciente</div>
-            <div ref={comboRef} className="relative">
-              <input
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setPacienteSeleccionado(null);
-                  openCombo();
-                }}
-                onFocus={() => openCombo()}
-                onClick={() => openCombo()}
-                onBlur={() => {
-                  window.setTimeout(() => closeCombo(), 120);
-                }}
-                onKeyDown={(e) => {
-                  if (!comboAbierto && (e.key === 'ArrowDown' || e.key === 'Enter')) {
-                    openCombo();
-                    return;
-                  }
-
-                  if (!comboAbierto) return;
-
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    closeCombo();
-                    return;
-                  }
-
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setComboActivoIdx((idx) => {
-                      const next = Math.min(pacientesFiltrados.length - 1, idx + 1);
-                      return Number.isFinite(next) ? next : -1;
-                    });
-                    return;
-                  }
-
-                  if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setComboActivoIdx((idx) => {
-                      const next = Math.max(-1, idx - 1);
-                      return Number.isFinite(next) ? next : -1;
-                    });
-                    return;
-                  }
-
-                  if (e.key === 'Enter') {
-                    if (comboActivoIdx < 0) return;
-                    const chosen = pacientesFiltrados[comboActivoIdx];
-                    if (!chosen) return;
-                    e.preventDefault();
-                    selectPaciente(chosen);
-                  }
-                }}
-                placeholder="Buscar por expediente, nombre o teléfono"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                role="combobox"
-                aria-expanded={comboAbierto}
-                aria-autocomplete="list"
-              />
-
-              {comboAbierto && (
-                <div
-                  className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
-                  role="listbox"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
+            <div className="text-sm font-medium text-foreground">Paciente</div>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <Input
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPacienteSeleccionado(null);
                   }}
-                >
+                  placeholder="Buscar por expediente, nombre o teléfono"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? errorId : undefined}
+                />
+                <Button type="button" variant="outline" className="sm:w-auto" onClick={() => setCrearPacienteOpen(true)}>
+                  Registrar paciente
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="bg-muted/20 px-4 py-3 text-xs font-semibold text-muted-foreground">
+                  {pacientesFiltrados.length} pacientes
+                </div>
+                <div className="max-h-72 overflow-auto">
                   {pacientesFiltrados.length === 0 ? (
-                    <div className="px-3 py-2 text-sm text-gray-600">Sin resultados</div>
+                    <div className="px-4 py-3 text-sm text-muted-foreground">Sin resultados</div>
                   ) : (
-                    pacientesFiltrados.map((p, idx) => {
-                      const isSelected = pacienteSeleccionado?.id === p.id;
-                      const isActive = comboActivoIdx === idx;
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => selectPaciente(p)}
-                          className={`flex w-full flex-col px-3 py-2 text-left text-sm transition-colors ${
-                            isActive ? 'bg-gray-100' : 'bg-white'
-                          } ${isSelected ? 'ring-1 ring-inset ring-blue-600' : ''} hover:bg-gray-50`}
-                          role="option"
-                          aria-selected={isSelected}
-                          onMouseEnter={() => setComboActivoIdx(idx)}
-                        >
-                          <div className="font-medium text-gray-900">{p.nombre}</div>
-                          <div className="text-xs text-gray-600">{p.numeroExpediente} · {p.telefono}</div>
-                        </button>
-                      );
-                    })
+                    <table className="w-full text-left text-sm">
+                      <thead className="sticky top-0 z-10 bg-background">
+                        <tr className="border-b border-border">
+                          <th className="px-4 py-2 text-xs font-semibold text-muted-foreground">Expediente</th>
+                          <th className="px-4 py-2 text-xs font-semibold text-muted-foreground">Paciente</th>
+                          <th className="px-4 py-2 text-xs font-semibold text-muted-foreground">Teléfono</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pacientesFiltrados.map((p) => {
+                          const selected = pacienteSeleccionado?.id === p.id;
+                          return (
+                            <tr
+                              key={p.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => selectPaciente(p)}
+                              onKeyDown={(e) => {
+                                if (e.key !== 'Enter' && e.key !== ' ') return;
+                                e.preventDefault();
+                                selectPaciente(p);
+                              }}
+                              aria-selected={selected}
+                              className={`border-b border-border transition-colors ${
+                                selected ? 'bg-muted/40' : 'bg-background hover:bg-muted/20'
+                              }`}
+                            >
+                              <td className="px-4 py-2 align-middle font-medium text-foreground">{p.numeroExpediente}</td>
+                              <td className="px-4 py-2 align-middle text-foreground">{p.nombre}</td>
+                              <td className="px-4 py-2 align-middle text-muted-foreground">{p.telefono}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   )}
                 </div>
-              )}
+              </div>
             </div>
 
-            {pacientes.length === 0 && <div className="text-sm text-gray-600">No hay pacientes cargados.</div>}
+            {pacientes.length === 0 && <div className="text-sm text-muted-foreground">No hay pacientes cargados.</div>}
           </div>
 
-          {error && <div className="text-sm text-red-600">{error}</div>}
+          {error && (
+            <div id={errorId} role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="border-t px-6 py-4">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -345,6 +312,16 @@ export function AgendarCitaDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <CrearPacienteDialog
+        open={crearPacienteOpen}
+        onOpenChange={(next) => setCrearPacienteOpen(next)}
+        ciudadDefault={evento.ciudad}
+        onCreated={(p) => {
+          selectPaciente(p);
+          setQuery(p.nombre);
+        }}
+      />
     </Dialog>
   );
 }

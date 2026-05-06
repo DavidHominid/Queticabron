@@ -7,6 +7,9 @@ import { StatCard } from './dashboard/StatCard';
 import { WelcomeCard } from './dashboard/WelcomeCard';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { todayYmd } from '../utils/clock';
+import { pickEventoActivoParaTriageConCitas, triageCanSeeCita } from '../utils/triageAccess';
+import { normalizeCiudad } from '../utils/ciudades';
 
 export function DashboardTriage() {
   const navigate = useNavigate();
@@ -14,23 +17,32 @@ export function DashboardTriage() {
   const { user } = useAuth();
 
   // Obtener el evento activo para hoy en la ciudad del usuario
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = todayYmd();
   const ciudadesUsuario =
     Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length
       ? ((user as any).ciudades as string[])
       : user?.ciudad
         ? [user.ciudad]
         : [];
-  const eventoActivo = eventos.find((e) => e.estado === 'activo' && ciudadesUsuario.includes(e.ciudad));
+  const ciudadesNorm = Array.from(new Set(ciudadesUsuario.map(normalizeCiudad).filter(Boolean)));
+  const eventoActivo = pickEventoActivoParaTriageConCitas(eventos, citas, user, hoy, ciudadesNorm);
   
-  const citasHoy = citas.filter((c) => 
-    c.eventoId === eventoActivo?.id && 
-    c.fecha && new Date(c.fecha).toISOString().split('T')[0] === hoy
+  const citasHoy = citas.filter(
+    (c) =>
+      c.eventoId === eventoActivo?.id &&
+      c.fecha &&
+      String(c.fecha).slice(0, 10) === hoy &&
+      triageCanSeeCita(eventoActivo || null, c, user),
   );
   
   const citasPendientes = citasHoy.filter((c) => c.estado === 'programada');
   const citasEnTriage = citasHoy.filter((c) => c.estado === 'en_triage');
   const citasCompletadas = citasHoy.filter((c) => c.estado === 'completada' || c.estado === 'en_consulta');
+
+  const estadoBadgeProps = (tieneRegistroTriage: boolean) => {
+    if (tieneRegistroTriage) return { variant: 'outline' as const, className: 'bg-primary text-primary-foreground border-transparent' };
+    return { variant: 'outline' as const, className: 'bg-background' };
+  };
 
   return (
     <div className="space-y-6">
@@ -38,8 +50,7 @@ export function DashboardTriage() {
       <WelcomeCard
         title="¡Buenos días, Enfermería!"
         subtitle="Gestión de signos vitales y triage de pacientes"
-        gradientFrom="from-green-600"
-        gradientTo="to-green-700"
+        tone="secondary"
         icon={ClipboardList}
         badgeText={`${citasHoy.length} pacientes en lista de hoy`}
       />
@@ -50,26 +61,26 @@ export function DashboardTriage() {
           title="Pendientes de Triage"
           value={citasPendientes.length.toString()}
           icon={AlertCircle}
-          color="bg-yellow-100" // Custom color handling in DashboardTriage previously used background classes differently
+          tone="accent"
         />
         <StatCard
           title="En Proceso"
           value={citasEnTriage.length.toString()}
           icon={Activity}
-          color="bg-blue-100"
+          tone="secondary"
         />
         <StatCard
           title="Completados"
           value={citasCompletadas.length.toString()}
           icon={CheckCircle2}
-          color="bg-green-100"
+          tone="primary"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pacientes Pendientes */}
         <Card className="lg:col-span-2 shadow-sm">
-          <CardHeader className="border-b bg-gray-50">
+          <CardHeader className="border-b border-border bg-muted/30">
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Pacientes de Hoy</CardTitle>
               <Badge variant="secondary">{citasHoy.length} pacientes</Badge>
@@ -80,26 +91,27 @@ export function DashboardTriage() {
               {citasHoy.slice(0, 6).map((cita) => {
                 const paciente = pacientes.find((p) => p.id === cita.pacienteId);
                 const tieneRegistroTriage = registrosTriage.some((t) => t.citaId === cita.id);
+                const badge = estadoBadgeProps(tieneRegistroTriage);
                 return (
-                  <div key={cita.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div key={cita.id} className="p-4 hover:bg-muted/40 transition-colors">
                     <div className="flex items-center gap-4">
                       <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                          <span className="text-lg font-semibold text-green-600">{cita.hora.substring(0, 5)}</span>
+                        <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
+                          <span className="text-lg font-semibold text-secondary-foreground">{cita.hora.substring(0, 5)}</span>
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900">{paciente?.nombre}</p>
-                        <p className="text-sm text-gray-500">{paciente?.numeroExpediente}</p>
+                        <p className="font-medium text-foreground">{paciente?.nombre}</p>
+                        <p className="text-sm text-muted-foreground">{paciente?.numeroExpediente}</p>
                       </div>
                       <div>
                         {tieneRegistroTriage ? (
-                          <Badge className="bg-green-100 text-green-700">
+                          <Badge variant={badge.variant} className={badge.className}>
                             <CheckCircle2 className="w-3 h-3 mr-1" />
                             Completado
                           </Badge>
                         ) : (
-                          <Badge className="bg-yellow-100 text-yellow-700">
+                          <Badge variant={badge.variant} className={badge.className}>
                             <Clock className="w-3 h-3 mr-1" />
                             Pendiente
                           </Badge>
@@ -110,7 +122,7 @@ export function DashboardTriage() {
                 );
               })}
             </div>
-            <div className="p-4 border-t bg-gray-50">
+            <div className="p-4 border-t border-border bg-muted/20">
               <Button variant="outline" className="w-full" onClick={() => navigate('/triage')}>
                 Ir a módulo de Triage
                 <ArrowRight className="w-4 h-4 ml-2" />
@@ -121,30 +133,30 @@ export function DashboardTriage() {
 
         {/* Resumen de actividad */}
         <Card className="shadow-sm">
-          <CardHeader className="border-b bg-gray-50">
+          <CardHeader className="border-b border-border bg-muted/30">
             <CardTitle className="text-lg">Actividad de Hoy</CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total de Pacientes</span>
-                <span className="font-semibold text-gray-900">{citasHoy.length}</span>
+                <span className="text-sm text-muted-foreground">Total de Pacientes</span>
+                <span className="font-semibold text-foreground">{citasHoy.length}</span>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="h-full bg-green-600 rounded-full" style={{ width: '100%' }} />
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full" style={{ width: '100%' }} />
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Progreso de Triage</span>
-                <span className="font-semibold text-blue-600">
+                <span className="text-sm text-muted-foreground">Progreso de Triage</span>
+                <span className="font-semibold text-foreground">
                   {citasCompletadas.length + citasEnTriage.length}/{citasHoy.length}
                 </span>
               </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-600 rounded-full"
+                  className="h-full bg-primary rounded-full"
                   style={{
                     width: `${citasHoy.length > 0 ? ((citasCompletadas.length + citasEnTriage.length) / citasHoy.length) * 100 : 0}%`,
                   }}
@@ -153,12 +165,12 @@ export function DashboardTriage() {
             </div>
 
             <div className="pt-4 border-t">
-              <p className="text-sm text-gray-600 mb-3">Tiempo Promedio</p>
+              <p className="text-sm text-muted-foreground mb-3">Tiempo Promedio</p>
               <div className="flex items-center gap-3">
-                <Clock className="w-8 h-8 text-blue-600" />
+                <Clock className="w-8 h-8 text-primary" />
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">8 min</p>
-                  <p className="text-xs text-gray-500">por paciente</p>
+                  <p className="text-2xl font-bold text-foreground">8 min</p>
+                  <p className="text-xs text-muted-foreground/70">por paciente</p>
                 </div>
               </div>
             </div>

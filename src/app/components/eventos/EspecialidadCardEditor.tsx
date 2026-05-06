@@ -4,6 +4,7 @@ import { Cita, EspecialidadCatalogo, EspecialidadEvento, TipoCitaEvento, Usuario
 import { Checkbox } from '../ui/checkbox';
 import { ScheduleCalendarEditor } from './ScheduleCalendarEditor';
 import { labelEspecialidad } from '../../utils/especialidades';
+import { todayYmd } from '../../utils/clock';
 
 const normalizePracticantes = (value: EspecialidadEvento): string[] => {
   const anyValue = value as unknown as { practicante?: string; practicantes?: unknown };
@@ -28,7 +29,14 @@ const consultorioOptions = [
   'Dentista',
 ];
 
-const tipoPalette = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#c026d3', '#0f766e', '#b91c1c', '#4f46e5'];
+const tipoPalette = [
+  'var(--primary)',
+  'var(--secondary)',
+  'var(--brand-tertiary)',
+  'var(--brand-soft-peach)',
+  'var(--brand-primary-strong)',
+  'var(--brand-secondary-strong)',
+];
 
 const labelUsuario = (u: Usuario) => `${u.nombre} (${u.rol})`;
 
@@ -102,7 +110,7 @@ export function EspecialidadCardEditor({
 }) {
   const practicantesList = normalizePracticantes(value);
   const medicos = usuarios.filter((u) => u.rol === 'medico');
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = todayYmd();
   const esActivoEfectivo = (u: Usuario) => {
     if ((u as any).activo === false) return false;
     const desde = (u as any).activoDesde ? String((u as any).activoDesde) : '';
@@ -157,17 +165,17 @@ export function EspecialidadCardEditor({
   }, [tiposCita.length]);
 
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div className="border-b px-6 py-5">
+    <section className="rounded-2xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border px-6 py-5">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <h3 className="text-base font-semibold text-gray-900">{labelEspecialidad(value.especialidad, especialidadesCatalogo)}</h3>
-            <div className="text-sm text-gray-600">Cupos registrados: {cuposRegistrados}</div>
+            <h3 className="text-base font-semibold text-foreground">{labelEspecialidad(value.especialidad, especialidadesCatalogo)}</h3>
+            <div className="text-sm text-muted-foreground">Cupos registrados: {cuposRegistrados}</div>
           </div>
           <button
             type="button"
             onClick={onRemove}
-            className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-red-600"
+            className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted/30 hover:text-destructive"
             aria-label="Eliminar especialidad"
           >
             <Trash2 className="h-4 w-4" />
@@ -178,9 +186,9 @@ export function EspecialidadCardEditor({
       {modo === 'config' ? (
         <div className="space-y-5 p-6">
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-900">Consultorio</label>
+            <label className="text-sm font-medium text-foreground">Consultorio</label>
             <select
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
               value={value.consultorio || ''}
               onChange={(e) => onChange({ ...value, consultorio: e.target.value })}
             >
@@ -194,60 +202,60 @@ export function EspecialidadCardEditor({
             </select>
           </div>
 
-          <div className="space-y-3 rounded-xl border border-gray-200 p-4">
+          <div className="space-y-3 rounded-xl border border-border p-4">
             <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-medium text-gray-900">Tipos de cita</div>
+              <div className="text-sm font-medium text-foreground">Tipos de cita</div>
               <button
                 type="button"
                 onClick={() => setShowNuevoTipo((v) => !v)}
-                className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-800 hover:bg-gray-50"
+                className="rounded-lg border border-border bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-muted/30"
               >
                 {showNuevoTipo ? 'Ocultar' : 'Agregar tipo'}
               </button>
             </div>
 
             {showNuevoTipo && (
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                <div className="text-sm font-semibold text-gray-900">Nuevo tipo de cita</div>
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <div className="text-sm font-semibold text-foreground">Nuevo tipo de cita</div>
                 <div className="mt-3 grid grid-cols-1 gap-4">
                   <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-gray-900">Nombre</label>
+                    <label className="text-sm font-semibold text-foreground">Nombre</label>
                     <input
                       value={nuevoTipo.nombre}
                       onChange={(e) => setNuevoTipo((prev) => ({ ...prev, nombre: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                       placeholder="Ej. Limpieza"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                      <label className="text-sm font-semibold text-gray-900">Duración (horas)</label>
+                      <label className="text-sm font-semibold text-foreground">Duración (horas)</label>
                       <input
                         inputMode="decimal"
                         value={nuevoTipo.duracionHoras}
                         onChange={(e) => setNuevoTipo((prev) => ({ ...prev, duracionHoras: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                         placeholder="Ej. 1"
                       />
                     </div>
 
                     <div className="flex flex-col gap-2">
-                      <label className="text-sm font-semibold text-gray-900">Precio</label>
+                      <label className="text-sm font-semibold text-foreground">Precio</label>
                       <input
                         inputMode="numeric"
                         value={nuevoTipo.precio}
                         onChange={(e) => setNuevoTipo((prev) => ({ ...prev, precio: e.target.value }))}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                         placeholder="0"
                       />
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-gray-900">Médico encargado</label>
+                    <label className="text-sm font-semibold text-foreground">Médico encargado</label>
                     <select
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                       value={nuevoTipo.medicoEncargado}
                       onChange={(e) => setNuevoTipo((prev) => ({ ...prev, medicoEncargado: e.target.value }))}
                     >
@@ -259,7 +267,7 @@ export function EspecialidadCardEditor({
                       ))}
                     </select>
                     {medicosRecomendados.length === 0 && (
-                      <div className="text-sm text-amber-700">
+                      <div className="text-sm text-muted-foreground">
                         No hay médicos con esta especialidad asignada. Asigna especialidades en “Usuarios” para poder seleccionarlos aquí.
                       </div>
                     )}
@@ -283,14 +291,14 @@ export function EspecialidadCardEditor({
                         setNuevoTipo(createTipoCitaDraft());
                         setShowNuevoTipo(false);
                       }}
-                      className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition enabled:hover:bg-blue-700 disabled:opacity-50"
+                      className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition enabled:hover:bg-primary/90 disabled:opacity-50"
                     >
                       Crear tipo
                     </button>
                     <button
                       type="button"
                       onClick={() => setNuevoTipo(createTipoCitaDraft())}
-                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
+                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/30"
                     >
                       Limpiar
                     </button>
@@ -300,7 +308,7 @@ export function EspecialidadCardEditor({
             )}
 
             {tiposCita.length === 0 ? (
-              <div className="text-sm text-gray-500">Agrega al menos un tipo (ej. Limpieza, Extracción, Relleno).</div>
+              <div className="text-sm text-muted-foreground">Agrega al menos un tipo (ej. Limpieza, Extracción, Relleno).</div>
             ) : (
               <div className="space-y-3">
                 {tiposCita.map((t, idx) => {
@@ -309,15 +317,15 @@ export function EspecialidadCardEditor({
                   const medicoTipoActual = findUsuario(usuarios, String(t?.medicoEncargado || ''));
                   const medicoLabel = medicoTipoActual ? labelUsuario(medicoTipoActual) : String(t?.medicoEncargado || '').trim();
                   return (
-                    <div key={tipoKey} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div key={tipoKey} className="rounded-xl border border-border bg-background p-4 shadow-sm">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-base font-semibold text-gray-900">{String(t?.nombre || '').trim() ? String(t.nombre).trim() : `Tipo ${idx + 1}`}</div>
+                          <div className="text-base font-semibold text-foreground">{String(t?.nombre || '').trim() ? String(t.nombre).trim() : `Tipo ${idx + 1}`}</div>
                           {!isEditing && (
-                            <div className="mt-1 text-sm text-gray-600">
-                              <span className="font-medium text-gray-800">{formatHoras(t?.duracionMinutos) || '1'} h</span> ·{' '}
-                              <span className="font-medium text-gray-800">${Number.isFinite(Number(t?.precio)) ? Number(t?.precio) : 0}</span> ·{' '}
-                              <span className="text-gray-700">{medicoLabel ? medicoLabel : 'Sin médico'}</span>
+                            <div className="mt-1 text-sm text-muted-foreground">
+                              <span className="font-medium text-foreground">{formatHoras(t?.duracionMinutos) || '1'} h</span> ·{' '}
+                              <span className="font-medium text-foreground">${Number.isFinite(Number(t?.precio)) ? Number(t?.precio) : 0}</span> ·{' '}
+                              <span className="text-muted-foreground">{medicoLabel ? medicoLabel : 'Sin médico'}</span>
                             </div>
                           )}
                         </div>
@@ -344,7 +352,7 @@ export function EspecialidadCardEditor({
                                   onChange({ ...value, tiposCita: next });
                                   setEditTipoKey('');
                                 }}
-                                className="rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-green-700"
+                                className="rounded-md p-2 text-muted-foreground hover:bg-muted/30 hover:text-primary"
                                 aria-label="Guardar cambios"
                               >
                                 <Check className="h-4 w-4" />
@@ -352,7 +360,7 @@ export function EspecialidadCardEditor({
                               <button
                                 type="button"
                                 onClick={() => setEditTipoKey('')}
-                                className="rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                                className="rounded-md p-2 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                                 aria-label="Cancelar edición"
                               >
                                 <X className="h-4 w-4" />
@@ -370,7 +378,7 @@ export function EspecialidadCardEditor({
                                   medicoEncargado: String(medicoTipoActual?.id || String(t?.medicoEncargado || '')),
                                 });
                               }}
-                              className="rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                              className="rounded-md p-2 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
                               aria-label="Editar tipo de cita"
                             >
                               <Pencil className="h-4 w-4" />
@@ -383,7 +391,7 @@ export function EspecialidadCardEditor({
                               onChange({ ...value, tiposCita: tiposCita.filter((_, i) => i !== idx) });
                               if (editTipoKey === tipoKey) setEditTipoKey('');
                             }}
-                            className="rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-red-600"
+                            className="rounded-md p-2 text-muted-foreground hover:bg-muted/30 hover:text-destructive"
                             aria-label="Eliminar tipo de cita"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -394,41 +402,41 @@ export function EspecialidadCardEditor({
                       {isEditing && (
                         <div className="mt-4 grid grid-cols-1 gap-4">
                           <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-gray-900">Nombre</label>
+                            <label className="text-sm font-semibold text-foreground">Nombre</label>
                             <input
                               value={editDraft.nombre}
                               onChange={(e) => setEditDraft((prev) => ({ ...prev, nombre: e.target.value }))}
-                              className="w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                               placeholder="Ej. Limpieza"
                             />
                           </div>
 
                           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="flex flex-col gap-2">
-                              <label className="text-sm font-semibold text-gray-900">Duración (horas)</label>
+                              <label className="text-sm font-semibold text-foreground">Duración (horas)</label>
                               <input
                                 inputMode="decimal"
                                 value={editDraft.duracionHoras}
                                 onChange={(e) => setEditDraft((prev) => ({ ...prev, duracionHoras: e.target.value }))}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                               />
                             </div>
 
                             <div className="flex flex-col gap-2">
-                              <label className="text-sm font-semibold text-gray-900">Precio</label>
+                              <label className="text-sm font-semibold text-foreground">Precio</label>
                               <input
                                 inputMode="numeric"
                                 value={editDraft.precio}
                                 onChange={(e) => setEditDraft((prev) => ({ ...prev, precio: e.target.value }))}
-                                className="w-full rounded-lg border border-gray-300 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                               />
                             </div>
                           </div>
 
                           <div className="flex flex-col gap-2">
-                            <label className="text-sm font-semibold text-gray-900">Médico encargado</label>
+                            <label className="text-sm font-semibold text-foreground">Médico encargado</label>
                             <select
-                              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                               value={editDraft.medicoEncargado}
                               onChange={(e) => setEditDraft((prev) => ({ ...prev, medicoEncargado: e.target.value }))}
                             >
@@ -441,7 +449,7 @@ export function EspecialidadCardEditor({
                               ))}
                             </select>
                             {medicosRecomendados.length === 0 && (
-                              <div className="text-sm text-amber-700">
+                              <div className="text-sm text-muted-foreground">
                                 No hay médicos con esta especialidad asignada. Asigna especialidades en “Usuarios” para poder seleccionarlos aquí.
                               </div>
                             )}
@@ -455,13 +463,13 @@ export function EspecialidadCardEditor({
             )}
           </div>
 
-          <div className="space-y-3 rounded-xl border border-gray-200 p-4">
-            <div className="text-sm font-medium text-gray-900">Practicantes</div>
+          <div className="space-y-3 rounded-xl border border-border p-4">
+            <div className="text-sm font-medium text-foreground">Practicantes</div>
             <div className="max-h-56 space-y-2 overflow-auto pr-1">
               {triageUsers.map((u) => {
                 const checked = practicantesList.includes(u.id);
                 return (
-                  <label key={u.id} className="flex items-center gap-2 text-sm text-gray-700">
+                  <label key={u.id} className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Checkbox
                       checked={checked}
                       onCheckedChange={(next) => {
@@ -475,63 +483,69 @@ export function EspecialidadCardEditor({
                   </label>
                 );
               })}
-              {triageUsers.length === 0 && <div className="text-sm text-gray-500">No hay usuarios de triage.</div>}
+              {triageUsers.length === 0 && <div className="text-sm text-muted-foreground">No hay usuarios de triage.</div>}
             </div>
             {practicantesActual.length > 0 && (
-              <div className="text-xs text-gray-500">Seleccionados: {practicantesActual.map((p) => p.nombre).join(', ')}</div>
+              <div className="text-xs text-muted-foreground/70">Seleccionados: {practicantesActual.map((p) => p.nombre).join(', ')}</div>
             )}
           </div>
         </div>
       ) : (
         <div className="space-y-4 p-6">
-          {tiposCitaValidos.length > 0 && (
-            <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
-              <div className="text-sm font-medium text-gray-900">Tipos de cita</div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {tiposCitaValidos.map((t) => {
-                  const id = String(t.id);
-                  const selected = String(tipoCitaIdActivo || '') === id;
-                  const color = tipoColorById.get(id) || '#2563eb';
-                  const durH = formatHoras(t.duracionMinutos) || '1';
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setTipoCitaIdActivo(id)}
-                      className="rounded-xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      style={{
-                        borderColor: color,
-                        backgroundColor: selected ? color : '#ffffff',
-                        color: selected ? '#ffffff' : '#111827',
-                      }}
-                    >
-                      <div className="text-sm font-semibold">{String(t.nombre).trim()}</div>
-                      <div style={{ color: selected ? 'rgba(255,255,255,0.9)' : '#4b5563' }} className="mt-1 text-xs">
-                        {durH} h · ${Number.isFinite(Number(t.precio)) ? Number(t.precio) : 0}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="text-xs text-gray-600">Haz click en un tipo; los bloques que crees se guardarán con ese tipo.</div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
+            {tiposCitaValidos.length > 0 && (
+              <aside className="h-fit rounded-xl border border-border bg-muted/20 p-4 lg:sticky lg:top-4">
+                <div className="text-sm font-medium text-foreground">Tipos de cita</div>
+                <div className="mt-3 grid grid-cols-1 gap-2">
+                  {tiposCitaValidos.map((t) => {
+                    const id = String(t.id);
+                    const selected = String(tipoCitaIdActivo || '') === id;
+                    const color = tipoColorById.get(id) || 'var(--primary)';
+                    const selectedTextColor =
+                      color === 'var(--brand-soft-peach)' ? 'var(--accent-foreground)' : 'var(--primary-foreground)';
+                    const secondaryTextColor = selected ? 'rgba(255,255,255,0.9)' : 'var(--muted-foreground)';
+                    const durH = formatHoras(t.duracionMinutos) || '1';
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setTipoCitaIdActivo(id)}
+                        className="rounded-xl border p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
+                        style={{
+                          borderColor: color,
+                          backgroundColor: selected ? color : 'var(--card)',
+                          color: selected ? selectedTextColor : 'var(--foreground)',
+                        }}
+                      >
+                        <div className="text-sm font-semibold">{String(t.nombre).trim()}</div>
+                        <div style={{ color: secondaryTextColor }} className="mt-1 text-xs">
+                          {durH} h · ${Number.isFinite(Number(t.precio)) ? Number(t.precio) : 0}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+            )}
+            <div className="min-w-0">
+              <ScheduleCalendarEditor
+                startDate={days[0] || ''}
+                endDate={days[days.length - 1] || ''}
+                value={(value.horarios || []).map((h: any) => ({
+                  ...h,
+                  intervalo: Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60,
+                  cupoTotal: Number.isFinite(Number(h.cupoTotal)) ? Math.max(1, Math.floor(Number(h.cupoTotal))) : 1,
+                }))}
+                onChange={(next) => onChange({ ...value, horarios: next })}
+                defaultIntervalo={(value.horarios?.[0]?.intervalo as number) || 60}
+                tiposCita={tiposCita}
+                tipoCitaIdActivo={tipoCitaIdActivo}
+                eventoId={eventoId}
+                especialidad={value.especialidad}
+                citas={citas || []}
+              />
             </div>
-          )}
-          <ScheduleCalendarEditor
-            startDate={days[0] || ''}
-            endDate={days[days.length - 1] || ''}
-            value={(value.horarios || []).map((h: any) => ({
-              ...h,
-              intervalo: Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60,
-              cupoTotal: Number.isFinite(Number(h.cupoTotal)) ? Math.max(1, Math.floor(Number(h.cupoTotal))) : 1,
-            }))}
-            onChange={(next) => onChange({ ...value, horarios: next })}
-            defaultIntervalo={(value.horarios?.[0]?.intervalo as number) || 60}
-            tiposCita={tiposCita}
-            tipoCitaIdActivo={tipoCitaIdActivo}
-            eventoId={eventoId}
-            especialidad={value.especialidad}
-            citas={citas || []}
-          />
+          </div>
         </div>
       )}
     </section>

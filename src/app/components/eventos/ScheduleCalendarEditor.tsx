@@ -1,15 +1,25 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
 import { Cita, Especialidad, HorarioDisponible, TipoCitaEvento } from '../../types';
 
-const toYmd = (d: Date) => d.toISOString().slice(0, 10);
+const pad2 = (n: number) => String(Math.max(0, Math.floor(n))).padStart(2, '0');
+const toYmd = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const toHm = (d: Date) => d.toTimeString().slice(0, 5);
 const buildKey = (h: HorarioDisponible) => `${h.dia}|${h.horaInicio}|${h.horaFin}|${h.intervalo ?? 60}|${h.tipoCitaId || ''}`;
 const toDurationHours = (start: Date, end: Date) => Math.max(1, Math.round((end.getTime() - start.getTime()) / 3600000));
-const tipoPalette = ['#2563eb', '#16a34a', '#dc2626', '#9333ea', '#ea580c', '#0891b2', '#c026d3', '#0f766e', '#b91c1c', '#4f46e5'];
+const tipoPalette = [
+  'var(--primary)',
+  'var(--secondary)',
+  'var(--brand-tertiary)',
+  'var(--brand-soft-peach)',
+  'var(--brand-primary-strong)',
+  'var(--brand-secondary-strong)',
+  'var(--chart-5)',
+  'var(--chart-4)',
+];
 
 const timeToMinutes = (t: string) => {
   const [hh, mm] = t.split(':').map((x) => Number(x));
@@ -105,6 +115,7 @@ export function ScheduleCalendarEditor({
   citas?: Cita[];
 }) {
   const [mensajeBloqueo, setMensajeBloqueo] = useState('');
+  const calendarRef = useRef<FullCalendar | null>(null);
   const validRange = useMemo(() => {
     if (!startDate || !endDate) return undefined;
     const start = new Date(`${startDate}T00:00:00`);
@@ -112,7 +123,7 @@ export function ScheduleCalendarEditor({
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return undefined;
     const endExclusive = new Date(end);
     endExclusive.setDate(endExclusive.getDate() + 1);
-    return { start: start.toISOString().slice(0, 10), end: endExclusive.toISOString().slice(0, 10) };
+    return { start: toYmd(start), end: toYmd(endExclusive) };
   }, [startDate, endDate]);
 
   const lockedKeys = useMemo(() => {
@@ -156,7 +167,9 @@ export function ScheduleCalendarEditor({
       const locked = lockedKeys.has(key);
       const tipoLabel = h.tipoCitaId ? tipoNameById.get(String(h.tipoCitaId)) || '' : '';
       const tipoColor = h.tipoCitaId ? tipoColorById.get(String(h.tipoCitaId)) : undefined;
-      const color = locked ? '#9ca3af' : tipoColor || '#2563eb';
+      const color = locked ? 'var(--muted-foreground)' : tipoColor || 'var(--primary)';
+      const textColor =
+        !locked && color === 'var(--brand-soft-peach)' ? 'var(--accent-foreground)' : 'var(--primary-foreground)';
       return {
         id: key,
         title: locked ? 'Bloqueado' : tipoLabel || '',
@@ -167,7 +180,7 @@ export function ScheduleCalendarEditor({
         durationEditable: !locked,
         backgroundColor: color,
         borderColor: color,
-        textColor: '#ffffff',
+        textColor,
         extendedProps: {
           intervalo: 60,
           cupoTotal: cupo,
@@ -201,6 +214,41 @@ export function ScheduleCalendarEditor({
     return false;
   };
 
+  const buildBlocksForRange = (start: Date, end: Date) => {
+    if ((tiposCita || []).length > 0 && !String(tipoCitaIdActivo || '').trim()) {
+      setMensajeBloqueo('Selecciona un tipo de cita para asignarlo a los bloques.');
+      return [];
+    }
+
+    const dur = duracionHorasActiva;
+    const safeStart = startOfHour(start);
+    const safeEnd = startOfHour(end);
+    const day = toYmd(safeStart);
+
+    if (toYmd(safeEnd) !== day) {
+      setMensajeBloqueo('La selección no puede cruzar al siguiente día.');
+      return [];
+    }
+
+    const blocks: HorarioDisponible[] = [];
+    for (let cursor = new Date(safeStart); cursor < safeEnd; cursor = addHours(cursor, dur)) {
+      const blockEnd = addHours(cursor, dur);
+      if (blockEnd > safeEnd) break;
+      if (toYmd(blockEnd) !== day) {
+        setMensajeBloqueo('El bloque no puede cruzar al siguiente día.');
+        return [];
+      }
+      const startHm = toHm(cursor);
+      const endHm = toHm(blockEnd);
+      if (overlaps(day, startHm, endHm, undefined, undefined)) {
+        setMensajeBloqueo('Algunos horarios se empalman con otro bloque.');
+        return [];
+      }
+      blocks.push(buildHorario(cursor, dur, 1, tipoCitaIdActivo));
+    }
+    return blocks;
+  };
+
   const createBlocks = (start: Date) => {
     if ((tiposCita || []).length > 0 && !String(tipoCitaIdActivo || '').trim()) {
       setMensajeBloqueo('Selecciona un tipo de cita para asignarlo a los bloques.');
@@ -231,6 +279,7 @@ export function ScheduleCalendarEditor({
       {mensajeBloqueo && <div className="text-sm text-red-600">{mensajeBloqueo}</div>}
       <div className="rounded-lg border border-gray-200 overflow-hidden">
         <FullCalendar
+          ref={calendarRef as any}
           plugins={[timeGridPlugin, interactionPlugin]}
           initialView="timeGridWeek"
           locale={esLocale}
@@ -242,7 +291,7 @@ export function ScheduleCalendarEditor({
           slotLabelInterval="01:00:00"
           snapDuration="01:00:00"
           allDaySlot={false}
-          selectable={false}
+          selectable={true}
           selectMirror={false}
           editable={true}
           eventDurationEditable={false}
@@ -250,6 +299,17 @@ export function ScheduleCalendarEditor({
           selectOverlap={false}
           events={events}
           validRange={validRange}
+          selectStart={() => {
+            setMensajeBloqueo('');
+          }}
+          select={(info) => {
+            setMensajeBloqueo('');
+            const blocks = buildBlocksForRange(info.start, info.end);
+            if (blocks.length > 0) {
+              onChange(mergeHorarios([...(value || []), ...blocks]));
+            }
+            calendarRef.current?.getApi().unselect();
+          }}
           dateClick={(info) => {
             setMensajeBloqueo('');
             createBlocks(info.date);

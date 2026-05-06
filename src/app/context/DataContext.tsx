@@ -15,6 +15,7 @@ import {
   RegistroAuditoria,
   Usuario,
   EstudioSocioeconomico,
+  ExpedienteCita,
 } from '../types';
 
 interface DataContextType {
@@ -55,6 +56,8 @@ interface DataContextType {
   // Consultas Dentales
   consultasDentales: ConsultaDental[];
   addConsultaDental: (consulta: ConsultaDental) => void;
+
+  expedientesCita: ExpedienteCita[];
 
   // Cirugías
   cirugias: Cirugia[];
@@ -106,6 +109,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [registrosTriage, setRegistrosTriage] = useState<RegistroTriage[]>([]);
   const [consultasMedicas, setConsultasMedicas] = useState<ConsultaMedica[]>([]);
   const [consultasDentales, setConsultasDentales] = useState<ConsultaDental[]>([]);
+  const [expedientesCita, setExpedientesCita] = useState<ExpedienteCita[]>([]);
   const [cirugias, setCirugias] = useState<Cirugia[]>([]);
   const [seguimientos, setSeguimientos] = useState<Seguimiento[]>([]);
   const [registrosAuditoria, setRegistrosAuditoria] = useState<RegistroAuditoria[]>([]);
@@ -127,7 +131,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         try {
           const res = await fetch(`/api/${path}`);
           if (!res.ok) {
-            console.error(`❌ Error HTTP ${res.status} al cargar ${path}`);
+            const bodyText = await res.text().catch(() => '');
+            let details: unknown = bodyText;
+            try {
+              details = bodyText ? JSON.parse(bodyText) : bodyText;
+            } catch {
+              details = bodyText;
+            }
+            console.error(`❌ Error HTTP ${res.status} al cargar ${path}`, details);
             return;
           }
           const data = await res.json();
@@ -161,6 +172,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         safeFetch('citas', setCitas),
         safeFetch('triage', setRegistrosTriage),
         safeFetch('consultas', setConsultasMedicas),
+        safeFetch('expediente', setExpedientesCita),
         safeFetch('cirugias', setCirugias),
         safeFetch('seguimientos', setSeguimientos),
         safeFetch('eventos', setEventos),
@@ -671,6 +683,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addConsultaMedica,
         consultasDentales,
         addConsultaDental,
+        expedientesCita,
         cirugias,
         addCirugia,
         updateCirugia,

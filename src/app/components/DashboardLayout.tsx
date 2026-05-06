@@ -1,9 +1,11 @@
 import { ReactNode, useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { NavLink, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback } from './ui/avatar';
+import { AppLogo } from './AppLogo';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import {
   LogOut,
   Users,
@@ -21,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import { now, nowIso } from '../utils/clock';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -30,7 +33,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const { registrosAuditoria, isInitialized } = useData();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const raw = localStorage.getItem('sidebar_open');
+    if (raw === null) return true;
+    return raw === '1';
+  });
   const [notifOpen, setNotifOpen] = useState(false);
   const [lastSeen, setLastSeen] = useState<string>(() => localStorage.getItem('notif_last_seen') || '');
   const notifRef = useRef<HTMLDivElement>(null);
@@ -44,9 +51,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleOpenNotif = () => {
     setNotifOpen((prev) => {
       if (!prev) {
-        const now = new Date().toISOString();
-        setLastSeen(now);
-        localStorage.setItem('notif_last_seen', now);
+        const ts = nowIso();
+        setLastSeen(ts);
+        localStorage.setItem('notif_last_seen', ts);
       }
       return !prev;
     });
@@ -113,11 +120,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     .substring(0, 2)
     .toUpperCase() || 'U';
 
-  const roleColors = {
-    recepcion: 'bg-blue-500',
-    triage: 'bg-green-500',
-    medico: 'bg-purple-500',
-    administrador: 'bg-orange-500',
+  const roleAvatarStyle = (rol: string) => {
+    if (rol === 'recepcion') return { className: 'bg-primary text-primary-foreground' };
+    if (rol === 'triage') return { className: 'bg-secondary text-secondary-foreground' };
+    if (rol === 'medico') return { className: 'bg-accent text-accent-foreground' };
+    if (rol === 'administrador') return { className: 'bg-primary text-primary-foreground' };
+    return { className: 'bg-muted text-foreground' };
   };
 
   const roleLabels = {
@@ -127,86 +135,122 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     administrador: 'Administrador',
   };
 
-  const isActive = (path: string) => {
-    return window.location.pathname === path;
-  };
+  useEffect(() => {
+    localStorage.setItem('sidebar_open', sidebarOpen ? '1' : '0');
+  }, [sidebarOpen]);
 
-  const accionColor = (accion: string) => {
-    if (accion.toLowerCase().includes('error') || accion.toLowerCase().includes('fallo')) return 'bg-red-100 text-red-700';
-    if (accion.toLowerCase().includes('login') || accion.toLowerCase().includes('acceso')) return 'bg-yellow-100 text-yellow-700';
-    if (accion.toLowerCase().includes('crear') || accion.toLowerCase().includes('registro') || accion.toLowerCase().includes('nuevo')) return 'bg-green-100 text-green-700';
-    if (accion.toLowerCase().includes('actualiz') || accion.toLowerCase().includes('editar')) return 'bg-blue-100 text-blue-700';
-    return 'bg-gray-100 text-gray-700';
+  const accionBadgeStyle = (accion: string) => {
+    const acc = String(accion || '').toLowerCase();
+    if (!acc) return { variant: 'outline' as const, className: 'bg-background' };
+    if (acc.includes('error') || acc.includes('fallo')) return { variant: 'destructive' as const, className: '' };
+    if (acc.includes('login') || acc.includes('acceso')) return { variant: 'secondary' as const, className: '' };
+    if (acc.includes('crear') || acc.includes('registro') || acc.includes('nuevo')) return { variant: 'default' as const, className: '' };
+    if (acc.includes('actualiz') || acc.includes('editar')) return { variant: 'outline' as const, className: 'bg-background' };
+    return { variant: 'outline' as const, className: 'bg-background' };
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-full bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-all duration-300 z-30 flex flex-col ${sidebarOpen ? 'w-64' : 'w-20'
-          }`}
+        id="app-sidebar"
+        className={`fixed left-0 top-0 z-30 flex h-full flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-300 ${sidebarOpen ? 'w-64' : 'w-20'}`}
       >
         {/* Logo */}
-        <div className="h-20 flex items-center px-6 border-b border-blue-700/50">
+        <div className={`flex h-20 items-center border-b border-sidebar-border ${sidebarOpen ? 'px-6' : 'px-4'}`}>
           {sidebarOpen ? (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20">
-                <Heart className="w-5 h-5 text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-accent">
+                <AppLogo className="w-6 h-6" inverted alt="Logo" />
               </div>
               <div>
                 <h1 className="font-semibold text-base">Palabras de Esperanza</h1>
-                <p className="text-xs text-blue-200">Sistema Médico</p>
+                <p className="text-xs text-sidebar-foreground/70">Sistema Médico</p>
               </div>
             </div>
           ) : (
-            <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/20 mx-auto">
-              <Heart className="w-5 h-5 text-white" />
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar-accent">
+                  <AppLogo className="h-6 w-6" inverted alt="Logo" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={10}>
+                Palabras de Esperanza
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
         {/* Navigation */}
-        <nav className="mt-6 px-3 flex-1 overflow-y-auto custom-scrollbar">
+        <nav aria-label="Navegación principal" className="mt-6 flex-1 overflow-y-auto px-3">
           {menuItems.map((item, index) => {
             const Icon = item.icon;
-            return (
-              <button
-                key={index}
-                onClick={() => navigate(item.path)}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-white/10 transition-colors mb-1 text-left ${isActive(item.path) ? 'bg-white/10' : ''
-                  }`}
+            const link = (
+              <NavLink
+                to={item.path}
+                aria-label={!sidebarOpen ? item.label : undefined}
+                className={({ isActive }) =>
+                  `mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/60 ${
+                    isActive
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                      : 'text-sidebar-foreground/90 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground'
+                  } ${sidebarOpen ? '' : 'justify-center px-2'}`
+                }
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
-              </button>
+                <Icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                {sidebarOpen ? <span className="truncate">{item.label}</span> : null}
+              </NavLink>
+            );
+
+            if (sidebarOpen) return <div key={item.path || index}>{link}</div>;
+
+            return (
+              <Tooltip key={item.path || index}>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side="right" sideOffset={10}>
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
             );
           })}
+
+          {isInitialized ? null : (
+            <div className="px-3 py-2 text-xs text-sidebar-foreground/70">Cargando…</div>
+          )}
         </nav>
 
         {/* User Info */}
-        <div className="mt-auto p-4 border-t border-blue-700/50">
+        <div className="mt-auto p-4 border-t border-sidebar-border">
           {sidebarOpen ? (
             <div className="flex items-center gap-3 mb-3">
-              <Avatar className={`w-10 h-10 ${user?.rol ? roleColors[user.rol as keyof typeof roleColors] : 'bg-gray-500'}`}>
-                <AvatarFallback className="text-white text-sm">{initials}</AvatarFallback>
+              <Avatar className="w-10 h-10">
+                <AvatarFallback className={`${user?.rol ? roleAvatarStyle(user.rol).className : roleAvatarStyle('').className} text-sm`}>
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{user?.nombre}</p>
-                <p className="text-xs text-blue-200">{user?.rol ? roleLabels[user.rol as keyof typeof roleLabels] : ''}</p>
+                <p className="text-xs text-sidebar-foreground/70">{user?.rol ? roleLabels[user.rol as keyof typeof roleLabels] : ''}</p>
               </div>
             </div>
           ) : (
             <div className="flex justify-center mb-3">
-              <Avatar className={`w-10 h-10 ${user?.rol ? roleColors[user.rol as keyof typeof roleColors] : 'bg-gray-500'}`}>
-                <AvatarFallback className="text-white text-sm">{initials}</AvatarFallback>
+              <Avatar className="w-10 h-10">
+                <AvatarFallback className={`${user?.rol ? roleAvatarStyle(user.rol).className : roleAvatarStyle('').className} text-sm`}>
+                  {initials}
+                </AvatarFallback>
               </Avatar>
             </div>
           )}
           <Button
             variant="ghost"
-            className="w-full justify-start text-white hover:bg-white/10 hover:text-white"
+            aria-label={!sidebarOpen ? 'Cerrar sesión' : undefined}
+            className={`w-full hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground text-sidebar-foreground ${
+              sidebarOpen ? 'justify-start' : 'justify-center px-0'
+            }`}
             onClick={handleLogout}
           >
-            <LogOut className="w-4 h-4 mr-2" />
+            <LogOut className={`h-4 w-4 ${sidebarOpen ? 'mr-2' : ''}`} />
             {sidebarOpen && 'Cerrar Sesión'}
           </Button>
         </div>
@@ -214,26 +258,30 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Toggle Button */}
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute -right-3 top-24 w-6 h-6 bg-white rounded-full shadow-lg flex items-center justify-center border border-gray-200 hover:bg-gray-50"
+          type="button"
+          aria-label={sidebarOpen ? 'Colapsar sidebar' : 'Expandir sidebar'}
+          aria-controls="app-sidebar"
+          aria-expanded={sidebarOpen}
+          className="absolute -right-3 top-24 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card shadow-lg hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >
-          <ChevronLeft className={`w-4 h-4 text-gray-600 transition-transform ${!sidebarOpen ? 'rotate-180' : ''}`} />
+          <ChevronLeft className={`w-4 h-4 text-muted-foreground transition-transform ${!sidebarOpen ? 'rotate-180' : ''}`} />
         </button>
       </aside>
 
       {/* Main Content */}
       <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-gray-200 sticky top-0 z-20">
+        <header className="h-20 bg-card border-b border-border sticky top-0 z-20">
           <div className="h-full px-8 flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-foreground">
                 {user?.rol === 'recepcion' && 'Panel de Recepción'}
                 {user?.rol === 'triage' && 'Panel de Triage'}
                 {user?.rol === 'medico' && 'Panel Médico'}
                 {user?.rol === 'administrador' && 'Panel de Administración'}
               </h2>
-              <p className="text-sm text-gray-500">
-                {new Date().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              <p className="text-sm text-muted-foreground">
+                {now().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
               </p>
             </div>
             <div className="flex items-center gap-4">
@@ -241,47 +289,52 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="relative" ref={notifRef}>
                 <button
                   onClick={handleOpenNotif}
-                  className="w-10 h-10 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors relative"
+                  className="w-11 h-11 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors relative"
                 >
-                  <Bell className="w-5 h-5 text-gray-600" />
+                  <Bell className="w-5 h-5 text-muted-foreground" />
                   {unread > 0 && (
-                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-[9px] font-bold">
+                    <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-destructive rounded-full flex items-center justify-center text-white text-[9px] font-bold">
                       {unread > 9 ? '9+' : unread}
                     </span>
                   )}
                 </button>
 
                 {notifOpen && (
-                  <div className="absolute right-0 top-12 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
-                    <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                  <div className="absolute right-0 top-12 w-96 bg-card rounded-2xl shadow-[0_8px_24px_rgba(1,106,103,0.08)] border border-border z-50">
+                    <div className="p-4 border-b border-border flex items-center justify-between">
                       <div>
-                        <h3 className="font-semibold text-gray-900">Actividad Reciente</h3>
-                        <p className="text-xs text-gray-500">Últimas acciones en el sistema</p>
+                        <h3 className="font-semibold text-foreground">Actividad Reciente</h3>
+                        <p className="text-xs text-muted-foreground">Últimas acciones en el sistema</p>
                       </div>
                       <button
                         onClick={() => { navigate('/auditoria'); setNotifOpen(false); }}
-                        className="text-xs text-blue-600 hover:underline font-medium"
+                        className="text-xs text-secondary hover:underline font-medium"
                       >
                         Ver todo
                       </button>
                     </div>
-                    <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+                    <div className="max-h-96 overflow-y-auto divide-y divide-border">
                       {recientes.length === 0 ? (
-                        <div className="p-6 text-center text-gray-400 text-sm">Sin actividad reciente</div>
+                        <div className="p-6 text-center text-muted-foreground text-sm">Sin actividad reciente</div>
                       ) : (
                         recientes.map((r) => (
-                          <div key={r.id} className="p-3 hover:bg-gray-50 transition-colors">
+                          <div key={r.id} className="p-3 hover:bg-accent transition-colors">
                             <div className="flex items-start gap-3">
-                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <FileText className="w-4 h-4 text-blue-600" />
+                              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <FileText className="w-4 h-4 text-secondary" />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-sm font-medium text-gray-900 truncate">{r.nombreUsuario}</span>
-                                  <Badge className={`text-[10px] px-1.5 py-0 ${accionColor(r.accion)}`}>{r.accion}</Badge>
+                                  <span className="text-sm font-medium text-foreground truncate">{r.nombreUsuario}</span>
+                                  <Badge
+                                    variant={accionBadgeStyle(r.accion).variant}
+                                    className={`text-[10px] px-1.5 py-0 ${accionBadgeStyle(r.accion).className}`}
+                                  >
+                                    {r.accion}
+                                  </Badge>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{r.detalles}</p>
-                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{r.detalles}</p>
+                                <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                                   {new Date(r.fechaHora).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                 </p>
                               </div>
@@ -300,14 +353,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Content */}
         <main className="p-8 relative min-h-[calc(100vh-80px)]">
           {!isInitialized ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-12 bg-gray-50/50 backdrop-blur-sm z-50">
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-12 bg-background/70 backdrop-blur-sm z-50">
               <div className="relative w-24 h-24 flex items-center justify-center">
-                <div className="absolute inset-0 border-4 border-blue-100 rounded-full animate-ping opacity-75"></div>
-                <div className="absolute inset-0 border-4 border-blue-500 rounded-full border-t-transparent animate-spin"></div>
-                <Activity className="w-8 h-8 text-blue-600 animate-pulse" />
+                <div className="absolute inset-0 border-4 border-accent rounded-full animate-ping opacity-75"></div>
+                <div className="absolute inset-0 border-4 border-secondary rounded-full border-t-transparent animate-spin"></div>
+                <Activity className="w-8 h-8 text-secondary animate-pulse" />
               </div>
-              <h2 className="mt-6 text-xl font-semibold text-gray-800">Sincronizando Sistema...</h2>
-              <p className="text-gray-500 text-sm mt-2">Cargando datos de forma segura</p>
+              <h2 className="mt-6 text-xl font-semibold text-foreground">Sincronizando Sistema...</h2>
+              <p className="text-muted-foreground text-sm mt-2">Cargando datos de forma segura</p>
             </div>
           ) : (
             children

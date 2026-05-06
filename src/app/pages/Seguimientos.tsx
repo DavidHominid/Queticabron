@@ -27,6 +27,7 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { Seguimiento } from '../types';
+import { now, todayYmd } from '../utils/clock';
 
 export function Seguimientos() {
   const { seguimientos, pacientes, especialidadesCatalogo, addSeguimiento, updateSeguimiento, addCita, eventos, citas } = useData();
@@ -53,7 +54,7 @@ export function Seguimientos() {
   const [manualForm, setManualForm] = useState({ fecha: '', hora: '08:00' });
 
   const handleSolicitarSeguimiento = async (seguimiento: Seguimiento, dias: number) => {
-    const fecha = new Date();
+    const fecha = new Date(now().getTime());
     fecha.setDate(fecha.getDate() + dias);
     const dateStr = fecha.toISOString().split('T')[0];
     
@@ -471,7 +472,7 @@ export function Seguimientos() {
                         onClick={() => {
                           setTargetForManual(seguimiento);
                           setShowManualModal(true);
-                          setManualForm({ fecha: new Date().toISOString().split('T')[0], hora: '08:00' });
+                          setManualForm({ fecha: todayYmd(), hora: '08:00' });
                         }}
                       >
                         <Calendar className="w-4 h-4" />

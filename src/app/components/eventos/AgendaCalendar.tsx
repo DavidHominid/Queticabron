@@ -64,7 +64,8 @@ const normalizeSelection = (start: Date, end: Date) => {
   return { start: safeStart, end: safeEnd };
 };
 
-const toYmd = (d: Date) => d.toISOString().slice(0, 10);
+const pad2 = (n: number) => String(Math.max(0, Math.floor(n))).padStart(2, '0');
+const toYmd = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const toHm = (d: Date) => d.toTimeString().slice(0, 5);
 
 export function AgendaCalendar({
@@ -100,7 +101,7 @@ export function AgendaCalendar({
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return undefined;
     const endExclusive = new Date(end);
     endExclusive.setDate(endExclusive.getDate() + 1);
-    return { start: start.toISOString().slice(0, 10), end: endExclusive.toISOString().slice(0, 10) };
+    return { start: toYmd(start), end: toYmd(endExclusive) };
   }, [desde, hasta]);
 
   const slotBounds = useMemo(() => {
@@ -121,19 +122,31 @@ export function AgendaCalendar({
       .map((h) => {
         const intervalo = Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60;
         const slotKey = `${h.horaInicio}|${h.horaFin}|${intervalo}|${h.tipoCitaId || ''}`;
-        const cupoTotal = Number.isFinite(Number(h.cupoTotal)) ? Math.max(0, Math.floor(Number(h.cupoTotal))) : computeDefaultCupo(h);
+        const cupoTotal = Number.isFinite(Number(h.cupoTotal))
+          ? Math.max(0, Math.floor(Number(h.cupoTotal)))
+          : computeDefaultCupo(h);
         const cupoOcupado = computeSlotsOcupados(citas, eventoId, especialidad, h);
         const disponibles = Math.max(0, cupoTotal - cupoOcupado);
         const ratio = cupoTotal > 0 ? disponibles / cupoTotal : 0;
-        const color = cupoTotal <= 0 ? '#6B7280' : disponibles <= 0 ? '#3a65e8ff' : ratio < 0.25 ? '#F97316' : '#22C55E';
+        const bg =
+          cupoTotal <= 0
+            ? 'var(--outline)'
+            : disponibles <= 0
+              ? 'var(--brand-tertiary)'
+              : ratio < 0.25
+                ? 'var(--brand-soft-peach)'
+                : ratio < 0.5
+                  ? 'var(--secondary)'
+                  : 'var(--primary)';
+        const text = bg === 'var(--brand-soft-peach)' ? 'var(--accent-foreground)' : 'var(--primary-foreground)';
         return {
           id: `${h.dia}|${slotKey}`,
           title: cupoTotal > 0 ? `Disp: ${disponibles}/${cupoTotal}` : 'Sin cupo',
           start: `${h.dia}T${h.horaInicio}`,
           end: `${h.dia}T${h.horaFin}`,
-          backgroundColor: color,
-          borderColor: color,
-          textColor: '#fff',
+          backgroundColor: bg,
+          borderColor: bg,
+          textColor: text,
           extendedProps: {
             dia: h.dia,
             slotKey,
@@ -150,7 +163,7 @@ export function AgendaCalendar({
   }, [citas, desde, eventoId, especialidad, hasta, horarios]);
 
   return (
-    <div className="rounded-lg border border-gray-200 overflow-hidden">
+    <div className="rounded-lg border border-border overflow-hidden bg-card">
       <FullCalendar
         plugins={[timeGridPlugin, interactionPlugin, listPlugin]}
         initialView="timeGridWeek"

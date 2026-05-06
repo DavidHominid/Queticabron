@@ -1,21 +1,24 @@
 import { useMemo } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
+import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import esLocale from '@fullcalendar/core/locales/es';
-import { Cita, Especialidad, Evento, HorarioDisponible } from '../../types';
+import { Cita, Especialidad, EspecialidadCatalogo, Evento, HorarioDisponible } from '../../types';
+import { labelEspecialidad } from '../../utils/especialidades';
+import { now, todayYmd } from '../../utils/clock';
 
 export type EstadoAgendaDia = 'disponible' | Cita['estado'];
 
 const ESTADO_COLORS: Record<EstadoAgendaDia, { bg: string; border: string; text: string }> = {
-  disponible: { bg: '#22C55E', border: '#16A34A', text: '#FFFFFF' },
-  programada: { bg: '#3B82F6', border: '#2563EB', text: '#FFFFFF' },
-  en_triage: { bg: '#F59E0B', border: '#D97706', text: '#FFFFFF' },
-  en_consulta: { bg: '#A855F7', border: '#9333EA', text: '#FFFFFF' },
-  completada: { bg: '#14B8A6', border: '#0D9488', text: '#FFFFFF' },
-  cancelada: { bg: '#EF4444', border: '#DC2626', text: '#FFFFFF' },
-  cedida: { bg: '#F97316', border: '#EA580C', text: '#FFFFFF' },
-  no_asistio: { bg: '#64748B', border: '#475569', text: '#FFFFFF' },
+  disponible: { bg: 'var(--primary)', border: 'var(--primary)', text: 'var(--primary-foreground)' },
+  programada: { bg: 'var(--secondary)', border: 'var(--secondary)', text: 'var(--secondary-foreground)' },
+  en_triage: { bg: 'var(--brand-soft-peach)', border: 'var(--brand-soft-peach)', text: 'var(--accent-foreground)' },
+  en_consulta: { bg: 'var(--brand-tertiary)', border: 'var(--brand-tertiary)', text: 'var(--primary-foreground)' },
+  completada: { bg: 'var(--brand-primary-strong)', border: 'var(--brand-primary-strong)', text: 'var(--primary-foreground)' },
+  cancelada: { bg: 'var(--chart-4)', border: 'var(--chart-4)', text: 'var(--primary-foreground)' },
+  cedida: { bg: 'var(--chart-5)', border: 'var(--chart-5)', text: 'var(--primary-foreground)' },
+  no_asistio: { bg: 'var(--outline)', border: 'var(--outline)', text: 'var(--primary-foreground)' },
 };
 
 const timeToMinutes = (t: string) => {
@@ -32,11 +35,19 @@ const minutesToTime = (m: number) => {
 
 const minutesToHm = (m: number) => minutesToTime(m).slice(0, 5);
 
+const formatCosto = (v: unknown) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '$0.00';
+  return `$${n.toFixed(2)}`;
+};
+
 const citasInWindow = (
   citas: Cita[],
   payload: { eventoId: string; especialidad: Especialidad; fecha: string; horaInicio: string; horaFin: string; tipoCitaId?: string },
   includeCanceladas: boolean,
+  getDuracionMinutos?: (c: Cita) => number,
 ) => {
+  const hoy = todayYmd();
   const s = timeToMinutes(payload.horaInicio);
   const e = timeToMinutes(payload.horaFin);
   const tipoId = String(payload.tipoCitaId || '').trim();
@@ -44,25 +55,26 @@ const citasInWindow = (
     if (c.eventoId !== payload.eventoId) return false;
     if (c.especialidad !== payload.especialidad) return false;
     if (c.fecha !== payload.fecha) return false;
-    if (!includeCanceladas && c.estado === 'cancelada') return false;
+    if (!includeCanceladas && c.estado === 'cancelada' && String(payload.fecha || '').substring(0, 10) !== hoy) return false;
     if (tipoId && String(c.tipoCitaId || '') !== tipoId) return false;
     const cs = timeToMinutes(c.hora);
-    const cdur = Number.isFinite(Number(c.duracionMinutos)) ? Math.max(1, Math.floor(Number(c.duracionMinutos))) : 60;
+    const cdurRaw = getDuracionMinutos ? getDuracionMinutos(c) : c.duracionMinutos;
+    const cdur = Number.isFinite(Number(cdurRaw)) ? Math.max(1, Math.floor(Number(cdurRaw))) : 60;
     const ce = cs + cdur;
     return cs < e && ce > s;
   });
 };
 
 export function AgendaCitasDiaCalendar({
-  dia,
   eventos,
   citas,
+  especialidadesCatalogo,
   onClickDisponible,
   onClickCitas,
 }: {
-  dia: string;
   eventos: Evento[];
   citas: Cita[];
+  especialidadesCatalogo?: EspecialidadCatalogo[];
   onClickDisponible: (payload: { evento: Evento; especialidad: Especialidad; horario: HorarioDisponible }) => void;
   onClickCitas: (payload: { evento: Evento; especialidad: Especialidad; horario: HorarioDisponible; citas: Cita[] }) => void;
 }) {
@@ -72,7 +84,39 @@ export function AgendaCitasDiaCalendar({
     return map;
   }, [eventos]);
 
-  const citasDelDia = useMemo(() => (citas || []).filter((c) => c.fecha === dia), [citas, dia]);
+  const citasData = useMemo(() => {
+    const map = new Map<string, Cita[]>();
+    const metaById = new Map<string, { duracionMinutos: number; costo: number; tipoCitaNombre: string }>();
+    for (const c of citas || []) {
+      const f = String(c.fecha || '').trim();
+      if (!f) continue;
+      const evento = eventoById.get(c.eventoId) || null;
+      const tipoId = c.tipoCitaId ? String(c.tipoCitaId) : '';
+      const espEvento = (evento?.especialidades || []).find((x) => x.especialidad === c.especialidad) || null;
+      const tipo = tipoId && espEvento ? (espEvento.tiposCita || []).find((t) => String(t.id || '') === tipoId) : null;
+      const durRaw = Number.isFinite(Number(c.duracionMinutos)) ? Number(c.duracionMinutos) : Number(tipo?.duracionMinutos);
+      const duracionMinutos = Number.isFinite(Number(durRaw)) ? Math.max(1, Math.floor(Number(durRaw))) : 60;
+      const costoPagado = Number(c.costoPagado);
+      let costo = Number.isFinite(costoPagado) ? costoPagado : 0;
+      if (!(costo > 0) && espEvento) {
+        const inferred = Number.isFinite(Number(tipo?.precio))
+          ? Number(tipo?.precio)
+          : Number.isFinite(Number(espEvento.costo))
+            ? Number(espEvento.costo)
+            : 0;
+        if (inferred > 0) costo = inferred;
+      }
+      const tipoCitaNombre = String(c.tipoCitaNombre || tipo?.nombre || '').trim();
+      metaById.set(String(c.id), { duracionMinutos, costo, tipoCitaNombre });
+      const arr = map.get(f) || [];
+      arr.push(c);
+      map.set(f, arr);
+    }
+    return { byFecha: map, metaById };
+  }, [citas, eventoById]);
+
+  const citasByFecha = citasData.byFecha;
+  const citaMetaById = citasData.metaById;
 
   const minMax = useMemo(() => {
     const baseMin = 7 * 60;
@@ -82,7 +126,7 @@ export function AgendaCitasDiaCalendar({
     for (const e of eventos || []) {
       for (const esp of e.especialidades || []) {
         for (const h of esp.horarios || []) {
-          if (h.dia !== dia) continue;
+          if (!h?.horaInicio || !h?.horaFin) continue;
           mins.push(timeToMinutes(h.horaInicio));
           maxs.push(timeToMinutes(h.horaFin));
         }
@@ -94,20 +138,29 @@ export function AgendaCitasDiaCalendar({
     const safeMin = Number.isFinite(min) ? Math.max(0, Math.min(baseMin, min)) : baseMin;
     const safeMax = Number.isFinite(max) ? Math.max(baseMax, max) : baseMax;
     return { minTime: minutesToTime(safeMin), maxTime: minutesToTime(safeMax) };
-  }, [dia, eventos]);
+  }, [eventos]);
 
   const events = useMemo(() => {
     const out: any[] = [];
-    for (const c of citasDelDia) {
-      const dur = Number.isFinite(Number(c.duracionMinutos)) ? Math.max(1, Math.floor(Number(c.duracionMinutos))) : 60;
+    const hoy = todayYmd();
+    for (const c of citas || []) {
+      const meta = citaMetaById.get(String(c.id)) || null;
+      const dur = meta?.duracionMinutos ?? 60;
       const startMin = timeToMinutes(c.hora);
       const endMin = startMin + dur;
+      const startHm = minutesToHm(startMin);
       const estado = (c.estado || 'programada') as EstadoAgendaDia;
       const color = ESTADO_COLORS[estado] || ESTADO_COLORS.programada;
+      const evento = eventoById.get(c.eventoId) || null;
+      const eventoNombre = String(evento?.nombre || '').trim();
+      const especialidadLabel = labelEspecialidad(c.especialidad, especialidadesCatalogo);
+      const tipoId = c.tipoCitaId ? String(c.tipoCitaId) : '';
+      const tipoCitaNombre = meta?.tipoCitaNombre ?? '';
+      const costo = meta?.costo ?? 0;
       out.push({
         id: `cita|${c.id}`,
-        title: `${c.hora} · ${estado}`,
-        start: `${c.fecha}T${c.hora}:00`,
+        title: `${startHm} · ${estado}`,
+        start: `${c.fecha}T${startHm}:00`,
         end: `${c.fecha}T${minutesToHm(endMin)}:00`,
         backgroundColor: color.bg,
         borderColor: color.border,
@@ -115,9 +168,15 @@ export function AgendaCitasDiaCalendar({
         extendedProps: {
           kind: 'cita',
           citaId: c.id,
+          dia: c.fecha,
           eventoId: c.eventoId,
+          eventoNombre,
           especialidad: c.especialidad,
-          horaInicio: c.hora,
+          especialidadLabel,
+          tipoCitaId: tipoId || undefined,
+          tipoCitaNombre,
+          costo,
+          horaInicio: startHm,
           horaFin: minutesToHm(endMin),
         },
       });
@@ -127,40 +186,57 @@ export function AgendaCitasDiaCalendar({
       if (e.estado !== 'activo') continue;
       for (const esp of e.especialidades || []) {
         for (const h of esp.horarios || []) {
-          if (h.dia !== dia) continue;
+          const day = String(h?.dia || '').trim();
+          if (!day) continue;
+          if (day <= hoy) continue;
           if (!h.horaInicio || !h.horaFin) continue;
           const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 60;
           const inicio = timeToMinutes(h.horaInicio);
           const fin = timeToMinutes(h.horaFin);
           if (inicio >= fin) continue;
-          for (let cur = inicio; cur + intervalo <= fin; cur += intervalo) {
+          const especialidadLabel = labelEspecialidad(esp.especialidad, especialidadesCatalogo);
+          const tipoId = h.tipoCitaId ? String(h.tipoCitaId) : '';
+          const tipo = tipoId ? (esp.tiposCita || []).find((t) => String(t.id || '') === tipoId) : null;
+          const tipoCitaNombre = String(tipo?.nombre || '').trim();
+          const costo = Number.isFinite(Number(tipo?.precio))
+            ? Number(tipo?.precio)
+            : Number.isFinite(Number((esp as any)?.costo))
+              ? Number((esp as any).costo)
+              : 0;
+          const slotLen = Number.isFinite(Number(tipo?.duracionMinutos)) ? Math.max(1, Math.floor(Number(tipo?.duracionMinutos))) : intervalo;
+          for (let cur = inicio; cur + slotLen <= fin; cur += slotLen) {
             const slotStart = minutesToHm(cur);
-            const slotEnd = minutesToHm(cur + intervalo);
+            const slotEnd = minutesToHm(cur + slotLen);
             const ocupadas = citasInWindow(
-              citasDelDia,
-              { eventoId: e.id, especialidad: esp.especialidad, fecha: dia, horaInicio: slotStart, horaFin: slotEnd, tipoCitaId: h.tipoCitaId },
+              citasByFecha.get(day) || [],
+              { eventoId: e.id, especialidad: esp.especialidad, fecha: day, horaInicio: slotStart, horaFin: slotEnd, tipoCitaId: h.tipoCitaId },
               false,
+              (cita) => citaMetaById.get(String(cita.id))?.duracionMinutos ?? (cita.duracionMinutos as any),
             );
             if (ocupadas.length > 0) continue;
             const color = ESTADO_COLORS.disponible;
-            const slotKey = `${e.id}|${esp.especialidad}|${dia}|${slotStart}|${slotEnd}|${h.tipoCitaId || ''}`;
+            const slotKey = `${e.id}|${esp.especialidad}|${day}|${slotStart}|${slotEnd}|${h.tipoCitaId || ''}`;
             out.push({
               id: `disp|${slotKey}`,
               title: `${slotStart}-${slotEnd} · disponible`,
-              start: `${dia}T${slotStart}:00`,
-              end: `${dia}T${slotEnd}:00`,
+              start: `${day}T${slotStart}:00`,
+              end: `${day}T${slotEnd}:00`,
               backgroundColor: color.bg,
               borderColor: color.border,
               textColor: color.text,
               extendedProps: {
                 kind: 'disponible',
                 eventoId: e.id,
+                eventoNombre: String(e.nombre || '').trim(),
                 especialidad: esp.especialidad,
-                dia,
+                especialidadLabel,
+                dia: day,
                 horaInicio: slotStart,
                 horaFin: slotEnd,
-                intervalo,
+                intervalo: slotLen,
                 tipoCitaId: h.tipoCitaId ? String(h.tipoCitaId) : undefined,
+                tipoCitaNombre,
+                costo,
               },
             });
           }
@@ -168,7 +244,7 @@ export function AgendaCitasDiaCalendar({
       }
     }
     return out;
-  }, [citasDelDia, dia, eventos]);
+  }, [citaMetaById, citas, citasByFecha, especialidadesCatalogo, eventoById, eventos]);
 
   const legend = useMemo(() => {
     const items: Array<{ estado: EstadoAgendaDia; label: string }> = [
@@ -201,9 +277,11 @@ export function AgendaCitasDiaCalendar({
 
       <div className="rounded-lg border border-gray-200 overflow-hidden">
         <FullCalendar
-          plugins={[timeGridPlugin, interactionPlugin]}
+          plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
           initialView="timeGridDay"
-          initialDate={dia || undefined}
+          initialDate={todayYmd()}
+          now={now()}
+          nowIndicator={true}
           locale={esLocale}
           headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
           buttonText={{ today: 'Hoy' }}
@@ -221,12 +299,13 @@ export function AgendaCitasDiaCalendar({
             const kind = String((info.event.extendedProps as any)?.kind || '');
             const eventoId = String((info.event.extendedProps as any)?.eventoId || '');
             const esp = String((info.event.extendedProps as any)?.especialidad || '') as Especialidad;
+            const dia = String((info.event.extendedProps as any)?.dia || (info.event.startStr || '').slice(0, 10) || '');
             const horaInicio = String((info.event.extendedProps as any)?.horaInicio || '');
             const horaFin = String((info.event.extendedProps as any)?.horaFin || '');
             const intervalo = Number((info.event.extendedProps as any)?.intervalo || 60);
             const tipoCitaId = (info.event.extendedProps as any)?.tipoCitaId ? String((info.event.extendedProps as any).tipoCitaId) : undefined;
             const evento = eventoById.get(eventoId) || null;
-            if (!evento || !esp || !horaInicio || !horaFin) return;
+            if (!evento || !esp || !dia || !horaInicio || !horaFin) return;
             const horario: HorarioDisponible = { dia, horaInicio, horaFin, intervalo, cupoTotal: 1, tipoCitaId };
             if (kind === 'disponible') {
               onClickDisponible({ evento, especialidad: esp, horario });
@@ -234,9 +313,10 @@ export function AgendaCitasDiaCalendar({
             }
             if (kind === 'cita') {
               const citasSolapadas = citasInWindow(
-                citasDelDia,
+                citasByFecha.get(dia) || [],
                 { eventoId: evento.id, especialidad: esp, fecha: dia, horaInicio, horaFin },
                 true,
+                (cita) => citaMetaById.get(String(cita.id))?.duracionMinutos ?? (cita.duracionMinutos as any),
               );
               onClickCitas({ evento, especialidad: esp, horario, citas: citasSolapadas });
             }
@@ -245,9 +325,20 @@ export function AgendaCitasDiaCalendar({
           eventTimeFormat={{ hour: '2-digit', minute: '2-digit', meridiem: false }}
           slotLabelFormat={{ hour: '2-digit', minute: '2-digit', meridiem: false }}
           eventContent={(arg) => {
+            const p = (arg.event.extendedProps || {}) as any;
+            const eventoNombre = String(p.eventoNombre || '').trim();
+            const especialidadLabel = String(p.especialidadLabel || p.especialidad || '').trim();
+            const tipoCitaNombre = String(p.tipoCitaNombre || '').trim();
+            const costo = formatCosto(p.costo);
+            const tooltip = [eventoNombre || 'Evento', especialidadLabel || 'Especialidad', tipoCitaNombre || 'Sin tipo', costo]
+              .filter(Boolean)
+              .join(' · ');
+            const secondLine = [especialidadLabel || 'Especialidad', tipoCitaNombre || 'Sin tipo'].filter(Boolean).join(' · ');
             return (
-              <div className="px-1 py-0.5 text-[11px] leading-tight">
-                <div className="font-medium">{arg.timeText}</div>
+              <div className="h-full w-full max-w-full overflow-hidden px-1 py-0.5 text-[10px] leading-[1.1]" title={tooltip}>
+                <div className="truncate font-medium">{eventoNombre || 'Evento'}</div>
+                <div className="truncate">{secondLine}</div>
+                <div className="truncate whitespace-nowrap font-medium tabular-nums">{costo}</div>
               </div>
             );
           }}
