@@ -2,6 +2,7 @@ import { ReactNode, useState, useRef, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Button } from './ui/button';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { AppLogo } from './AppLogo';
@@ -20,6 +21,7 @@ import {
   Heart,
   Stethoscope,
   SlidersHorizontal,
+  Languages,
 } from 'lucide-react';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
@@ -32,6 +34,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const { registrosAuditoria, isInitialized } = useData();
+  const { language, toggleLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     const raw = localStorage.getItem('sidebar_open');
@@ -78,34 +81,34 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     switch (user?.rol) {
       case 'recepcion':
         return [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-          { icon: Calendar, label: 'Eventos', path: '/eventos' },
-          { icon: Users, label: 'Pacientes', path: '/pacientes' },
-          { icon: Calendar, label: 'Citas', path: '/citas' },
-          { icon: Activity, label: 'Cirugías', path: '/cirugias' },
+          { icon: LayoutDashboard, label: t('nav.dashboard'), path: '/dashboard' },
+          { icon: Calendar, label: t('nav.eventos'), path: '/eventos' },
+          { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
+          { icon: Calendar, label: t('nav.citas'), path: '/citas' },
+          { icon: Activity, label: t('nav.cirugias'), path: '/cirugias' },
         ];
       case 'triage':
         return [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-          { icon: ClipboardList, label: 'Triages Pendientes', path: '/triage' },
+          { icon: LayoutDashboard, label: t('nav.dashboard'), path: '/dashboard' },
+          { icon: ClipboardList, label: t('nav.triage'), path: '/triage' },
         ];
       case 'medico':
         return [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-          { icon: Stethoscope, label: 'Consultas', path: '/medico' },
-          { icon: Users, label: 'Pacientes', path: '/pacientes' },
-          { icon: Heart, label: 'Cirugías', path: '/cirugias' },
-          { icon: UserPlus, label: 'Seguimientos', path: '/seguimientos' },
+          { icon: LayoutDashboard, label: t('nav.dashboard'), path: '/dashboard' },
+          { icon: Stethoscope, label: t('nav.consultas'), path: '/medico' },
+          { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
+          { icon: Heart, label: t('nav.cirugias'), path: '/cirugias' },
+          { icon: UserPlus, label: t('nav.seguimientos'), path: '/seguimientos' },
         ];
       case 'administrador':
         return [
-          { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-          { icon: Calendar, label: 'Eventos', path: '/eventos' },
-          { icon: Calendar, label: 'Gestión Citas', path: '/citas' },
-          { icon: Users, label: 'Pacientes', path: '/pacientes' },
-          { icon: Users, label: 'Usuarios', path: '/usuarios' },
-          { icon: SlidersHorizontal, label: 'Variables', path: '/variables' },
-          { icon: ClipboardList, label: 'Auditoría', path: '/auditoria' },
+          { icon: LayoutDashboard, label: t('nav.dashboard'), path: '/dashboard' },
+          { icon: Calendar, label: t('nav.eventos'), path: '/eventos' },
+          { icon: Calendar, label: t('nav.citas'), path: '/citas' },
+          { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
+          { icon: Users, label: t('nav.usuarios'), path: '/usuarios' },
+          { icon: SlidersHorizontal, label: t('nav.variables'), path: '/variables' },
+          { icon: ClipboardList, label: t('nav.auditoria'), path: '/auditoria' },
         ];
       default:
         return [];
@@ -215,7 +218,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           })}
 
           {isInitialized ? null : (
-            <div className="px-3 py-2 text-xs text-sidebar-foreground/70">Cargando…</div>
+            <div className="px-3 py-2 text-xs text-sidebar-foreground/70">{t('common.loading')}</div>
           )}
         </nav>
 
@@ -251,7 +254,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             onClick={handleLogout}
           >
             <LogOut className={`h-4 w-4 ${sidebarOpen ? 'mr-2' : ''}`} />
-            {sidebarOpen && 'Cerrar Sesión'}
+            {sidebarOpen && t('nav.logout')}
           </Button>
         </div>
 
@@ -275,16 +278,40 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="h-full px-8 flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-foreground">
-                {user?.rol === 'recepcion' && 'Panel de Recepción'}
-                {user?.rol === 'triage' && 'Panel de Triage'}
-                {user?.rol === 'medico' && 'Panel Médico'}
-                {user?.rol === 'administrador' && 'Panel de Administración'}
+                {user?.rol === 'recepcion' && t('panel.recepcion')}
+                {user?.rol === 'triage' && t('panel.triage')}
+                {user?.rol === 'medico' && t('panel.medico')}
+                {user?.rol === 'administrador' && t('panel.admin')}
               </h2>
-              <p className="text-sm text-muted-foreground">
-                {now().toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              <p className="text-sm text-muted-foreground uppercase">
+                {now().toLocaleDateString(language === 'es' ? 'es-MX' : 'en-US', { 
+                  day: '2-digit', 
+                  month: 'long', 
+                  year: 'numeric',
+                  weekday: 'long'
+                })}
               </p>
             </div>
             <div className="flex items-center gap-4">
+              {/* Language Toggle */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={toggleLanguage}
+                    className="w-11 h-11 rounded-lg bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors text-muted-foreground hover:text-secondary relative group"
+                    aria-label={t('lang.toggle')}
+                  >
+                    <Languages className="w-5 h-5 transition-transform group-hover:scale-110" />
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-secondary text-[9px] font-bold text-secondary-foreground shadow-sm">
+                      {language.toUpperCase()}
+                    </span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t('lang.toggle')}
+                </TooltipContent>
+              </Tooltip>
+
               {/* Notifications */}
               <div className="relative" ref={notifRef}>
                 <button
@@ -303,14 +330,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <div className="absolute right-0 top-12 w-96 bg-card rounded-2xl shadow-[0_8px_24px_rgba(1,106,103,0.08)] border border-border z-50">
                     <div className="p-4 border-b border-border flex items-center justify-between">
                       <div>
-                        <h3 className="font-semibold text-foreground">Actividad Reciente</h3>
-                        <p className="text-xs text-muted-foreground">Últimas acciones en el sistema</p>
+                        <h3 className="font-semibold text-foreground">{t('notif.recent')}</h3>
+                        <p className="text-xs text-muted-foreground">{t('notif.last_actions')}</p>
                       </div>
                       <button
                         onClick={() => { navigate('/auditoria'); setNotifOpen(false); }}
                         className="text-xs text-secondary hover:underline font-medium"
                       >
-                        Ver todo
+                        {t('notif.view_all')}
                       </button>
                     </div>
                     <div className="max-h-96 overflow-y-auto divide-y divide-border">
