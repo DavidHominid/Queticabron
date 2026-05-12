@@ -7,6 +7,7 @@ import { DetalleCitasBloqueDialog } from '../components/eventos/DetalleCitasBloq
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, TipoCitaEvento } from '../types';
 import { labelEspecialidad } from '../utils/especialidades';
 import { nowIso, todayYmd } from '../utils/clock';
@@ -40,6 +41,7 @@ const hasCita = (
 export function Citas() {
   const { eventos, citas, pacientes, usuarios, especialidadesCatalogo, addCita, updateCita, addRegistroAuditoria, isInitialized } = useData();
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   const [agendaMensaje, setAgendaMensaje] = useState('');
 
@@ -80,12 +82,12 @@ export function Citas() {
   const onClickDisponible = (payload: { evento: Evento; especialidad: Especialidad; horario: HorarioDisponible }) => {
     setAgendaMensaje('');
     if (payload.evento.estado !== 'activo') {
-      setAgendaMensaje('Este evento no está activo. No se pueden agendar citas.');
+      setAgendaMensaje(t('citas.not_active'));
       return;
     }
     const dia = String(payload.horario.dia || '').substring(0, 10);
     if (dia && dia <= hoy) {
-      setAgendaMensaje('Para el día de la cita solo se permite cancelar o registrar llegada.');
+      setAgendaMensaje(t('citas.day_of_only'));
       return;
     }
     if (
@@ -98,7 +100,7 @@ export function Citas() {
         tipoCitaId: payload.horario.tipoCitaId,
       })
     ) {
-      setAgendaMensaje('Ese horario ya fue ocupado por otra cita.');
+      setAgendaMensaje(t('citas.slot_taken'));
       return;
     }
     setAgendarEvento(payload.evento);
@@ -110,7 +112,7 @@ export function Citas() {
   const onClickCitas = (payload: { evento: Evento; especialidad: Especialidad; horario: HorarioDisponible; citas: Cita[] }) => {
     setAgendaMensaje('');
     setDetalleCitas(payload.citas);
-    setDetalleTitulo('Citas');
+    setDetalleTitulo(t('citas.title'));
     setDetalleSubtitulo(
       `${payload.evento.nombre} · ${labelEspecialidad(payload.especialidad, especialidadesCatalogo)} · ${payload.horario.dia} · ${payload.horario.horaInicio}-${payload.horario.horaFin}`,
     );
@@ -121,11 +123,11 @@ export function Citas() {
   const onAgendar = async (payload: { paciente: Paciente; hora: string; tipoCita: TipoCitaEvento | null }) => {
     if (!agendarEvento || !agendarEspecialidad || !agendarHorario) return;
     if (agendarEvento.estado !== 'activo') {
-      throw new Error('El evento no está activo.');
+      throw new Error(t('citas.not_active'));
     }
     const dia = String(agendarHorario.dia || '').substring(0, 10);
     if (dia && dia <= hoy) {
-      throw new Error('Para el día de la cita solo se permite cancelar o registrar llegada.');
+      throw new Error(t('citas.day_of_only'));
     }
 
     if (
@@ -138,7 +140,7 @@ export function Citas() {
         tipoCitaId: agendarHorario.tipoCitaId,
       })
     ) {
-      throw new Error('Ese horario ya fue ocupado por otra cita.');
+      throw new Error(t('citas.slot_taken'));
     }
 
     const espEvento = agendarEvento.especialidades.find((e) => e.especialidad === agendarEspecialidad) || null;
@@ -230,9 +232,9 @@ export function Citas() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Citas</h1>
+            <h1 className="text-2xl font-semibold text-foreground">{t('citas.title')}</h1>
             <p className="mt-1 text-muted-foreground">
-              Administrador general de citas: muestra todas las citas (todos los eventos y especialidades) y permite agendar en espacios disponibles.
+              {t('citas.subtitle')}
             </p>
           </div>
         </div>
@@ -250,8 +252,8 @@ export function Citas() {
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
               <CalendarDays className="mx-auto mb-4 h-16 w-16 text-muted-foreground/40" />
-              <h3 className="mb-2 text-lg font-medium text-foreground">No hay eventos disponibles</h3>
-              <p className="text-muted-foreground">Crea un evento con fechas y horarios para habilitar espacios disponibles.</p>
+              <h3 className="mb-2 text-lg font-medium text-foreground">{t('citas.no_events')}</h3>
+              <p className="text-muted-foreground">{t('citas.create_event')}</p>
             </CardContent>
           </Card>
         )}
@@ -259,7 +261,7 @@ export function Citas() {
         {isInitialized && eventosVisibles.length > 0 && (
           <Card className="shadow-sm">
             <CardHeader className="border-b">
-              <CardTitle className="text-base">Agenda</CardTitle>
+              <CardTitle className="text-base">{t('citas.agenda')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 p-6">
               {agendaMensaje && (

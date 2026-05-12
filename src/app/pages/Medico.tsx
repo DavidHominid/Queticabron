@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { useLanguage } from '../context/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -26,6 +27,7 @@ import { now, nowIso, todayYmd } from '../utils/clock';
 import { labelEspecialidad } from '../utils/especialidades';
 
 export function Medico() {
+  const { t } = useLanguage();
   const {
     citas,
     pacientes,
@@ -216,13 +218,13 @@ export function Medico() {
           <>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <h1 className="text-2xl font-semibold text-foreground">Consulta Médica</h1>
+                <h1 className="text-2xl font-semibold text-foreground">{t('medico.form.title')}</h1>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{selectedCita.paciente?.nombre || 'Paciente'}</span>
+                  <span className="text-sm text-muted-foreground">{selectedCita.paciente?.nombre || t('medico.form.patient')}</span>
                   {selectedCita.paciente?.numeroExpediente ? <Badge variant="outline">{selectedCita.paciente.numeroExpediente}</Badge> : null}
                   {selectedCita.paciente?.edad ? (
                     <span className="text-sm text-muted-foreground">
-                      {selectedCita.paciente.edad} años{selectedCita.paciente?.sexo ? ` · ${selectedCita.paciente.sexo}` : ''}
+                      {selectedCita.paciente.edad} {t('medico.form.years')}{selectedCita.paciente?.sexo ? ` · ${selectedCita.paciente.sexo}` : ''}
                     </span>
                   ) : null}
                 </div>
@@ -231,7 +233,7 @@ export function Medico() {
                     {labelEspecialidad(selectedCita.especialidad, especialidadesCatalogo)}
                   </Badge>
                   <Badge variant="outline" className="text-xs">
-                    {String(selectedCita.tipoCitaNombre || '').trim() || 'Sin tipo de cita'}
+                    {String(selectedCita.tipoCitaNombre || '').trim() || t('medico.form.no_type')}
                   </Badge>
                   {selectedCita.hora ? (
                     <Badge variant="outline" className="text-xs">
@@ -251,7 +253,7 @@ export function Medico() {
                     resetForm();
                   }}
                 >
-                  Volver
+                  {t('medico.form.back')}
                 </Button>
               </div>
             </div>
@@ -260,19 +262,19 @@ export function Medico() {
               <div className="space-y-4">
                 <Card className="border border-border">
                   <CardHeader className="bg-muted/20 p-3">
-                    <h3 className="text-sm font-semibold">Datos del Paciente</h3>
+                    <h3 className="text-sm font-semibold">{t('medico.form.patient_data')}</h3>
                   </CardHeader>
                   <CardContent className="space-y-2 p-3 text-sm">
                     <div>
-                      <p className="text-muted-foreground">Teléfono</p>
+                      <p className="text-muted-foreground">{t('medico.form.phone')}</p>
                       <p className="font-medium">{selectedCita.paciente?.telefono || '-'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Edad</p>
-                      <p className="font-medium">{selectedCita.paciente?.edad ? `${selectedCita.paciente.edad} años` : '-'}</p>
+                      <p className="text-muted-foreground">{t('medico.form.age')}</p>
+                      <p className="font-medium">{selectedCita.paciente?.edad ? `${selectedCita.paciente.edad} ${t('medico.form.years')}` : '-'}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">Sexo</p>
+                      <p className="text-muted-foreground">{t('medico.form.sex')}</p>
                       <p className="font-medium">{selectedCita.paciente?.sexo || '-'}</p>
                     </div>
                   </CardContent>
@@ -283,36 +285,36 @@ export function Medico() {
                     <CardHeader className="bg-muted/20 p-3">
                       <h3 className="flex items-center gap-2 text-sm font-semibold">
                         <Activity className="h-4 w-4" />
-                        Signos Vitales
+                        {t('medico.form.vitals')}
                       </h3>
                     </CardHeader>
                     <CardContent className="space-y-2 p-3">
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div className="rounded-md border border-border bg-muted/10 p-2">
-                          <p className="text-muted-foreground">Temperatura</p>
+                          <p className="text-muted-foreground">{t('medico.form.vitals.temp')}</p>
                           <p className="font-semibold">{selectedCita.triage.signosVitales.temperatura}°C</p>
                         </div>
                         <div className="rounded-md border border-border bg-muted/10 p-2">
-                          <p className="text-muted-foreground">Presión</p>
+                          <p className="text-muted-foreground">{t('medico.form.vitals.bp')}</p>
                           <p className="font-semibold">{selectedCita.triage.signosVitales.presionArterial}</p>
                         </div>
                         <div className="rounded-md border border-border bg-muted/10 p-2">
-                          <p className="text-muted-foreground">Ritmo</p>
+                          <p className="text-muted-foreground">{t('medico.form.vitals.hr')}</p>
                           <p className="font-semibold">{selectedCita.triage.signosVitales.ritmoCardiaco} bpm</p>
                         </div>
                         <div className="rounded-md border border-border bg-muted/10 p-2">
-                          <p className="text-muted-foreground">Glucosa</p>
+                          <p className="text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
                           <p className="font-semibold">{selectedCita.triage.signosVitales.azucarEnSangre || 'N/A'}</p>
                         </div>
                       </div>
                       <div className="border-t pt-2 text-xs">
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <p className="text-muted-foreground">Peso</p>
+                            <p className="text-muted-foreground">{t('medico.form.vitals.weight')}</p>
                             <p className="font-medium">{selectedCita.triage.signosVitales.peso} kg</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground">Altura</p>
+                            <p className="text-muted-foreground">{t('medico.form.vitals.height')}</p>
                             <p className="font-medium">{selectedCita.triage.signosVitales.altura} cm</p>
                           </div>
                         </div>
@@ -326,13 +328,13 @@ export function Medico() {
                     <CardHeader className="bg-muted/20 p-3">
                       <h3 className="flex items-center gap-2 text-sm font-semibold">
                         <AlertCircle className="h-4 w-4" />
-                        Información Médica
+                        {t('medico.form.medical_info')}
                       </h3>
                     </CardHeader>
                     <CardContent className="space-y-2 p-3 text-sm">
                       {selectedCita.infoMedica.alergias.length > 0 && (
                         <div>
-                          <p className="font-medium text-muted-foreground">Alergias</p>
+                          <p className="font-medium text-muted-foreground">{t('medico.form.allergies')}</p>
                           <div className="mt-1 flex flex-wrap gap-1">
                             {selectedCita.infoMedica.alergias.map((alergia: string, idx: number) => (
                               <Badge key={idx} variant="destructive" className="text-xs">
@@ -344,7 +346,7 @@ export function Medico() {
                       )}
                       {selectedCita.infoMedica.antecedentesMedicos && (
                         <div>
-                          <p className="font-medium text-muted-foreground">Antecedentes</p>
+                          <p className="font-medium text-muted-foreground">{t('medico.form.background')}</p>
                           <p className="text-xs">{selectedCita.infoMedica.antecedentesMedicos}</p>
                         </div>
                       )}
@@ -357,11 +359,11 @@ export function Medico() {
                 <form id={consultaFormId} onSubmit={handleSubmitConsulta} className="space-y-4">
                   <Card className="border border-border shadow-sm">
                     <CardHeader className="border-b border-border bg-muted/20 p-4">
-                      <h3 className="font-semibold">Motivo de Consulta y Padecimiento Actual</h3>
+                      <h3 className="font-semibold">{t('medico.form.reason_current')}</h3>
                     </CardHeader>
                     <CardContent className="space-y-3 p-4">
                       <div>
-                        <Label htmlFor="motivo">Motivo de Consulta *</Label>
+                        <Label htmlFor="motivo">{t('medico.form.reason')}</Label>
                         <Input
                           id="motivo"
                           value={consultaForm.motivoConsulta}
@@ -371,7 +373,7 @@ export function Medico() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="padecimiento">Padecimiento Actual *</Label>
+                        <Label htmlFor="padecimiento">{t('medico.form.current_illness')}</Label>
                         <Textarea
                           id="padecimiento"
                           rows={3}
@@ -386,11 +388,11 @@ export function Medico() {
 
                   <Card className="border border-border shadow-sm">
                     <CardHeader className="border-b border-border bg-muted/20 p-4">
-                      <h3 className="font-semibold">Exploración Física</h3>
+                      <h3 className="font-semibold">{t('medico.form.physical_exam_title')}</h3>
                     </CardHeader>
                     <CardContent className="p-4">
                       <div>
-                        <Label htmlFor="exploracion">Hallazgos de Exploración Física *</Label>
+                        <Label htmlFor="exploracion">{t('medico.form.physical_exam')}</Label>
                         <Textarea
                           id="exploracion"
                           rows={3}
@@ -405,11 +407,11 @@ export function Medico() {
 
                   <Card className="border border-border shadow-sm">
                     <CardHeader className="border-b border-border bg-muted/20 p-4">
-                      <h3 className="font-semibold">Diagnóstico</h3>
+                      <h3 className="font-semibold">{t('medico.form.diagnosis_title')}</h3>
                     </CardHeader>
                     <CardContent className="p-4">
                       <div>
-                        <Label htmlFor="diagnostico">Diagnóstico Médico *</Label>
+                        <Label htmlFor="diagnostico">{t('medico.form.diagnosis')}</Label>
                         <Input
                           id="diagnostico"
                           value={consultaForm.diagnostico}
@@ -423,11 +425,11 @@ export function Medico() {
 
                   <Card className="border border-border shadow-sm">
                     <CardHeader className="border-b border-border bg-muted/20 p-4">
-                      <h3 className="font-semibold">Plan de Tratamiento</h3>
+                      <h3 className="font-semibold">{t('medico.form.treatment_plan')}</h3>
                     </CardHeader>
                     <CardContent className="space-y-4 p-4">
                       <div>
-                        <Label htmlFor="tratamiento">Tratamiento *</Label>
+                        <Label htmlFor="tratamiento">{t('medico.form.treatment')}</Label>
                         <Textarea
                           id="tratamiento"
                           rows={2}
@@ -440,20 +442,20 @@ export function Medico() {
 
                       <div>
                         <div className="mb-2 flex items-center justify-between">
-                          <Label>Medicamentos Recetados</Label>
+                          <Label>{t('medico.form.medications')}</Label>
                           <Button type="button" variant="outline" size="sm" onClick={agregarMedicamento}>
                             <Plus className="mr-1 h-4 w-4" />
-                            Agregar Medicamento
+                            {t('medico.form.add_medication')}
                           </Button>
                         </div>
                         <div className="overflow-hidden rounded-lg border border-border">
                           <table className="w-full">
                             <thead className="border-b border-border bg-muted/20">
                               <tr>
-                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Medicamento</th>
-                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Dosis</th>
-                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Frecuencia</th>
-                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Duración</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.medication_name')}</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.medication_dose')}</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.medication_freq')}</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.medication_duration')}</th>
                                 <th className="w-16 px-3 py-2 text-center text-xs font-semibold text-muted-foreground"></th>
                               </tr>
                             </thead>
@@ -514,18 +516,18 @@ export function Medico() {
 
                       <div>
                         <div className="mb-2 flex items-center justify-between">
-                          <Label>Estudios o Análisis Indicados</Label>
+                          <Label>{t('medico.form.studies')}</Label>
                           <Button type="button" variant="outline" size="sm" onClick={agregarEstudio}>
                             <Plus className="mr-1 h-4 w-4" />
-                            Agregar Estudio
+                            {t('medico.form.add_study')}
                           </Button>
                         </div>
                         <div className="overflow-hidden rounded-lg border border-border">
                           <table className="w-full">
                             <thead className="border-b border-border bg-muted/20">
                               <tr>
-                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Tipo de Estudio</th>
-                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Indicaciones</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.study_type')}</th>
+                                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.study_indications')}</th>
                                 <th className="w-16 px-3 py-2 text-center text-xs font-semibold text-muted-foreground"></th>
                               </tr>
                             </thead>
@@ -569,7 +571,7 @@ export function Medico() {
                       </div>
 
                       <div>
-                        <Label htmlFor="recomendaciones">Recomendaciones</Label>
+                        <Label htmlFor="recomendaciones">{t('medico.form.recommendations')}</Label>
                         <Textarea
                           id="recomendaciones"
                           rows={2}
@@ -581,7 +583,7 @@ export function Medico() {
 
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
-                          <Label htmlFor="proximaConsulta">Próxima Consulta</Label>
+                          <Label htmlFor="proximaConsulta">{t('medico.form.next_consultation')}</Label>
                           <Input
                             id="proximaConsulta"
                             type="date"
@@ -597,7 +599,7 @@ export function Medico() {
                             onCheckedChange={(next) => setConsultaForm({ ...consultaForm, requiereCirugia: Boolean(next) })}
                           />
                           <Label htmlFor="requiereCirugia" className="cursor-pointer">
-                            Requiere Proceso de Cirugía
+                            {t('medico.form.requires_surgery')}
                           </Label>
                         </div>
                       </div>
@@ -617,11 +619,11 @@ export function Medico() {
                     resetForm();
                   }}
                 >
-                  Cancelar
+                  {t('medico.form.cancel')}
                 </Button>
                 <Button type="submit" form={consultaFormId}>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Completar Consulta
+                  {t('medico.form.complete')}
                 </Button>
               </div>
             </div>
@@ -629,9 +631,9 @@ export function Medico() {
         ) : (
           <>
             <div>
-              <h1 className="text-2xl font-semibold text-foreground">Consultorio Médico</h1>
+              <h1 className="text-2xl font-semibold text-foreground">{t('medico.title')}</h1>
               <p className="mt-1 text-muted-foreground">
-                Pacientes en espera y consultas completadas
+                {t('medico.subtitle')}
                 {especialidadesUsuario.length > 0 ? ` - ${especialidadesUsuario.map((e) => String(e).replaceAll('_', ' ')).join(', ')}` : ''}
               </p>
             </div>
@@ -645,7 +647,7 @@ export function Medico() {
                   <Clock className="h-6 w-6 text-[color:var(--brand-secondary-strong)]" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">En Espera</p>
+                  <p className="text-sm text-muted-foreground">{t('medico.stats.waiting')}</p>
                   <p className="text-2xl font-semibold text-foreground">{citasEnConsulta.length}</p>
                 </div>
               </div>
@@ -659,7 +661,7 @@ export function Medico() {
                   <CheckCircle2 className="h-6 w-6 text-[color:var(--brand-tertiary)]" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Completadas Hoy</p>
+                  <p className="text-sm text-muted-foreground">{t('medico.stats.completed')}</p>
                   <p className="text-2xl font-semibold text-foreground">
                     {
                       citasCompletadas.filter(
@@ -679,7 +681,7 @@ export function Medico() {
                   <Stethoscope className="h-6 w-6 text-[color:var(--brand-primary-strong)]" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Consultas</p>
+                  <p className="text-sm text-muted-foreground">{t('medico.stats.total')}</p>
                   <p className="text-2xl font-semibold text-foreground">
                     {consultasMedicas.filter((c) => c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre).length}
                   </p>
@@ -695,7 +697,7 @@ export function Medico() {
                   <Heart className="h-6 w-6 text-[color:var(--brand-secondary-strong)]" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Cirugías Iniciadas</p>
+                  <p className="text-sm text-muted-foreground">{t('medico.stats.surgeries')}</p>
                   <p className="text-2xl font-semibold text-foreground">
                     {
                       consultasMedicas.filter(
@@ -714,7 +716,7 @@ export function Medico() {
           <CardHeader className="border-b bg-muted/20">
             <CardTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5" />
-              Pacientes en Espera ({citasEnConsulta.length})
+              {t('medico.patients.waiting')} ({citasEnConsulta.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
@@ -760,7 +762,7 @@ export function Medico() {
                               </h3>
                               <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
                                 <Badge variant="outline">{paciente?.numeroExpediente}</Badge>
-                                <span>{paciente?.edad} años</span>
+                                <span>{paciente?.edad} {t('medico.form.years')}</span>
                                 <span>•</span>
                                 <span>{paciente?.sexo}</span>
                               </div>
@@ -769,7 +771,7 @@ export function Medico() {
                                   {labelEspecialidad(cita.especialidad, especialidadesCatalogo)}
                                 </Badge>
                                 <Badge variant="outline" className="text-xs">
-                                  {String(cita.tipoCitaNombre || '').trim() || 'Sin tipo de cita'}
+                                  {String(cita.tipoCitaNombre || '').trim() || t('medico.form.no_type')}
                                 </Badge>
                               </div>
                             </div>
@@ -785,25 +787,25 @@ export function Medico() {
                           {triage && (
                             <div className="grid grid-cols-4 gap-3 mt-3">
                               <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-xs text-muted-foreground">Temperatura</p>
+                                <p className="text-xs text-muted-foreground">{t('medico.form.vitals.temp')}</p>
                                 <p className="text-sm font-semibold text-foreground">
                                   {triage.signosVitales.temperatura}°C
                                 </p>
                               </div>
                               <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-xs text-muted-foreground">Presión</p>
+                                <p className="text-xs text-muted-foreground">{t('medico.form.vitals.bp')}</p>
                                 <p className="text-sm font-semibold text-foreground">
                                   {triage.signosVitales.presionArterial}
                                 </p>
                               </div>
                               <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-xs text-muted-foreground">Ritmo</p>
+                                <p className="text-xs text-muted-foreground">{t('medico.form.vitals.hr')}</p>
                                 <p className="text-sm font-semibold text-foreground">
                                   {triage.signosVitales.ritmoCardiaco} bpm
                                 </p>
                               </div>
                               <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-xs text-muted-foreground">Glucosa</p>
+                                <p className="text-xs text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
                                 <p className="text-sm font-semibold text-foreground">
                                   {triage.signosVitales.azucarEnSangre || 'N/A'}
                                 </p>
@@ -816,7 +818,7 @@ export function Medico() {
                               onClick={() => iniciarConsulta(cita)}
                             >
                               <Stethoscope className="w-4 h-4 mr-2" />
-                              Iniciar Consulta
+                              {t('medico.action.start_consultation')}
                             </Button>
                           </div>
                         </div>

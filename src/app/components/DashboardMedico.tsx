@@ -14,10 +14,12 @@ import { StatCard } from './dashboard/StatCard';
 import { WelcomeCard } from './dashboard/WelcomeCard';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { todayYmd } from '../utils/clock';
 
 export function DashboardMedico() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { citas, pacientes, seguimientos, cirugias } = useData();
   const { user } = useAuth();
   const hoy = todayYmd();
@@ -32,10 +34,10 @@ export function DashboardMedico() {
       : pacientes.length;
 
   const estadoLabel = (estado: string) => {
-    if (estado === 'programada') return 'Programada';
-    if (estado === 'en_triage') return 'En Triage';
-    if (estado === 'en_consulta') return 'En Consulta';
-    if (estado === 'completada') return 'Completada';
+    if (estado === 'programada') return t('dash.recep.scheduled');
+    if (estado === 'en_triage') return t('dash.recep.in_triage');
+    if (estado === 'en_consulta') return t('dash.recep.in_consultation');
+    if (estado === 'completada') return t('dash.recep.completed');
     return estado;
   };
 
@@ -49,25 +51,25 @@ export function DashboardMedico() {
     <div className="space-y-6">
       {/* Welcome Card */}
       <WelcomeCard
-        title="¡Buenos días, Doctor!"
-        subtitle="Panel de consultas y seguimiento médico"
+        title={t('dash.medico.title')}
+        subtitle={t('dash.medico.subtitle')}
         tone="secondary"
         icon={Stethoscope}
-        badgeText="Sistema de gestión médica integral"
+        badgeText={t('dash.medico.badge')}
       />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Consultas Hoy" value={citasHoy.length.toString()} icon={Stethoscope} tone="primary" />
+        <StatCard title={t('dash.medico.appts_today')} value={citasHoy.length.toString()} icon={Stethoscope} tone="primary" />
         <StatCard
-          title="Seguimientos"
+          title={t('dash.medico.followups')}
           value={seguimientos.length.toString()}
           icon={UserPlus}
           tone="secondary"
-          trend={`${seguimientosPendientes.length} pendientes`}
+          trend={`${seguimientosPendientes.length} ${t('dash.medico.pending')}`}
         />
-        <StatCard title="Cirugías Activas" value={cirugias.length.toString()} icon={Heart} tone="destructive" />
-        <StatCard title="Mis Pacientes" value={pacientesDelMedicoCount.toString()} icon={Users} tone="accent" />
+        <StatCard title={t('dash.medico.active_surgeries')} value={cirugias.length.toString()} icon={Heart} tone="destructive" />
+        <StatCard title={t('dash.medico.my_patients')} value={pacientesDelMedicoCount.toString()} icon={Users} tone="accent" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -75,8 +77,8 @@ export function DashboardMedico() {
         <Card className="lg:col-span-2 shadow-sm">
           <CardHeader className="border-b border-border bg-muted/30">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Pacientes de Hoy</CardTitle>
-              <Badge variant="secondary">{citasHoy.length} consultas</Badge>
+              <CardTitle className="text-lg">{t('dash.medico.patients_today')}</CardTitle>
+              <Badge variant="secondary">{citasHoy.length} {t('dash.medico.consultations')}</Badge>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -112,7 +114,7 @@ export function DashboardMedico() {
             </div>
             <div className="p-4 border-t border-border bg-muted/20">
               <Button variant="outline" className="w-full" onClick={() => navigate('/medico')}>
-                Ir a Consultas
+                {t('dash.medico.go_to_consultations')}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
@@ -124,25 +126,25 @@ export function DashboardMedico() {
           {/* Seguimientos */}
           <Card className="shadow-sm">
             <CardHeader className="border-b border-border bg-muted/30">
-              <CardTitle className="text-lg">Seguimientos</CardTitle>
+              <CardTitle className="text-lg">{t('dash.medico.followups_title')}</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Pendientes de Agendar</span>
+                  <span className="text-sm text-muted-foreground">{t('dash.medico.pending_schedule')}</span>
                   <span className="font-semibold text-foreground">{seguimientosPendientes.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Citas Agendadas</span>
+                  <span className="text-sm text-muted-foreground">{t('dash.medico.scheduled_appts')}</span>
                   <span className="font-semibold text-foreground">{seguimientosAgendados.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Total</span>
+                  <span className="text-sm text-muted-foreground">{t('dash.medico.total')}</span>
                   <span className="font-semibold text-foreground">{seguimientos.length}</span>
                 </div>
               </div>
               <Button variant="outline" className="w-full mt-4" onClick={() => navigate('/seguimientos')}>
-                Ver Todos
+                {t('dash.medico.view_all')}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </CardContent>
@@ -151,20 +153,20 @@ export function DashboardMedico() {
           {/* Acciones Rápidas */}
           <Card className="shadow-sm">
             <CardHeader className="border-b border-border bg-muted/30">
-              <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
+              <CardTitle className="text-lg">{t('dash.medico.quick_actions')}</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               <Button className="w-full justify-start" onClick={() => navigate('/medico')}>
                 <Stethoscope className="w-4 h-4 mr-2" />
-                Consultar Paciente
+                {t('dash.medico.consult_patient')}
               </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/pacientes')}>
                 <Users className="w-4 h-4 mr-2" />
-                Ver Pacientes
+                {t('dash.medico.view_patients')}
               </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/cirugias')}>
                 <Heart className="w-4 h-4 mr-2" />
-                Gestionar Cirugías
+                {t('dash.medico.manage_surgeries')}
               </Button>
             </CardContent>
           </Card>

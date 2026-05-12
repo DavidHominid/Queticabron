@@ -12,11 +12,13 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { useLanguage } from '../context/LanguageContext';
 import { StatCard } from './dashboard/StatCard';
 import { WelcomeCard } from './dashboard/WelcomeCard';
 
 export function DashboardAdmin() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { usuarios, pacientes, registrosAuditoria } = useData();
 
   const usuariosActivos = usuarios.filter((u) => (u as any).activo !== false);
@@ -50,24 +52,24 @@ export function DashboardAdmin() {
     <div className="space-y-6">
       {/* Welcome Card */}
       <WelcomeCard
-        title="¡Buenos días, Administrador!"
-        subtitle="Panel de administración y gestión del sistema"
+        title={t('dash.admin.title')}
+        subtitle={t('dash.admin.subtitle')}
         tone="accent"
         icon={Shield}
-        badgeText="Control total del sistema médico"
+        badgeText={t('dash.admin.badge')}
       />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
-          title="Usuarios Activos"
+          title={t('dash.admin.active_users')}
           value={usuariosActivos.length.toString()}
           icon={Users}
           tone="primary"
         />
-        <StatCard title="Total Pacientes" value={pacientes.length.toString()} icon={Users} tone="secondary" />
-        <StatCard title="Registros Auditoría" value={registrosAuditoria.length.toString()} icon={FileText} tone="accent" />
-        <StatCard title="Roles Configurados" value="4" icon={Shield} tone="muted" />
+        <StatCard title={t('dash.admin.total_patients')} value={pacientes.length.toString()} icon={Users} tone="secondary" />
+        <StatCard title={t('dash.admin.audit_logs')} value={registrosAuditoria.length.toString()} icon={FileText} tone="accent" />
+        <StatCard title={t('dash.admin.roles_config')} value="4" icon={Shield} tone="muted" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -75,15 +77,15 @@ export function DashboardAdmin() {
         <Card className="lg:col-span-2 shadow-sm">
           <CardHeader className="border-b border-border bg-muted/30">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Usuarios del Sistema</CardTitle>
-              <Badge variant="secondary">{totalUsuarios} usuarios</Badge>
+              <CardTitle className="text-lg">{t('dash.admin.sys_users')}</CardTitle>
+              <Badge variant="secondary">{totalUsuarios} {t('dash.admin.users')}</Badge>
             </div>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-muted/30 border border-border rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">Recepción</span>
+                  <span className="text-sm font-medium text-foreground">{t('dash.admin.reception')}</span>
                   <Badge variant="secondary">{usuariosPorRol.recepcion}</Badge>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -96,7 +98,7 @@ export function DashboardAdmin() {
 
               <div className="p-4 bg-muted/30 border border-border rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">Triage</span>
+                  <span className="text-sm font-medium text-foreground">{t('dash.admin.triage')}</span>
                   <Badge variant="secondary">{usuariosPorRol.triage}</Badge>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -109,7 +111,7 @@ export function DashboardAdmin() {
 
               <div className="p-4 bg-muted/30 border border-border rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">Médico</span>
+                  <span className="text-sm font-medium text-foreground">{t('dash.admin.doctor')}</span>
                   <Badge variant="secondary">{usuariosPorRol.medico}</Badge>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -122,7 +124,7 @@ export function DashboardAdmin() {
 
               <div className="p-4 bg-muted/30 border border-border rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-foreground">Administrador</span>
+                  <span className="text-sm font-medium text-foreground">{t('dash.admin.admin')}</span>
                   <Badge variant="secondary">{usuariosPorRol.administrador}</Badge>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -136,7 +138,7 @@ export function DashboardAdmin() {
 
             <div className="pt-4 border-t">
               <Button variant="outline" className="w-full" onClick={() => navigate('/usuarios')}>
-                Gestionar Usuarios
+                {t('dash.admin.manage_users')}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
@@ -147,54 +149,54 @@ export function DashboardAdmin() {
         <div className="space-y-6">
           <Card className="shadow-sm">
             <CardHeader className="border-b border-border bg-muted/30">
-              <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
+              <CardTitle className="text-lg">{t('dash.admin.quick_actions')}</CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               <Button className="w-full justify-start" onClick={() => navigate('/usuarios')}>
                 <UserCog className="w-4 h-4 mr-2" />
-                Crear Usuario
+                {t('dash.admin.create_user')}
               </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/variables')}>
                 <SlidersHorizontal className="w-4 h-4 mr-2" />
-                Variables
+                {t('dash.admin.variables')}
               </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/auditoria')}>
                 <FileText className="w-4 h-4 mr-2" />
-                Ver Auditoría
+                {t('dash.admin.view_audit')}
               </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/pacientes')}>
                 <Users className="w-4 h-4 mr-2" />
-                Gestionar Pacientes
+                {t('dash.admin.manage_patients')}
               </Button>
             </CardContent>
           </Card>
 
           <Card className="shadow-sm">
             <CardHeader className="border-b border-border bg-muted/30">
-              <CardTitle className="text-lg">Estado del Sistema</CardTitle>
+              <CardTitle className="text-lg">{t('dash.admin.sys_status')}</CardTitle>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-primary" />
-                  <span className="text-sm text-muted-foreground">Sistema Operativo</span>
+                  <span className="text-sm text-muted-foreground">{t('dash.admin.os')}</span>
                 </div>
-                <Badge>Normal</Badge>
+                <Badge>{t('dash.admin.normal')}</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-secondary" />
-                  <span className="text-sm text-muted-foreground">Base de Datos</span>
+                  <span className="text-sm text-muted-foreground">{t('dash.admin.db')}</span>
                 </div>
-                <Badge variant="secondary">Activa</Badge>
+                <Badge variant="secondary">{t('dash.admin.active')}</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-accent" />
-                  <span className="text-sm text-muted-foreground">Conectividad</span>
+                  <span className="text-sm text-muted-foreground">{t('dash.admin.connectivity')}</span>
                 </div>
                 <Badge variant="outline" className="bg-background">
-                  Óptima
+                  {t('dash.admin.optimal')}
                 </Badge>
               </div>
             </CardContent>
@@ -206,9 +208,9 @@ export function DashboardAdmin() {
       <Card className="shadow-sm">
         <CardHeader className="border-b border-border bg-muted/30">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Actividad Reciente</CardTitle>
+            <CardTitle className="text-lg">{t('dash.admin.recent_activity')}</CardTitle>
             <Button variant="outline" size="sm" onClick={() => navigate('/auditoria')}>
-              Ver Todo
+              {t('dash.admin.view_all')}
             </Button>
           </div>
         </CardHeader>
@@ -247,7 +249,7 @@ export function DashboardAdmin() {
               ))
             ) : (
               <div className="p-8 text-center text-muted-foreground">
-                No hay actividad reciente registrada en la base de datos.
+                {t('dash.admin.no_activity')}
               </div>
             )}
           </div>

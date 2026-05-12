@@ -7,6 +7,7 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   Plus,
   Search,
@@ -41,6 +42,7 @@ export function Cirugias() {
     addRegistroAuditoria 
   } = useData();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [showModal, setShowModal] = useState(false);
   const [showEstudioModal, setShowEstudioModal] = useState(false);
   const [showSeguimientoModal, setShowSeguimientoModal] = useState(false);
@@ -169,11 +171,11 @@ export function Cirugias() {
 
   const estadoTexto = (estado: string) => {
     switch (estado) {
-      case 'pendiente_estudio': return 'Pendiente de Estudio';
-      case 'estudio_completado': return 'Estudio Completado';
-      case 'programada': return 'Programada';
-      case 'realizada': return 'Realizada';
-      case 'cancelada': return 'Cancelada';
+      case 'pendiente_estudio': return t('cirugias.status.pending_study');
+      case 'estudio_completado': return t('cirugias.status.study_completed');
+      case 'programada': return t('cirugias.status.scheduled');
+      case 'realizada': return t('cirugias.status.completed');
+      case 'cancelada': return t('cirugias.status.cancelled');
       default: return estado.replace('_', ' ');
     }
   };
@@ -183,14 +185,14 @@ export function Cirugias() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Gestión de Cirugías</h1>
+            <h1 className="text-2xl font-semibold text-foreground">{t('cirugias.title')}</h1>
             <p className="text-muted-foreground mt-1">
-              Procesos quirúrgicos, estudios socioeconómicos y seguimientos
+              {t('cirugias.subtitle')}
             </p>
           </div>
           <Button onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Iniciar Proceso de Cirugía
+            {t('cirugias.start_process')}
           </Button>
         </div>
 
@@ -203,7 +205,7 @@ export function Cirugias() {
                   <ClipboardList className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total</p>
+                  <p className="text-sm text-muted-foreground">{t('cirugias.total')}</p>
                   <p className="text-2xl font-semibold text-foreground">{cirugias.length}</p>
                 </div>
               </div>
@@ -217,7 +219,7 @@ export function Cirugias() {
                   <Clock className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Pendientes</p>
+                  <p className="text-sm text-muted-foreground">{t('cirugias.pending')}</p>
                   <p className="text-2xl font-semibold text-foreground">
                     {cirugias.filter((c) => c.estado === 'pendiente_estudio').length}
                   </p>
@@ -233,7 +235,7 @@ export function Cirugias() {
                   <Calendar className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Programadas</p>
+                  <p className="text-sm text-muted-foreground">{t('cirugias.scheduled')}</p>
                   <p className="text-2xl font-semibold text-foreground">
                     {cirugias.filter((c) => c.estado === 'programada').length}
                   </p>
@@ -249,7 +251,7 @@ export function Cirugias() {
                   <CheckCircle2 className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Realizadas</p>
+                  <p className="text-sm text-muted-foreground">{t('cirugias.completed')}</p>
                   <p className="text-2xl font-semibold text-foreground">
                     {cirugias.filter((c) => c.estado === 'realizada').length}
                   </p>
@@ -265,7 +267,7 @@ export function Cirugias() {
                   <FileText className="w-6 h-6 text-secondary-foreground" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Seguimientos</p>
+                  <p className="text-sm text-muted-foreground">{t('cirugias.followups')}</p>
                   <p className="text-2xl font-semibold text-foreground">{seguimientos.length}</p>
                 </div>
               </div>
@@ -279,18 +281,18 @@ export function Cirugias() {
             <div className="flex gap-4">
               <div className="flex-1">
                 <Input
-                  placeholder="Buscar por paciente, diagnóstico o médico..."
+                  placeholder={t('cirugias.search_placeholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <select className="px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring">
-                <option value="">Todos los estados</option>
-                <option value="pendiente_estudio">Pendiente de Estudio</option>
-                <option value="estudio_completado">Estudio Completado</option>
-                <option value="programada">Programada</option>
-                <option value="realizada">Realizada</option>
-                <option value="cancelada">Cancelada</option>
+                <option value="">{t('cirugias.all_statuses')}</option>
+                <option value="pendiente_estudio">{t('cirugias.status.pending_study')}</option>
+                <option value="estudio_completado">{t('cirugias.status.study_completed')}</option>
+                <option value="programada">{t('cirugias.status.scheduled')}</option>
+                <option value="realizada">{t('cirugias.status.completed')}</option>
+                <option value="cancelada">{t('cirugias.status.cancelled')}</option>
               </select>
             </div>
           </CardContent>
@@ -340,25 +342,25 @@ export function Cirugias() {
 
                       <div className="grid grid-cols-4 gap-4 mt-4">
                         <div className="p-3 bg-muted/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground">Especialidad</p>
+                          <p className="text-xs text-muted-foreground">{t('cirugias.specialty')}</p>
                           <p className="text-sm font-medium text-foreground capitalize mt-1">
-                            {cirugia.especialidad?.replace('_', ' ') || 'No especificada'}
+                            {cirugia.especialidad?.replace('_', ' ') || t('cirugias.unspecified')}
                           </p>
                         </div>
                         <div className="p-3 bg-muted/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground">Lugar</p>
+                          <p className="text-xs text-muted-foreground">{t('cirugias.location')}</p>
                           <p className="text-sm font-medium text-foreground mt-1">
-                            {cirugia.lugarCirugia || 'No asignado'}
+                            {cirugia.lugarCirugia || t('cirugias.unassigned')}
                           </p>
                         </div>
                         <div className="p-3 bg-muted/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground">Costo Estimado</p>
+                          <p className="text-xs text-muted-foreground">{t('cirugias.est_cost')}</p>
                           <p className="text-sm font-medium text-foreground mt-1">
                             ${cirugia.costoEstimado?.toLocaleString() || '0'}
                           </p>
                         </div>
                         <div className="p-3 bg-muted/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground">Seguimientos</p>
+                          <p className="text-xs text-muted-foreground">{t('cirugias.followups')}</p>
                           <p className="text-sm font-medium text-foreground mt-1">
                             {seguimientosCirugia.length}
                           </p>
@@ -375,7 +377,7 @@ export function Cirugias() {
                           }}
                         >
                           <Eye className="w-4 h-4 mr-2" />
-                          Ver Detalles
+                          {t('cirugias.view_details')}
                         </Button>
 
                         {cirugia.estado === 'pendiente_estudio' && (
@@ -388,7 +390,7 @@ export function Cirugias() {
                             }}
                           >
                             <FileText className="w-4 h-4 mr-2" />
-                            Realizar Estudio
+                            {t('cirugias.do_study')}
                           </Button>
                         )}
 
@@ -402,7 +404,7 @@ export function Cirugias() {
                             }}
                           >
                             <ClipboardList className="w-4 h-4 mr-2" />
-                            Agregar Seguimiento
+                            {t('cirugias.add_followup')}
                           </Button>
                         )}
                       </div>
@@ -418,14 +420,14 @@ export function Cirugias() {
             <CardContent className="p-12 text-center">
               <Heart className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
-                No hay cirugías registradas
+                {t('cirugias.empty_title')}
               </h3>
               <p className="text-muted-foreground mb-6">
-                Comienza iniciando el primer proceso de cirugía
+                {t('cirugias.empty_desc')}
               </p>
               <Button onClick={() => setShowModal(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Iniciar Proceso de Cirugía
+                {t('cirugias.start_process')}
               </Button>
             </CardContent>
           </Card>

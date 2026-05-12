@@ -8,6 +8,7 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { useData } from '../context/DataContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export function Variables() {
   const {
@@ -20,6 +21,7 @@ export function Variables() {
     deleteCiudadCatalogo,
     updateCiudadCatalogo,
   } = useData();
+  const { t } = useLanguage();
 
   const [codigoEspecialidad, setCodigoEspecialidad] = useState('');
   const [nombreEspecialidad, setNombreEspecialidad] = useState('');
@@ -87,10 +89,10 @@ export function Variables() {
         <table className="w-full">
           <thead className="bg-muted/30 border-b border-border">
             <tr>
-              <th className="text-left p-4 text-sm font-medium text-muted-foreground">Nombre</th>
-              <th className="text-left p-4 text-sm font-medium text-muted-foreground">Código</th>
-              <th className="text-left p-4 text-sm font-medium text-muted-foreground">Estado</th>
-              <th className="text-left p-4 text-sm font-medium text-muted-foreground">Acciones</th>
+              <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.col_name')}</th>
+              <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.col_code')}</th>
+              <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.col_status')}</th>
+              <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.col_actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -110,10 +112,10 @@ export function Variables() {
                 <td className="p-4 text-sm font-mono text-muted-foreground">{r.codigo}</td>
                 <td className="p-4">
                   {r.activa ? (
-                    <Badge>Activa</Badge>
+                    <Badge>{t('var.active')}</Badge>
                   ) : (
                     <Badge variant="outline" className="bg-background">
-                      Inactiva
+                      {t('var.inactive')}
                     </Badge>
                   )}
                 </td>
@@ -167,7 +169,7 @@ export function Variables() {
                         size="sm"
                         disabled={savingEdit}
                         onClick={async () => {
-                          if (!confirm(`¿Desactivar "${r.nombre}"?`)) return;
+                          if (!confirm(t('var.deactivate_confirm').replace('{0}', r.nombre))) return;
                           await onDesactivar(r.codigo, r.nombre);
                         }}
                       >
@@ -192,7 +194,7 @@ export function Variables() {
           </tbody>
         </table>
 
-        {rows.length === 0 && <div className="p-12 text-center text-muted-foreground">No hay registros.</div>}
+        {rows.length === 0 && <div className="p-12 text-center text-muted-foreground">{t('var.no_records')}</div>}
       </div>
     );
   };
@@ -201,47 +203,47 @@ export function Variables() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Variables</h1>
-          <p className="mt-1 text-muted-foreground">Administra catálogos como especialidades y ciudades.</p>
+          <h1 className="text-2xl font-semibold text-foreground">{t('var.title')}</h1>
+          <p className="mt-1 text-muted-foreground">{t('var.subtitle')}</p>
         </div>
 
         <Tabs defaultValue="especialidades">
           <TabsList>
-            <TabsTrigger value="especialidades">Especialidades</TabsTrigger>
-            <TabsTrigger value="ciudades">Ciudades</TabsTrigger>
+            <TabsTrigger value="especialidades">{t('var.tabs_specialties')}</TabsTrigger>
+            <TabsTrigger value="ciudades">{t('var.tabs_cities')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="especialidades" className="space-y-6">
             <Card className="shadow-sm">
               <CardHeader className="border-b">
-                <CardTitle className="text-base">Agregar especialidad</CardTitle>
+                <CardTitle className="text-base">{t('var.add_specialty')}</CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <form onSubmit={onCrearEspecialidad} className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div className="space-y-2">
-                    <Label htmlFor="codigoEspecialidad">Código *</Label>
+                    <Label htmlFor="codigoEspecialidad">{t('var.code')}</Label>
                     <Input
                       id="codigoEspecialidad"
                       value={codigoEspecialidad}
                       onChange={(e) => setCodigoEspecialidad(e.target.value)}
-                      placeholder="ej: medicina_familiar"
+                      placeholder={t('var.code_placeholder_esp')}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nombreEspecialidad">Nombre *</Label>
+                    <Label htmlFor="nombreEspecialidad">{t('var.name')}</Label>
                     <Input
                       id="nombreEspecialidad"
                       value={nombreEspecialidad}
                       onChange={(e) => setNombreEspecialidad(e.target.value)}
-                      placeholder="ej: Medicina Familiar"
+                      placeholder={t('var.name_placeholder_esp')}
                       required
                     />
                   </div>
                   <div className="flex items-end gap-2">
                     <Button type="submit" disabled={loadingEspecialidad}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Crear
+                      {t('var.create')}
                     </Button>
                   </div>
                 </form>
@@ -250,7 +252,7 @@ export function Variables() {
 
             <Card className="shadow-sm">
               <CardHeader className="border-b">
-                <CardTitle className="text-base">Listado</CardTitle>
+                <CardTitle className="text-base">{t('var.list')}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <TablaCatalogo
@@ -273,34 +275,34 @@ export function Variables() {
           <TabsContent value="ciudades" className="space-y-6">
             <Card className="shadow-sm">
               <CardHeader className="border-b">
-                <CardTitle className="text-base">Agregar ciudad</CardTitle>
+                <CardTitle className="text-base">{t('var.add_city')}</CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <form onSubmit={onCrearCiudad} className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div className="space-y-2">
-                    <Label htmlFor="codigoCiudad">Código *</Label>
+                    <Label htmlFor="codigoCiudad">{t('var.code')}</Label>
                     <Input
                       id="codigoCiudad"
                       value={codigoCiudad}
                       onChange={(e) => setCodigoCiudad(e.target.value)}
-                      placeholder="ej: puerto_penasco"
+                      placeholder={t('var.code_placeholder_city')}
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="nombreCiudad">Nombre *</Label>
+                    <Label htmlFor="nombreCiudad">{t('var.name')}</Label>
                     <Input
                       id="nombreCiudad"
                       value={nombreCiudad}
                       onChange={(e) => setNombreCiudad(e.target.value)}
-                      placeholder="ej: Puerto Peñasco"
+                      placeholder={t('var.name_placeholder_city')}
                       required
                     />
                   </div>
                   <div className="flex items-end gap-2">
                     <Button type="submit" disabled={loadingCiudad}>
                       <Plus className="mr-2 h-4 w-4" />
-                      Crear
+                      {t('var.create')}
                     </Button>
                   </div>
                 </form>
@@ -309,7 +311,7 @@ export function Variables() {
 
             <Card className="shadow-sm">
               <CardHeader className="border-b">
-                <CardTitle className="text-base">Listado</CardTitle>
+                <CardTitle className="text-base">{t('var.list')}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <TablaCatalogo

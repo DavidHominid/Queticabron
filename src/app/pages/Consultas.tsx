@@ -3,9 +3,11 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { Stethoscope, Calendar, User } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
+import { Stethoscope } from 'lucide-react';
 
 export function Consultas() {
+  const { t } = useLanguage();
   const { citas, pacientes, registrosTriage } = useData();
   const { user } = useAuth();
   const especialidadesUsuario = (user?.especialidades?.length ? user.especialidades : user?.especialidad ? [user.especialidad] : []).filter(Boolean);
@@ -19,8 +21,8 @@ export function Consultas() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Consultas Médicas</h1>
-          <p className="text-gray-600 mt-1">Pacientes listos para consulta</p>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('consultas.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('consultas.subtitle')}</p>
         </div>
 
         <div className="space-y-3">
@@ -40,9 +42,9 @@ export function Consultas() {
                       <div className="flex items-center gap-3 text-sm text-gray-600">
                         <span>{paciente?.numeroExpediente}</span>
                         <span>•</span>
-                        <span>{paciente?.edad} años</span>
+                        <span>{paciente?.edad} {t('consultas.years')}</span>
                         <span>•</span>
-                        <span>{triage?.observaciones || 'Sin observaciones'}</span>
+                        <span>{triage?.observaciones || t('consultas.no_observations')}</span>
                       </div>
                       {triage && (
                         <div className="mt-2 flex gap-4 text-sm">
@@ -53,7 +55,7 @@ export function Consultas() {
                         </div>
                       )}
                     </div>
-                    <Badge className="bg-purple-100 text-purple-700">En Consulta</Badge>
+                    <Badge className="bg-purple-100 text-purple-700">{t('consultas.in_consultation')}</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -65,8 +67,8 @@ export function Consultas() {
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
               <Stethoscope className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay pacientes en consulta</h3>
-              <p className="text-gray-600">Los pacientes aparecerán aquí después de pasar por triage</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('consultas.empty_title')}</h3>
+              <p className="text-gray-600">{t('consultas.empty_desc')}</p>
             </CardContent>
           </Card>
         )}

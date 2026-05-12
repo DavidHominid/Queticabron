@@ -10,9 +10,11 @@ import { useAuth } from '../context/AuthContext';
 import { todayYmd } from '../utils/clock';
 import { pickEventoActivoParaTriageConCitas, triageCanSeeCita } from '../utils/triageAccess';
 import { normalizeCiudad } from '../utils/ciudades';
+import { useLanguage } from '../context/LanguageContext';
 
 export function DashboardTriage() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { citas, pacientes, eventos, registrosTriage } = useData();
   const { user } = useAuth();
 
@@ -48,29 +50,29 @@ export function DashboardTriage() {
     <div className="space-y-6">
       {/* Welcome Card */}
       <WelcomeCard
-        title="¡Buenos días, Enfermería!"
-        subtitle="Gestión de signos vitales y triage de pacientes"
+        title={t('dash.triage.title')}
+        subtitle={t('dash.triage.subtitle')}
         tone="secondary"
         icon={ClipboardList}
-        badgeText={`${citasHoy.length} pacientes en lista de hoy`}
+        badgeText={`${citasHoy.length} ${t('dash.triage.patients_today')}`}
       />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
-          title="Pendientes de Triage"
+          title={t('dash.triage.pending_triage')}
           value={citasPendientes.length.toString()}
           icon={AlertCircle}
           tone="accent"
         />
         <StatCard
-          title="En Proceso"
+          title={t('dash.triage.in_progress')}
           value={citasEnTriage.length.toString()}
           icon={Activity}
           tone="secondary"
         />
         <StatCard
-          title="Completados"
+          title={t('dash.triage.completed')}
           value={citasCompletadas.length.toString()}
           icon={CheckCircle2}
           tone="primary"
@@ -82,8 +84,8 @@ export function DashboardTriage() {
         <Card className="lg:col-span-2 shadow-sm">
           <CardHeader className="border-b border-border bg-muted/30">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Pacientes de Hoy</CardTitle>
-              <Badge variant="secondary">{citasHoy.length} pacientes</Badge>
+              <CardTitle className="text-lg">{t('dash.triage.patients_today_title')}</CardTitle>
+              <Badge variant="secondary">{citasHoy.length} {t('dash.triage.patients')}</Badge>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -108,12 +110,12 @@ export function DashboardTriage() {
                         {tieneRegistroTriage ? (
                           <Badge variant={badge.variant} className={badge.className}>
                             <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Completado
+                            {t('dash.triage.completed')}
                           </Badge>
                         ) : (
                           <Badge variant={badge.variant} className={badge.className}>
                             <Clock className="w-3 h-3 mr-1" />
-                            Pendiente
+                            {t('dash.triage.pending')}
                           </Badge>
                         )}
                       </div>
@@ -124,7 +126,7 @@ export function DashboardTriage() {
             </div>
             <div className="p-4 border-t border-border bg-muted/20">
               <Button variant="outline" className="w-full" onClick={() => navigate('/triage')}>
-                Ir a módulo de Triage
+                {t('dash.triage.go_to_triage')}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
@@ -134,12 +136,12 @@ export function DashboardTriage() {
         {/* Resumen de actividad */}
         <Card className="shadow-sm">
           <CardHeader className="border-b border-border bg-muted/30">
-            <CardTitle className="text-lg">Actividad de Hoy</CardTitle>
+            <CardTitle className="text-lg">{t('dash.triage.activity_today')}</CardTitle>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Total de Pacientes</span>
+                <span className="text-sm text-muted-foreground">{t('dash.triage.total_patients')}</span>
                 <span className="font-semibold text-foreground">{citasHoy.length}</span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -149,7 +151,7 @@ export function DashboardTriage() {
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Progreso de Triage</span>
+                <span className="text-sm text-muted-foreground">{t('dash.triage.triage_progress')}</span>
                 <span className="font-semibold text-foreground">
                   {citasCompletadas.length + citasEnTriage.length}/{citasHoy.length}
                 </span>
@@ -165,12 +167,12 @@ export function DashboardTriage() {
             </div>
 
             <div className="pt-4 border-t">
-              <p className="text-sm text-muted-foreground mb-3">Tiempo Promedio</p>
+              <p className="text-sm text-muted-foreground mb-3">{t('dash.triage.avg_time')}</p>
               <div className="flex items-center gap-3">
                 <Clock className="w-8 h-8 text-primary" />
                 <div>
-                  <p className="text-2xl font-bold text-foreground">8 min</p>
-                  <p className="text-xs text-muted-foreground/70">por paciente</p>
+                  <p className="text-2xl font-bold text-foreground">8 {t('dash.triage.min')}</p>
+                  <p className="text-xs text-muted-foreground/70">{t('dash.triage.per_patient')}</p>
                 </div>
               </div>
             </div>

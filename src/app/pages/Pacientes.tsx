@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/s
 import { formatDateSafe } from '../components/ui/utils';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Plus, Search, User, Phone, MapPin, FileText, X, Heart } from 'lucide-react';
 import { Paciente, Ciudad } from '../types';
 import { now, nowIso, todayYmd } from '../utils/clock';
@@ -21,6 +22,7 @@ export function Pacientes() {
   const navigate = useNavigate();
   const { pacientes, citas, consultasMedicas, addPaciente, updatePaciente, addRegistroAuditoria, addCirugia, ciudadesCatalogo } = useData();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPaciente, setSelectedPaciente] = useState<Paciente | null>(null);
@@ -274,18 +276,18 @@ export function Pacientes() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">
-              {isMedico ? 'Mis Pacientes' : 'Gestión de Pacientes'}
+              {isMedico ? t('pac.title_medico') : t('pac.title_recepcion')}
             </h1>
             <p className="text-muted-foreground mt-1">
               {isMedico 
-                ? 'Pacientes que han asistido o están agendados en el sistema' 
-                : 'Registra y administra los expedientes de pacientes'}
+                ? t('pac.subtitle_medico')
+                : t('pac.subtitle_recepcion')}
             </p>
           </div>
           {!isMedico && (
             <Button onClick={() => { resetForm(); setShowModal(true); }}>
               <Plus className="w-4 h-4 mr-2" />
-              Nuevo Paciente
+              {t('pac.new')}
             </Button>
           )}
         </div>
@@ -296,7 +298,7 @@ export function Pacientes() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
               <Input
-                placeholder="Buscar por nombre, expediente o teléfono..."
+                placeholder={t('pac.search')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -313,7 +315,7 @@ export function Pacientes() {
                     onClick={() => setFilterType(type)}
                     className="capitalize"
                   >
-                    {type}
+                    {t(`pac.${type}`)}
                   </Button>
                 ))}
               </div>
@@ -334,7 +336,7 @@ export function Pacientes() {
               {isMedico && (
                 <div className="absolute bottom-4 right-4 flex gap-2 pointer-events-none">
                   <Badge variant="secondary">
-                  {(pacienteStatsById.get(paciente.id)?.totalCitas ?? 0)} citas
+                  {(pacienteStatsById.get(paciente.id)?.totalCitas ?? 0)} {t('pac.citas')}
                   </Badge>
                 </div>
               )}
@@ -346,14 +348,14 @@ export function Pacientes() {
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
               <User className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No se encontraron pacientes</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">{t('pac.not_found')}</h3>
               <p className="text-muted-foreground mb-6">
-                {searchTerm ? 'Intenta con otro término de búsqueda' : 'Comienza registrando tu primer paciente'}
+                {searchTerm ? t('pac.try_another') : t('pac.start_registering')}
               </p>
               {!searchTerm && (
                 <Button onClick={() => { resetForm(); setShowModal(true); }}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Registrar Primer Paciente
+                  {t('pac.register_first')}
                 </Button>
               )}
             </CardContent>
@@ -365,8 +367,8 @@ export function Pacientes() {
         <DialogContent className="max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl overflow-auto p-0">
           <DialogHeader className="border-b px-6 py-5">
             <div className="flex items-center justify-between gap-4">
-              <DialogTitle>Registrar Nuevo Paciente</DialogTitle>
-              <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="text-muted-foreground hover:text-foreground">
+              <DialogTitle>{t('pac.register_new')}</DialogTitle>
+              <button type="button" onClick={() => setShowModal(false)} aria-label={t('pac.cancel')} className="text-muted-foreground hover:text-foreground">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -374,7 +376,7 @@ export function Pacientes() {
           <div className="px-6 py-6">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="nombre">Nombre Completo</Label>
+                  <Label htmlFor="nombre">{t('pac.full_name')}</Label>
                   <Input
                     id="nombre"
                     value={formData.nombre}
@@ -386,7 +388,7 @@ export function Pacientes() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="fechaNacimiento">Fecha de Nacimiento</Label>
+                    <Label htmlFor="fechaNacimiento">{t('pac.dob')}</Label>
                     <Input
                       id="fechaNacimiento"
                       type="date"
@@ -397,7 +399,7 @@ export function Pacientes() {
                   </div>
 
                   <div>
-                    <Label htmlFor="sexo">Sexo</Label>
+                    <Label htmlFor="sexo">{t('pac.sex')}</Label>
                     <select
                       id="sexo"
                       className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
@@ -412,7 +414,7 @@ export function Pacientes() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="telefono">Teléfono</Label>
+                    <Label htmlFor="telefono">{t('pac.phone')}</Label>
                     <Input
                       id="telefono"
                       type="tel"
@@ -424,7 +426,7 @@ export function Pacientes() {
                   </div>
 
                   <div>
-                    <Label htmlFor="ciudad">Ciudad</Label>
+                    <Label htmlFor="ciudad">{t('pac.city')}</Label>
                     <select
                       id="ciudad"
                       className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
@@ -444,21 +446,21 @@ export function Pacientes() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="nacionalidad">Nacionalidad</Label>
+                    <Label htmlFor="nacionalidad">{t('pac.nationality')}</Label>
                     <select
                       id="nacionalidad"
                       className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                       value={formData.nacionalidad || 'Mexicana'}
                       onChange={(e) => setFormData({ ...formData, nacionalidad: e.target.value })}
                     >
-                      <option value="Mexicana">Mexicana</option>
-                      <option value="Americana">Americana</option>
+                      <option value="Mexicana">{t('pac.mexican')}</option>
+                      <option value="Americana">{t('pac.american')}</option>
                     </select>
                   </div>
 
                   <div>
                     <Label htmlFor="identificacion">
-                      {formData.nacionalidad === 'Americana' ? 'Pasaporte Americano' : 'CURP'}
+                      {formData.nacionalidad === 'Americana' ? t('pac.passport') : t('pac.curp')}
                     </Label>
                     <Input
                       id="identificacion"
@@ -471,7 +473,7 @@ export function Pacientes() {
                 </div>
 
                 <div>
-                  <Label>Fotografía del Paciente (Opcional)</Label>
+                  <Label>{t('pac.photo')}</Label>
                   <div className="mt-2 flex items-center gap-4">
                     {imageFile && (
                       <img
@@ -492,7 +494,7 @@ export function Pacientes() {
                         htmlFor="imagen"
                         className="cursor-pointer bg-muted/20 text-foreground hover:bg-muted/30 px-4 py-2 rounded-lg font-semibold text-sm transition-colors border border-border inline-flex items-center justify-center"
                       >
-                        Seleccionar Imagen
+                        {t('pac.select_image')}
                       </Label>
                       <input
                         id="imagen"
@@ -506,7 +508,7 @@ export function Pacientes() {
                         }}
                       />
                       <span className="text-xs text-muted-foreground/70">
-                        {imageFile ? imageFile.name : 'Ningún archivo seleccionado'}
+                        {imageFile ? imageFile.name : t('pac.no_file')}
                       </span>
                     </div>
                   </div>
@@ -514,16 +516,16 @@ export function Pacientes() {
 
                 <div className="bg-muted/20 border border-border rounded-lg p-4">
                   <p className="text-sm text-foreground">
-                    <strong>Nota:</strong> Se generará automáticamente un número de expediente único para este paciente.
+                    <strong>{t('pac.note')}</strong> {t('pac.auto_id')}
                   </p>
                 </div>
 
                 <DialogFooter className="pt-4">
                   <Button type="button" variant="outline" onClick={() => setShowModal(false)} disabled={saving}>
-                    Cancelar
+                    {t('pac.cancel')}
                   </Button>
                   <Button type="submit" disabled={saving}>
-                    {saving ? 'Guardando...' : 'Registrar Paciente'}
+                    {saving ? t('pac.saving') : t('pac.register')}
                   </Button>
                 </DialogFooter>
               </form>
@@ -565,31 +567,31 @@ export function Pacientes() {
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="grid grid-cols-2 gap-6 bg-card p-5 rounded-xl border border-border shadow-sm">
                   <div>
-                    <p className="text-sm text-muted-foreground">Edad</p>
-                    <p className="text-base font-semibold text-foreground">{selectedPaciente.edad} años</p>
+                    <p className="text-sm text-muted-foreground">{t('pac.age')}</p>
+                    <p className="text-base font-semibold text-foreground">{selectedPaciente.edad} {t('pac.years')}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Sexo</p>
+                    <p className="text-sm text-muted-foreground">{t('pac.sex')}</p>
                     <p className="text-base font-semibold text-foreground">{selectedPaciente.sexo}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Nacimiento</p>
+                    <p className="text-sm text-muted-foreground">{t('pac.birth')}</p>
                     <p className="text-base font-semibold text-foreground">
                       {formatDateSafe(selectedPaciente.fechaNacimiento)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Teléfono</p>
+                    <p className="text-sm text-muted-foreground">{t('pac.phone')}</p>
                     <p className="text-base font-semibold text-foreground">{selectedPaciente.telefono}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Ciudad</p>
+                    <p className="text-sm text-muted-foreground">{t('pac.city')}</p>
                     <p className="text-base font-semibold text-foreground capitalize">
                       {selectedPaciente.ciudad.replace('_', ' ')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Registro</p>
+                    <p className="text-sm text-muted-foreground">{t('pac.registration')}</p>
                     <p className="text-base font-semibold text-foreground">
                       {formatDateSafe(selectedPaciente.fechaRegistro)}
                     </p>
@@ -605,7 +607,7 @@ export function Pacientes() {
                     }}
                   >
                     <FileText className="w-4 h-4 mr-2" />
-                    Ver Expediente Completo
+                    {t('pac.full_record')}
                   </Button>
                   {(user?.rol === 'medico' || user?.rol === 'administrador') && (
                     <Button
@@ -614,7 +616,7 @@ export function Pacientes() {
                       onClick={() => setShowCirugiaModal(true)}
                     >
                       <Heart className="w-4 h-4 mr-2" />
-                      Iniciar Proceso de Cirugía
+                      {t('pac.start_surgery')}
                     </Button>
                   )}
                 </div>

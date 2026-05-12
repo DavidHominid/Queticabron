@@ -18,13 +18,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Especialidad, Evento } from '../types';
 import { labelCiudad } from '../utils/ciudades';
 import { labelEspecialidad } from '../utils/especialidades';
 import { nowIso, nowMs } from '../utils/clock';
 
-const formatDate = (value?: string | null) => {
-  if (!value) return 'Sin fecha';
+const formatDate = (value: string | null | undefined, t: (key: string) => string) => {
+  if (!value) return t('eventos.no_date');
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('es-MX', {
@@ -56,6 +57,7 @@ export function Eventos() {
   const navigate = useNavigate();
   const { eventos, especialidadesCatalogo, ciudadesCatalogo, deleteEvento, addRegistroAuditoria, isInitialized } = useData();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const modoPruebas = String((import.meta as any).env?.VITE_EVENTOS_MODO_PRUEBAS || '')
     .trim()
     .toLowerCase() === 'true';
@@ -88,15 +90,15 @@ export function Eventos() {
       <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Agenda de eventos</h1>
+            <h1 className="text-2xl font-semibold text-foreground">{t('eventos.title')}</h1>
             <p className="text-muted-foreground mt-1">
-              Visualiza los eventos como tarjetas y entra a su detalle para consultar información, especialidades y agenda.
+              {t('eventos.subtitle')}
             </p>
           </div>
           <div className="flex gap-2">
             <Button type="button" onClick={() => navigate('/eventos/nuevo')}>
               <Plus className="h-4 w-4 mr-2" />
-              Nuevo evento
+              {t('eventos.new')}
             </Button>
           </div>
         </div>
@@ -113,7 +115,7 @@ export function Eventos() {
         {isInitialized && user?.rol !== 'administrador' && ciudadesUsuario.length === 0 && (
           <Card className="shadow-sm">
             <CardContent className="p-4 text-sm text-muted-foreground border border-border bg-muted/20 rounded-2xl">
-              Tu usuario no tiene ciudad asignada. Asigna una ciudad (o ciudades) al usuario para poder ver eventos.
+              {t('eventos.no_city_msg')}
             </CardContent>
           </Card>
         )}
@@ -123,16 +125,16 @@ export function Eventos() {
             <CardContent className="p-12 text-center">
               <CalendarDays className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
-                {user?.rol === 'administrador' ? 'No hay eventos registrados' : 'No hay eventos para tu ciudad'}
+                {user?.rol === 'administrador' ? t('eventos.no_events_admin') : t('eventos.no_events_city')}
               </h3>
               <p className="text-muted-foreground mb-6">
                 {user?.rol === 'administrador'
-                  ? 'Crea un evento para habilitar horarios y cupos.'
-                  : `Ciudad asignada: ${(Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length ? (user as any).ciudades : user?.ciudad) || '---'}`}
+                  ? t('eventos.create_to_enable')
+                  : `${t('eventos.assigned_city')} ${(Array.isArray((user as any)?.ciudades) && (user as any).ciudades.length ? (user as any).ciudades : user?.ciudad) || '---'}`}
               </p>
               <Button type="button" onClick={() => navigate('/eventos/nuevo')}>
                 <Plus className="h-4 w-4 mr-2" />
-                Crear evento
+                {t('eventos.create')}
               </Button>
             </CardContent>
           </Card>
@@ -176,7 +178,7 @@ export function Eventos() {
                         </Badge>
                         {bloqueado && (
                           <Badge variant="outline" className="bg-background">
-                            Solo lectura
+                            {t('eventos.readonly')}
                           </Badge>
                         )}
                       </div>
@@ -185,15 +187,15 @@ export function Eventos() {
                   <CardContent className="space-y-4 p-6">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <div className="text-muted-foreground">Inscripciones</div>
+                        <div className="text-muted-foreground">{t('eventos.inscriptions')}</div>
                         <div className="font-medium text-foreground">
-                          {formatDate(evento.fechaInicioInscripcion)} - {formatDate(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion)}
+                          {formatDate(evento.fechaInicioInscripcion, t)} - {formatDate(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion, t)}
                         </div>
                       </div>
                       <div>
-                        <div className="text-muted-foreground">Evento</div>
+                        <div className="text-muted-foreground">{t('eventos.event')}</div>
                         <div className="font-medium text-foreground">
-                          {formatDate(evento.fechaInicio)} - {formatDate(evento.fechaFin)}
+                          {formatDate(evento.fechaInicio, t)} - {formatDate(evento.fechaFin, t)}
                         </div>
                       </div>
                     </div>
@@ -206,13 +208,13 @@ export function Eventos() {
                             </Badge>
                           ))
                         ) : (
-                          <span className="text-sm text-muted-foreground">Sin especialidades registradas</span>
+                          <span className="text-sm text-muted-foreground">{t('eventos.no_specialties')}</span>
                         )}
                       </div>
 
                       <div className="flex items-center justify-between border-t border-border pt-4 text-sm text-muted-foreground">
-                        <span>{evento.especialidades.length} especialidades</span>
-                        <span>{totalHorarios} horarios</span>
+                        <span>{evento.especialidades.length} {t('eventos.specialties')}</span>
+                        <span>{totalHorarios} {t('eventos.schedules')}</span>
                       </div>
 
                       <div className="flex gap-2 pt-1">
@@ -224,7 +226,7 @@ export function Eventos() {
                             navigate(`/eventos/${evento.id}`);
                           }}
                         >
-                          Ver evento
+                          {t('eventos.view')}
                         </Button>
                         {!bloqueado && (
                           <Button
@@ -236,7 +238,7 @@ export function Eventos() {
                             }}
                           >
                             <Pencil className="mr-2 h-4 w-4" />
-                            Editar
+                            {t('eventos.edit')}
                           </Button>
                         )}
                         {user?.rol === 'administrador' && !bloqueado && (
@@ -248,18 +250,18 @@ export function Eventos() {
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar
+                                {t('eventos.delete')}
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Eliminar evento</AlertDialogTitle>
+                                <AlertDialogTitle>{t('eventos.delete_title')}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Se eliminará el evento "{evento.nombre}" y también especialidades, horarios, practicantes, citas, triage y notas médicas relacionadas.
+                                  {t('eventos.delete_desc').replace('{0}', evento.nombre)}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{t('eventos.cancel')}</AlertDialogCancel>
                                 <AlertDialogAction
                                   className="bg-destructive text-white hover:bg-destructive/90"
                                   onClick={async (e) => {
@@ -281,7 +283,7 @@ export function Eventos() {
                                     }
                                   }}
                                 >
-                                  Eliminar
+                                  {t('eventos.delete')}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -296,18 +298,18 @@ export function Eventos() {
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar (pruebas)
+                                {t('eventos.delete_test')}
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>Eliminar evento (modo pruebas)</AlertDialogTitle>
+                                <AlertDialogTitle>{t('eventos.delete_test_title')}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  El evento ya finalizó y normalmente es de solo lectura. En modo pruebas se permite eliminarlo de forma forzada.
+                                  {t('eventos.delete_test_desc')}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
-                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+                                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{t('eventos.cancel')}</AlertDialogCancel>
                                 <AlertDialogAction
                                   className="bg-destructive text-white hover:bg-destructive/90"
                                   onClick={async (e) => {
@@ -329,7 +331,7 @@ export function Eventos() {
                                     }
                                   }}
                                 >
-                                  Eliminar
+                                  {t('eventos.delete')}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

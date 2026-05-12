@@ -7,6 +7,7 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { nowIso, todayYmd } from '../utils/clock';
 import { pickEventoActivoParaTriageConCitas, triageCanSeeCita } from '../utils/triageAccess';
 import { normalizeCiudad } from '../utils/ciudades';
@@ -42,6 +43,7 @@ export function TriageNuevo() {
     addRegistroAuditoria,
   } = useData();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [showModal, setShowModal] = useState(false);
   const [selectedPaciente, setSelectedPaciente] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -220,10 +222,10 @@ export function TriageNuevo() {
   };
 
   const getIMCCategoria = (imc: number) => {
-    if (imc < 18.5) return { texto: 'Bajo peso', color: 'text-blue-600' };
-    if (imc < 25) return { texto: 'Normal', color: 'text-green-600' };
-    if (imc < 30) return { texto: 'Sobrepeso', color: 'text-yellow-600' };
-    return { texto: 'Obesidad', color: 'text-red-600' };
+    if (imc < 18.5) return { texto: t('triage.underweight'), color: 'text-blue-600' };
+    if (imc < 25) return { texto: t('triage.normal_weight'), color: 'text-green-600' };
+    if (imc < 30) return { texto: t('triage.overweight'), color: 'text-yellow-600' };
+    return { texto: t('triage.obesity'), color: 'text-red-600' };
   };
 
   const evaluarSignosVitales = (signos: SignosVitales, edad: number = 30) => {
@@ -285,21 +287,21 @@ export function TriageNuevo() {
       return (
         <Badge className="bg-green-100 text-green-700">
           <CheckCircle2 className="w-3 h-3 mr-1" />
-          Completado
+          {t('triage.completed')}
         </Badge>
       );
     } else if (estado === 'en_proceso') {
       return (
         <Badge className="bg-yellow-100 text-yellow-700">
           <Clock className="w-3 h-3 mr-1" />
-          En Proceso
+          {t('triage.in_progress')}
         </Badge>
       );
     } else {
       return (
         <Badge className="bg-gray-100 text-gray-700">
           <Activity className="w-3 h-3 mr-1" />
-          Sin Captura
+          {t('triage.no_capture')}
         </Badge>
       );
     }
@@ -316,9 +318,9 @@ export function TriageNuevo() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Estación de Triage</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">{t('triage.title')}</h1>
           <p className="text-gray-600 mt-1">
-            Pacientes con cita para hoy - {eventoActivo?.nombre || 'Sin evento activo'}
+            {t('triage.subtitle')} {eventoActivo?.nombre || t('triage.no_event')}
           </p>
         </div>
 
@@ -331,7 +333,7 @@ export function TriageNuevo() {
                   <User className="w-6 h-6 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total Pacientes Hoy</p>
+                  <p className="text-sm text-gray-600">{t('triage.total_today')}</p>
                   <p className="text-2xl font-semibold text-gray-900">{contadores.total}</p>
                 </div>
               </div>
@@ -345,7 +347,7 @@ export function TriageNuevo() {
                   <Activity className="w-6 h-6 text-gray-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Sin Captura</p>
+                  <p className="text-sm text-gray-600">{t('triage.no_capture')}</p>
                   <p className="text-2xl font-semibold text-gray-900">{contadores.sinCaptura}</p>
                 </div>
               </div>
@@ -359,7 +361,7 @@ export function TriageNuevo() {
                   <Clock className="w-6 h-6 text-yellow-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">En Proceso</p>
+                  <p className="text-sm text-gray-600">{t('triage.in_progress')}</p>
                   <p className="text-2xl font-semibold text-gray-900">{contadores.enProceso}</p>
                 </div>
               </div>
@@ -373,7 +375,7 @@ export function TriageNuevo() {
                   <CheckCircle2 className="w-6 h-6 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Completados</p>
+                  <p className="text-sm text-gray-600">{t('triage.completed')}</p>
                   <p className="text-2xl font-semibold text-gray-900">{contadores.completados}</p>
                 </div>
               </div>
@@ -388,7 +390,7 @@ export function TriageNuevo() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
-                  placeholder="Buscar paciente en la lista de hoy..."
+                  placeholder={t('triage.search')}
                   className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -403,7 +405,7 @@ export function TriageNuevo() {
           <CardHeader className="border-b">
             <CardTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
-              Pacientes Disponibles ({pacientesFiltrados.length})
+              {t('triage.available_patients')} ({pacientesFiltrados.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
@@ -442,17 +444,17 @@ export function TriageNuevo() {
                             {labelEspecialidad(paciente.cita.especialidad, especialidadesCatalogo)}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
-                            {String(paciente.cita.tipoCitaNombre || '').trim() || 'Sin tipo de cita'}
+                            {String(paciente.cita.tipoCitaNombre || '').trim() || t('triage.no_appt_type')}
                           </Badge>
                         </div>
                         <div className="flex flex-col gap-1 mt-2 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-3 h-3 text-blue-500" />
-                            <span>Agendado para el {new Date(paciente.cita.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                            <span>{t('triage.scheduled_for')} {new Date(paciente.cita.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="w-3 h-3 text-purple-500" />
-                            <span>Hora asignada: {paciente.cita.hora}</span>
+                            <span>{t('triage.assigned_time')} {paciente.cita.hora}</span>
                           </div>
                         </div>
                         <div className="mt-2">{getEstadoBadge(paciente.estado)}</div>
@@ -462,13 +464,13 @@ export function TriageNuevo() {
                     {paciente.triageCompletado && (
                       <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t">
                         <div className="text-xs">
-                          <p className="text-gray-600">Temperatura</p>
+                          <p className="text-gray-600">{t('triage.temp')}</p>
                           <p className="font-semibold text-gray-900">
                             {paciente.triageCompletado.signosVitales.temperatura}°C
                           </p>
                         </div>
                         <div className="text-xs">
-                          <p className="text-gray-600">Presión</p>
+                          <p className="text-gray-600">{t('triage.pressure')}</p>
                           <p className="font-semibold text-gray-900">
                             {paciente.triageCompletado.signosVitales.presionArterial}
                           </p>
@@ -483,7 +485,7 @@ export function TriageNuevo() {
             {pacientesFiltrados.length === 0 && (
               <div className="text-center py-12">
                 <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600">No hay pacientes disponibles</p>
+                <p className="text-gray-600">{t('triage.empty_patients')}</p>
               </div>
             )}
           </CardContent>
@@ -496,11 +498,11 @@ export function TriageNuevo() {
           <Card className="w-full max-w-4xl my-8 gap-0">
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Signos Vitales - Triage</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('triage.modal_title')}</h2>
                 <div className="flex items-center gap-3 mt-1">
                   <p className="text-sm text-gray-600">{selectedPaciente.nombre}</p>
                   <Badge variant="outline">{selectedPaciente.numeroExpediente}</Badge>
-                  <span className="text-sm text-gray-600">Cita: {selectedPaciente.cita.hora}</span>
+                  <span className="text-sm text-gray-600">{t('triage.appt')} {selectedPaciente.cita.hora}</span>
                   {getEstadoBadge(selectedPaciente.estado)}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -527,14 +529,14 @@ export function TriageNuevo() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Signos vitales */}
                 <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-                  <h3 className="font-medium text-gray-900 mb-3">Signos Vitales</h3>
+                  <h3 className="font-medium text-gray-900 mb-3">{t('triage.vitals')}</h3>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <Label htmlFor="temperatura">
                         <div className="flex items-center gap-2 mb-1">
                           <Thermometer className="w-4 h-4 text-red-500" />
-                          <span>Temperatura (°C) *</span>
+                          <span>{t('triage.temp_input')}</span>
                         </div>
                       </Label>
                       <Input
@@ -548,14 +550,14 @@ export function TriageNuevo() {
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Normal: 36.0 - 37.5</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 36.0 - 37.5</p>
                     </div>
 
                     <div>
                       <Label htmlFor="presion">
                         <div className="flex items-center gap-2 mb-1">
                           <Heart className="w-4 h-4 text-pink-500" />
-                          <span>Presión Arterial *</span>
+                          <span>{t('triage.pressure_input')}</span>
                         </div>
                       </Label>
                       <Input
@@ -568,14 +570,14 @@ export function TriageNuevo() {
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Normal: 120/80</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 120/80</p>
                     </div>
 
                     <div>
                       <Label htmlFor="ritmo">
                         <div className="flex items-center gap-2 mb-1">
                           <Activity className="w-4 h-4 text-blue-500" />
-                          <span>Ritmo Cardíaco (bpm) *</span>
+                          <span>{t('triage.hr_input')}</span>
                         </div>
                       </Label>
                       <Input
@@ -588,11 +590,11 @@ export function TriageNuevo() {
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Normal: 60 - 100</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 60 - 100</p>
                     </div>
 
                     <div>
-                      <Label htmlFor="respiracion">Frecuencia Respiratoria (rpm) *</Label>
+                      <Label htmlFor="respiracion">{t('triage.resp_input')}</Label>
                       <Input
                         id="respiracion"
                         type="number"
@@ -606,11 +608,11 @@ export function TriageNuevo() {
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Normal: 12 - 20</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 12 - 20</p>
                     </div>
 
                     <div>
-                      <Label htmlFor="oxigeno">Saturación de Oxígeno (%)</Label>
+                      <Label htmlFor="oxigeno">{t('triage.o2_input')}</Label>
                       <Input
                         id="oxigeno"
                         type="number"
@@ -623,11 +625,11 @@ export function TriageNuevo() {
                         }
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Normal: &gt;95%</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} &gt;95%</p>
                     </div>
 
                     <div>
-                      <Label htmlFor="glucosa">Glucosa (mg/dL)</Label>
+                      <Label htmlFor="glucosa">{t('triage.glucose_input')}</Label>
                       <Input
                         id="glucosa"
                         type="number"
@@ -640,18 +642,18 @@ export function TriageNuevo() {
                         }
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Normal: 70 - 140</p>
+                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 70 - 140</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Antropometría */}
                 <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-                  <h3 className="font-medium text-gray-900 mb-3">Antropometría</h3>
+                  <h3 className="font-medium text-gray-900 mb-3">{t('triage.anthropometry')}</h3>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div>
-                      <Label htmlFor="peso">Peso (kg) *</Label>
+                      <Label htmlFor="peso">{t('triage.weight_input')}</Label>
                       <Input
                         id="peso"
                         type="number"
@@ -666,7 +668,7 @@ export function TriageNuevo() {
                     </div>
 
                     <div>
-                      <Label htmlFor="altura">Altura (cm) *</Label>
+                      <Label htmlFor="altura">{t('triage.height_input')}</Label>
                       <Input
                         id="altura"
                         type="number"
@@ -680,7 +682,7 @@ export function TriageNuevo() {
                     </div>
 
                     <div>
-                      <Label>IMC Calculado</Label>
+                      <Label>{t('triage.imc_calc')}</Label>
                       <div className="h-10 px-3 py-2 border border-gray-300 rounded-lg bg-blue-50 flex items-center">
                         <span className="font-semibold text-gray-900">
                           {calcularIMC(signosForm.peso, signosForm.altura)}
@@ -706,14 +708,14 @@ export function TriageNuevo() {
 
                 {/* Observaciones */}
                 <div>
-                  <Label htmlFor="observaciones">Observaciones</Label>
+                  <Label htmlFor="observaciones">{t('triage.observations')}</Label>
                   <textarea
                     id="observaciones"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={3}
                     value={observaciones}
                     onChange={(e) => setObservaciones(e.target.value)}
-                    placeholder="Observaciones adicionales sobre el estado del paciente..."
+                    placeholder={t('triage.obs_placeholder')}
                     disabled={selectedPaciente.estado === 'completado'}
                   />
                 </div>
@@ -728,7 +730,7 @@ export function TriageNuevo() {
                           <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                           <div>
                             <p className="font-medium text-yellow-900 mb-1">
-                              Signos Vitales Fuera de Rango
+                              {t('triage.out_of_range')}
                             </p>
                             <ul className="text-sm text-yellow-800 list-disc list-inside space-y-1">
                               {alertas.map((alerta, idx) => (
@@ -755,7 +757,7 @@ export function TriageNuevo() {
                       }}
                       className="flex-1"
                     >
-                      Cancelar
+                      {t('triage.cancel')}
                     </Button>
                     <Button
                       type="button"
@@ -764,11 +766,11 @@ export function TriageNuevo() {
                       className="flex-1 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
                     >
                       <Edit2 className="w-4 h-4 mr-2" />
-                      Guardar en Proceso
+                      {t('triage.save_progress')}
                     </Button>
                     <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
                       <CheckCircle2 className="w-4 h-4 mr-2" />
-                      Completar y Enviar a Consulta
+                      {t('triage.complete_send')}
                     </Button>
                   </div>
                 )}
@@ -784,7 +786,7 @@ export function TriageNuevo() {
                       }}
                       className="w-full"
                     >
-                      Cerrar
+                      {t('triage.close')}
                     </Button>
                   </div>
                 )}

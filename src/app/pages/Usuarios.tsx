@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Checkbox } from '../components/ui/checkbox';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Plus, Search, Edit, Trash2, X, UserPlus, Users, Shield, Key, Power, Filter, ArrowUpDown, RotateCcw, CalendarRange } from 'lucide-react';
 import { Usuario, Rol, Ciudad, Especialidad } from '../types';
 import { labelEspecialidad } from '../utils/especialidades';
@@ -17,6 +18,7 @@ import { nowIso, todayYmd } from '../utils/clock';
 export function Usuarios() {
   const { usuarios, especialidadesCatalogo, ciudadesCatalogo, addUsuario, updateUsuario, deleteUsuario, addRegistroAuditoria } = useData();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,7 +72,7 @@ export function Usuarios() {
     const raw = Array.isArray(formData.especialidades) ? formData.especialidades : [];
     const especialidades = Array.from(new Set(raw.map((x) => String(x || '').trim()).filter(Boolean)));
     if (formData.rol === 'medico' && especialidades.length === 0) {
-      alert('Selecciona al menos una especialidad para el médico.');
+      alert(t('usuarios.select_at_least_one_specialty'));
       return;
     }
     const rawCiudades = Array.isArray(formData.ciudades)
@@ -80,11 +82,11 @@ export function Usuarios() {
         : [];
     const ciudades = Array.from(new Set(rawCiudades.map((x) => String(x || '').trim()).filter(Boolean)));
     if (formData.rol === 'recepcion' && !ciudades[0]) {
-      alert('Selecciona una ciudad para recepción.');
+      alert(t('usuarios.select_at_least_one_city'));
       return;
     }
     if ((formData.rol === 'medico' || formData.rol === 'triage') && ciudades.length === 0) {
-      alert('Selecciona al menos una ciudad.');
+      alert(t('usuarios.select_at_least_one_city'));
       return;
     }
     if (formData.rol === 'triage') {
@@ -285,12 +287,12 @@ export function Usuarios() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Gestión de Usuarios</h1>
-            <p className="text-muted-foreground mt-1">Administra los usuarios del sistema</p>
+            <h1 className="text-2xl font-semibold text-foreground">{t('usuarios.title')}</h1>
+            <p className="text-muted-foreground mt-1">{t('usuarios.subtitle')}</p>
           </div>
           <Button onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
-            Crear Usuario
+            {t('usuarios.create')}
           </Button>
         </div>
 
@@ -299,17 +301,17 @@ export function Usuarios() {
           <CardHeader className="border-b">
             <CardTitle className="flex items-center gap-2 text-base">
               <Filter className="h-4 w-4" />
-              Filtros
+              {t('usuarios.filters')}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-2">
-              <Label htmlFor="buscarUsuarios">Buscar</Label>
+              <Label htmlFor="buscarUsuarios">{t('usuarios.search_label')}</Label>
               <div className="relative mt-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="buscarUsuarios"
-                  placeholder="Nombre, email, rol, ciudad o especialidad..."
+                  placeholder={t('usuarios.search_placeholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -318,30 +320,30 @@ export function Usuarios() {
             </div>
 
             <div>
-              <Label htmlFor="filtroRol">Rol</Label>
+              <Label htmlFor="filtroRol">{t('usuarios.role_label')}</Label>
               <select
                 id="filtroRol"
                 className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                 value={filtroRol}
                 onChange={(e) => setFiltroRol(e.target.value as any)}
               >
-                <option value="todos">Todos</option>
-                <option value="administrador">Administrador</option>
-                <option value="recepcion">Recepción</option>
-                <option value="triage">Triage</option>
-                <option value="medico">Médico</option>
+                <option value="todos">{t('usuarios.role_all')}</option>
+                <option value="administrador">{t('usuarios.role_admin')}</option>
+                <option value="recepcion">{t('usuarios.role_reception')}</option>
+                <option value="triage">{t('usuarios.role_triage')}</option>
+                <option value="medico">{t('usuarios.role_doctor')}</option>
               </select>
             </div>
 
             <div>
-              <Label htmlFor="filtroCiudad">Ciudad</Label>
+              <Label htmlFor="filtroCiudad">{t('usuarios.city_label')}</Label>
               <select
                 id="filtroCiudad"
                 className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                 value={filtroCiudad}
                 onChange={(e) => setFiltroCiudad(e.target.value as any)}
               >
-                <option value="todas">Todas</option>
+                <option value="todas">{t('usuarios.city_all')}</option>
                 {(ciudadesCatalogo || [])
                   .filter((c) => c.activa)
                   .map((c) => (
@@ -353,23 +355,23 @@ export function Usuarios() {
             </div>
 
             <div>
-              <Label htmlFor="filtroEstado">Estado</Label>
+              <Label htmlFor="filtroEstado">{t('usuarios.status_label')}</Label>
               <select
                 id="filtroEstado"
                 className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
                 value={filtroEstado}
                 onChange={(e) => setFiltroEstado(e.target.value as any)}
               >
-                <option value="todos">Todos</option>
-                <option value="activos">Activos</option>
-                <option value="inactivos">Inactivos (todos)</option>
-                <option value="inactivos_manual">Inactivo manual</option>
-                <option value="fuera_vigencia">Fuera de vigencia</option>
+                <option value="todos">{t('usuarios.status_all')}</option>
+                <option value="activos">{t('usuarios.status_active')}</option>
+                <option value="inactivos">{t('usuarios.status_inactive')}</option>
+                <option value="inactivos_manual">{t('usuarios.status_inactive_manual')}</option>
+                <option value="fuera_vigencia">{t('usuarios.status_out_of_date')}</option>
               </select>
             </div>
 
             <div className="lg:col-span-2">
-              <Label htmlFor="ordenUsuarios">Orden</Label>
+              <Label htmlFor="ordenUsuarios">{t('usuarios.order_label')}</Label>
               <div className="mt-2 flex gap-2">
                 <select
                   id="ordenUsuarios"
@@ -377,10 +379,10 @@ export function Usuarios() {
                   value={orden}
                   onChange={(e) => setOrden(e.target.value as any)}
                 >
-                  <option value="nombre_asc">Nombre (A-Z)</option>
-                  <option value="nombre_desc">Nombre (Z-A)</option>
-                  <option value="rol">Rol</option>
-                  <option value="ciudad">Ciudad</option>
+                  <option value="nombre_asc">{t('usuarios.order_name_asc')}</option>
+                  <option value="nombre_desc">{t('usuarios.order_name_desc')}</option>
+                  <option value="rol">{t('usuarios.order_role')}</option>
+                  <option value="ciudad">{t('usuarios.order_city')}</option>
                 </select>
                 <Button
                   type="button"
@@ -395,7 +397,7 @@ export function Usuarios() {
                   className="gap-2"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Limpiar
+                  {t('usuarios.clear')}
                 </Button>
               </div>
             </div>
@@ -408,13 +410,13 @@ export function Usuarios() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ArrowUpDown className="h-4 w-4" />
-                Usuarios
+                {t('usuarios.users_title')}
               </CardTitle>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">Mostrando: {filteredUsuarios.length}</Badge>
-                <Badge>Activos: {usuarios.filter(esActivoEfectivo).length}</Badge>
+                <Badge variant="secondary">{t('usuarios.showing')} {filteredUsuarios.length}</Badge>
+                <Badge>{t('usuarios.active')} {usuarios.filter(esActivoEfectivo).length}</Badge>
                 <Badge variant="outline" className="bg-background">
-                  Inactivos: {usuarios.length - usuarios.filter(esActivoEfectivo).length}
+                  {t('usuarios.inactive')} {usuarios.length - usuarios.filter(esActivoEfectivo).length}
                 </Badge>
               </div>
             </div>
@@ -424,19 +426,19 @@ export function Usuarios() {
               <table className="w-full">
                 <thead className="sticky top-0 z-10 bg-muted/30 border-b border-border">
                   <tr>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Usuario</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Email</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Rol</th>
-                    {showColCiudad && <th className="text-left p-4 text-sm font-medium text-muted-foreground">Ciudad</th>}
-                    {showColCiudades && <th className="text-left p-4 text-sm font-medium text-muted-foreground">Ciudades</th>}
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_user')}</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_email')}</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_role')}</th>
+                    {showColCiudad && <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_city')}</th>}
+                    {showColCiudades && <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_cities')}</th>}
                     {showColEspecialidades && (
-                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Especialidad</th>
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_specialty')}</th>
                     )}
                     {showColVigencia && (
-                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">Vigencia</th>
+                      <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_validity')}</th>
                     )}
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Estado</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Acciones</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_status')}</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -529,13 +531,13 @@ export function Usuarios() {
                             className="min-w-28 justify-center gap-2"
                           >
                             <Power className="h-4 w-4" />
-                            {esActivoEfectivo(usuario) ? 'Activo' : 'Inactivo'}
+                            {esActivoEfectivo(usuario) ? t('usuarios.active_btn') : t('usuarios.inactive_btn')}
                           </Button>
                           {usuario.activo && !esActivoEfectivo(usuario) && (
-                            <span className="text-xs text-muted-foreground">Fuera de vigencia</span>
+                            <span className="text-xs text-muted-foreground">{t('usuarios.out_of_date_msg')}</span>
                           )}
                           {!usuario.activo && (usuario.activoDesde || usuario.activoHasta) && (
-                            <span className="text-xs text-muted-foreground/70">Inactivo manual</span>
+                            <span className="text-xs text-muted-foreground/70">{t('usuarios.inactive_manual_msg')}</span>
                           )}
                         </div>
                       </td>
@@ -567,8 +569,8 @@ export function Usuarios() {
               {filteredUsuarios.length === 0 && (
                 <div className="p-12 text-center">
                   <Users className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
-                  <p className="text-foreground font-medium">No se encontraron usuarios</p>
-                  <p className="text-muted-foreground mt-1">Ajusta los filtros o cambia el texto de búsqueda.</p>
+                  <p className="text-foreground font-medium">{t('usuarios.not_found')}</p>
+                  <p className="text-muted-foreground mt-1">{t('usuarios.adjust_filters')}</p>
                 </div>
               )}
             </div>
@@ -582,7 +584,7 @@ export function Usuarios() {
           <Card className="w-full max-w-2xl my-8">
             <CardHeader className="border-b">
               <div className="flex items-center justify-between">
-                <CardTitle>{editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}</CardTitle>
+                <CardTitle>{editingUser ? t('usuarios.edit_user') : t('usuarios.create_new_user')}</CardTitle>
                 <button
                   onClick={() => {
                     setShowModal(false);
@@ -597,31 +599,31 @@ export function Usuarios() {
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="nombre">Nombre Completo *</Label>
+                  <Label htmlFor="nombre">{t('usuarios.full_name')}</Label>
                   <Input
                     id="nombre"
                     value={formData.nombre}
                     onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    placeholder="Ej: Juan Pérez García"
+                    placeholder={t('usuarios.full_name_placeholder')}
                     required
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="email">Correo Electrónico *</Label>
+                  <Label htmlFor="email">{t('usuarios.email')}</Label>
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="usuario@ejemplo.com"
+                    placeholder={t('usuarios.email_placeholder')}
                     required
                   />
                 </div>
 
                 <div>
                   <Label htmlFor="password">
-                    Contraseña {editingUser ? '(dejar en blanco para no cambiar)' : '*'}
+                    {t('usuarios.password')} {editingUser ? t('usuarios.password_edit') : t('usuarios.password_new')}
                   </Label>
                   <div className="relative">
                     <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -631,7 +633,7 @@ export function Usuarios() {
                       className="pl-10"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      placeholder="••••••••"
+                      placeholder={t('usuarios.password_placeholder')}
                       required={!editingUser}
                     />
                   </div>
@@ -639,7 +641,7 @@ export function Usuarios() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="rol">Rol *</Label>
+                    <Label htmlFor="rol">{t('usuarios.role_label')} *</Label>
                     <select
                       id="rol"
                       className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
@@ -669,15 +671,15 @@ export function Usuarios() {
                       }}
                       required
                     >
-                      <option value="administrador">Administrador</option>
-                      <option value="recepcion">Recepción</option>
-                      <option value="triage">Triage</option>
-                      <option value="medico">Médico</option>
+                      <option value="administrador">{t('usuarios.role_admin')}</option>
+                      <option value="recepcion">{t('usuarios.role_reception')}</option>
+                      <option value="triage">{t('usuarios.role_triage')}</option>
+                      <option value="medico">{t('usuarios.role_doctor')}</option>
                     </select>
                   </div>
 
                   <div>
-                    <Label>Ciudad</Label>
+                    <Label>{t('usuarios.city_label')}</Label>
                     {formData.rol === 'recepcion' && (
                       <select
                         id="ciudad"
@@ -724,18 +726,18 @@ export function Usuarios() {
                             })}
                         </div>
                         {Array.isArray((formData as any).ciudades) && (formData as any).ciudades.length === 0 && (
-                          <div className="mt-2 text-sm text-destructive">Selecciona al menos una ciudad.</div>
+                          <div className="mt-2 text-sm text-destructive">{t('usuarios.select_at_least_one_city')}</div>
                         )}
                       </div>
                     )}
 
-                    {formData.rol === 'administrador' && <div className="mt-2 text-sm text-muted-foreground">No aplica</div>}
+                    {formData.rol === 'administrador' && <div className="mt-2 text-sm text-muted-foreground">{t('usuarios.city_not_apply')}</div>}
                   </div>
                 </div>
 
                 {formData.rol === 'medico' && (
                   <div>
-                    <Label htmlFor="especialidad">Especialidad *</Label>
+                    <Label htmlFor="especialidad">{t('usuarios.col_specialty')} *</Label>
                     <div className="rounded-lg border border-border bg-muted/20 p-3">
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {(especialidadesCatalogo || [])
@@ -765,7 +767,7 @@ export function Usuarios() {
                           })}
                       </div>
                       {Array.isArray(formData.especialidades) && formData.especialidades.length === 0 && (
-                        <div className="mt-2 text-sm text-destructive">Selecciona al menos una especialidad para el médico.</div>
+                        <div className="mt-2 text-sm text-destructive">{t('usuarios.select_at_least_one_specialty')}</div>
                       )}
                     </div>
                   </div>
@@ -774,7 +776,7 @@ export function Usuarios() {
                 {formData.rol === 'triage' && (
                   <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-medium text-foreground">Usuario activo</div>
+                      <div className="text-sm font-medium text-foreground">{t('usuarios.active_user')}</div>
                       <Button
                         type="button"
                         variant={formData.activo ?? true ? 'default' : 'outline'}
@@ -783,7 +785,7 @@ export function Usuarios() {
                         className="min-w-28 justify-center gap-2"
                       >
                         <Power className="h-4 w-4" />
-                        {formData.activo ?? true ? 'Activo' : 'Inactivo'}
+                        {formData.activo ?? true ? t('usuarios.active_btn') : t('usuarios.inactive_btn')}
                       </Button>
                     </div>
 
@@ -798,13 +800,13 @@ export function Usuarios() {
                           }
                         }}
                       />
-                      <span>Activación temporal (vigencia)</span>
+                      <span>{t('usuarios.validity_temp')}</span>
                     </label>
 
                     {vigenciaHabilitada && (
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div className="space-y-2">
-                          <Label htmlFor="activoDesde">Activo desde *</Label>
+                          <Label htmlFor="activoDesde">{t('usuarios.active_from')}</Label>
                           <Input
                             id="activoDesde"
                             type="date"
@@ -814,7 +816,7 @@ export function Usuarios() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="activoHasta">Activo hasta *</Label>
+                          <Label htmlFor="activoHasta">{t('usuarios.active_until')}</Label>
                           <Input
                             id="activoHasta"
                             type="date"
@@ -826,13 +828,13 @@ export function Usuarios() {
                       </div>
                     )}
                     <div className="text-xs text-muted-foreground/70">
-                      Si llega la fecha “Activo hasta”, el usuario se desactiva automáticamente, pero puedes reactivarlo manualmente cuando quieras.
+                      {t('usuarios.auto_deactivate')}
                     </div>
                   </div>
                 )}
 
                 <div className="bg-muted/20 border border-border rounded-lg p-4">
-                  <h4 className="font-medium text-foreground mb-2">Permisos del Rol</h4>
+                  <h4 className="font-medium text-foreground mb-2">{t('usuarios.role_permissions')}</h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
                     {formData.rol === 'administrador' && (
                       <>
@@ -880,10 +882,10 @@ export function Usuarios() {
                     }}
                     className="flex-1"
                   >
-                    Cancelar
+                    {t('usuarios.cancel')}
                   </Button>
                   <Button type="submit" className="flex-1">
-                    {editingUser ? 'Actualizar Usuario' : 'Crear Usuario'}
+                    {editingUser ? t('usuarios.update_user') : t('usuarios.create')}
                   </Button>
                 </div>
               </form>

@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   Calendar,
   Activity,
@@ -30,6 +31,7 @@ import { Seguimiento } from '../types';
 import { now, todayYmd } from '../utils/clock';
 
 export function Seguimientos() {
+  const { t } = useLanguage();
   const { seguimientos, pacientes, especialidadesCatalogo, addSeguimiento, updateSeguimiento, addCita, eventos, citas } = useData();
   const { user } = useAuth();
   const especialidadSugerida =
@@ -186,11 +188,11 @@ export function Seguimientos() {
   const estadoLabel = (estado: string) => {
     switch (estado) {
       case 'pendiente':
-        return 'Pendiente de Agendar';
+        return t('seg.status.pending');
       case 'agendada':
-        return 'Cita Agendada';
+        return t('seg.status.scheduled');
       case 'completada':
-        return 'Completado';
+        return t('seg.status.completed');
       default:
         return estado;
     }
@@ -220,12 +222,12 @@ export function Seguimientos() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-gray-900">Seguimientos Médicos</h1>
-            <p className="text-gray-600 mt-1">Gestión y control de seguimientos de pacientes</p>
+            <h1 className="text-3xl font-semibold text-gray-900">{t('seg.title')}</h1>
+            <p className="text-gray-600 mt-1">{t('seg.subtitle')}</p>
           </div>
           <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => handleOpenNew()}>
             <Plus className="w-4 h-4 mr-2" />
-            Nuevo Seguimiento
+            {t('seg.new')}
           </Button>
         </div>
 
@@ -235,7 +237,7 @@ export function Seguimientos() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Pendientes</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('seg.pending')}</p>
                   <p className="text-3xl font-bold text-gray-900">{seguimientosPendientes.length}</p>
                 </div>
                 <div className="w-14 h-14 bg-yellow-100 rounded-xl flex items-center justify-center">
@@ -249,7 +251,7 @@ export function Seguimientos() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Agendados</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('seg.scheduled')}</p>
                   <p className="text-3xl font-bold text-gray-900">{seguimientosAgendados.length}</p>
                 </div>
                 <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
@@ -263,7 +265,7 @@ export function Seguimientos() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Completados</p>
+                  <p className="text-sm text-gray-600 mb-1">{t('seg.completed')}</p>
                   <p className="text-3xl font-bold text-gray-900">{seguimientosCompletados.length}</p>
                 </div>
                 <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
@@ -282,7 +284,7 @@ export function Seguimientos() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <Input
-                    placeholder="Buscar por nombre, expediente o diagnóstico..."
+                    placeholder={t('seg.search')}
                     className="pl-10"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -295,21 +297,21 @@ export function Seguimientos() {
                   onClick={() => setEstadoFilter('todos')}
                   className="whitespace-nowrap"
                 >
-                  Todos ({seguimientos.length})
+                  {t('seg.all')} ({seguimientos.length})
                 </Button>
                 <Button
                   variant={estadoFilter === 'pendiente' ? 'default' : 'outline'}
                   onClick={() => setEstadoFilter('pendiente')}
                   className="whitespace-nowrap"
                 >
-                  Pendientes ({seguimientosPendientes.length})
+                  {t('seg.pending')} ({seguimientosPendientes.length})
                 </Button>
                 <Button
                   variant={estadoFilter === 'agendada' ? 'default' : 'outline'}
                   onClick={() => setEstadoFilter('agendada')}
                   className="whitespace-nowrap"
                 >
-                  Agendados ({seguimientosAgendados.length})
+                  {t('seg.scheduled')} ({seguimientosAgendados.length})
                 </Button>
               </div>
             </div>
@@ -363,7 +365,7 @@ export function Seguimientos() {
                     <div className="flex items-start gap-2">
                       <FileText className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-blue-900 mb-1">Diagnóstico</p>
+                        <p className="text-xs font-medium text-blue-900 mb-1">{t('seg.diagnosis')}</p>
                         <p className="text-sm text-blue-800 font-medium">{seguimiento.diagnostico}</p>
                       </div>
                     </div>
@@ -373,7 +375,7 @@ export function Seguimientos() {
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                     <Activity className="w-5 h-5 text-red-500" />
                     <div>
-                      <p className="text-xs text-gray-600">Glucosa en sangre</p>
+                      <p className="text-xs text-gray-600">{t('seg.glucose')}</p>
                       <p className="text-sm font-semibold text-gray-900">
                         {seguimiento.datosVitales?.azucarEnSangre || '---'} mg/dL
                       </p>
@@ -385,7 +387,7 @@ export function Seguimientos() {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <ClipboardList className="w-4 h-4 text-purple-600" />
-                        <p className="text-sm font-medium text-gray-700">Exámenes requeridos</p>
+                        <p className="text-sm font-medium text-gray-700">{t('seg.required_exams')}</p>
                       </div>
                       <div className="space-y-1.5 ml-6">
                         {(seguimiento.examenesRequeridos || []).slice(0, 2).map((examen, idx) => (
@@ -409,7 +411,7 @@ export function Seguimientos() {
                       <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
                         <Calendar className="w-5 h-5 text-green-600" />
                         <div>
-                          <p className="text-xs text-green-700 font-medium">Próxima cita</p>
+                          <p className="text-xs text-green-700 font-medium">{t('seg.next_appt')}</p>
                           <p className="text-sm font-semibold text-green-900">
                             {new Date(seguimiento.fechaCita).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}{' '}
                             - {seguimiento.horaCita}
@@ -425,7 +427,7 @@ export function Seguimientos() {
                       <div className="flex items-start gap-2">
                         <Pill className="w-4 h-4 text-amber-600 mt-0.5" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-amber-900 mb-1">Remisión a Farmacia</p>
+                          <p className="text-xs font-medium text-amber-900 mb-1">{t('seg.pharmacy')}</p>
                           <p className="text-sm text-amber-800">{seguimiento.remisionFarmacia}</p>
                         </div>
                       </div>
@@ -437,7 +439,7 @@ export function Seguimientos() {
                     <div className="flex gap-2">
                       <Button variant="outline" className="flex-1" onClick={() => handleViewDetails(seguimiento)}>
                         <Eye className="w-4 h-4 mr-2" />
-                        Ver Detalles
+                        {t('seg.view_details')}
                       </Button>
                       <Button
                         variant="outline"
@@ -445,7 +447,7 @@ export function Seguimientos() {
                         onClick={() => handleOpenNew(seguimiento)}
                       >
                         <Edit className="w-4 h-4 mr-2" />
-                        Editar
+                        {t('seg.edit')}
                       </Button>
                     </div>
                     <div className="flex gap-2">
@@ -459,11 +461,11 @@ export function Seguimientos() {
                           }
                         }}
                       >
-                        <option value="">Seguimiento rápido...</option>
-                        <option value="15">En 15 días</option>
-                        <option value="30">En 1 mes</option>
-                        <option value="90">En 3 meses</option>
-                        <option value="180">En 6 meses</option>
+                        <option value="">{t('seg.quick_followup')}</option>
+                        <option value="15">{t('seg.in_15_days')}</option>
+                        <option value="30">{t('seg.in_1_month')}</option>
+                        <option value="90">{t('seg.in_3_months')}</option>
+                        <option value="180">{t('seg.in_6_months')}</option>
                       </select>
 
                       <Button 
@@ -476,7 +478,7 @@ export function Seguimientos() {
                         }}
                       >
                         <Calendar className="w-4 h-4" />
-                        Agendar manual
+                        {t('seg.manual_schedule')}
                       </Button>
                     </div>
                   </div>
@@ -490,11 +492,11 @@ export function Seguimientos() {
           <Card className="shadow-sm">
             <CardContent className="p-12 text-center">
               <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No hay seguimientos</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('seg.empty_title')}</h3>
               <p className="text-gray-600 mb-4">
                 {searchTerm || estadoFilter !== 'todos'
-                  ? 'No se encontraron seguimientos con los filtros aplicados'
-                  : 'Los seguimientos de pacientes aparecerán aquí'}
+                  ? t('seg.empty_desc_filtered')
+                  : t('seg.empty_desc')}
               </p>
               {(searchTerm || estadoFilter !== 'todos') && (
                 <Button
@@ -504,7 +506,7 @@ export function Seguimientos() {
                     setEstadoFilter('todos');
                   }}
                 >
-                  Limpiar filtros
+                  {t('seg.clear_filters')}
                 </Button>
               )}
             </CardContent>
