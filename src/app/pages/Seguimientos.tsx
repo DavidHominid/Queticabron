@@ -163,12 +163,14 @@ export function Seguimientos() {
       paciente?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       paciente?.numeroExpediente.toLowerCase().includes(searchTerm.toLowerCase()) ||
       diag.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchEstado = estadoFilter === 'todos' || (seg.estado || 'pendiente') === estadoFilter;
+    const matchEstado = estadoFilter === 'todos' || 
+                        (estadoFilter === 'pendiente' && ((seg.estado || 'pendiente') === 'pendiente' || seg.estado === 'pendiente_de_agendar')) ||
+                        seg.estado === estadoFilter;
     return matchSearch && matchEstado;
   });
 
   // Agrupar seguimientos por estado
-  const seguimientosPendientes = seguimientosFiltrados.filter((s) => (s.estado || 'pendiente') === 'pendiente');
+  const seguimientosPendientes = seguimientosFiltrados.filter((s) => (s.estado || 'pendiente') === 'pendiente' || s.estado === 'pendiente_de_agendar');
   const seguimientosAgendados = seguimientosFiltrados.filter((s) => s.estado === 'agendada');
   const seguimientosCompletados = seguimientosFiltrados.filter((s) => s.estado === 'completada');
 
@@ -176,6 +178,8 @@ export function Seguimientos() {
     switch (estado) {
       case 'pendiente':
         return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+      case 'pendiente_de_agendar':
+        return 'bg-orange-100 text-orange-800 border-orange-300';
       case 'agendada':
         return 'bg-blue-100 text-blue-700 border-blue-300';
       case 'completada':
@@ -189,6 +193,8 @@ export function Seguimientos() {
     switch (estado) {
       case 'pendiente':
         return t('seg.status.pending');
+      case 'pendiente_de_agendar':
+        return 'Pendiente de Agendar';
       case 'agendada':
         return t('seg.status.scheduled');
       case 'completada':
@@ -201,6 +207,7 @@ export function Seguimientos() {
   const estadoIcon = (estado: string) => {
     switch (estado) {
       case 'pendiente':
+      case 'pendiente_de_agendar':
         return <AlertCircle className="w-4 h-4" />;
       case 'agendada':
         return <CalendarClock className="w-4 h-4" />;
@@ -300,7 +307,7 @@ export function Seguimientos() {
                   {t('seg.all')} ({seguimientos.length})
                 </Button>
                 <Button
-                  variant={estadoFilter === 'pendiente' ? 'default' : 'outline'}
+                  variant={estadoFilter === 'pendiente' || estadoFilter === 'pendiente_de_agendar' ? 'default' : 'outline'}
                   onClick={() => setEstadoFilter('pendiente')}
                   className="whitespace-nowrap"
                 >
@@ -328,7 +335,7 @@ export function Seguimientos() {
                 className="shadow-sm hover:shadow-lg transition-all duration-300 border-l-4"
                 style={{
                   borderLeftColor:
-                    (seguimiento.estado || 'pendiente') === 'pendiente'
+                    (seguimiento.estado || 'pendiente') === 'pendiente' || seguimiento.estado === 'pendiente_de_agendar'
                       ? '#eab308'
                       : seguimiento.estado === 'agendada'
                       ? '#3b82f6'

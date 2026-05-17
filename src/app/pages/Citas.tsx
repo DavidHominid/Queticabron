@@ -174,7 +174,7 @@ export function Citas() {
       nombreUsuario: user?.nombre || '',
       rol: user?.rol || 'recepcion',
       accion: 'Agendar Cita',
-      detalles: `Agendó cita para ${payload.paciente.nombre} (${payload.paciente.numeroExpediente}) · ${labelEspecialidad(agendarEspecialidad, especialidadesCatalogo)}${nueva.tipoCitaNombre ? ` · ${nueva.tipoCitaNombre}` : ''} · ${agendarHorario.dia} ${payload.hora} · Evento: ${agendarEvento.nombre}`,
+      detalles: `Agendó cita para ${payload.paciente.nombre} (${payload.paciente.numeroExpediente}) · ${labelEspecialidad(agendarEspecialidad, especialidadesCatalogo)}${nueva.tipoCitaNombre ? ` · ${nueva.tipoCitaNombre}` : ''} · ${agendarHorario.dia} ${payload.hora} · Evento: ${agendarEvento.nombre} (cita ID: ${nueva.id})`,
       fechaHora: nowIso(),
       ciudad: user?.ciudad || agendarEvento.ciudad || 'sonoyta',
     });

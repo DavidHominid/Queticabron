@@ -25,7 +25,7 @@ const mapSeguimiento = (row) => ({
     ? new Date(row.fecha).toISOString()
     : new Date().toISOString(),
   medicoEncargado: null,
-  estado: row.proxima_cita ? 'agendada' : 'pendiente',
+  estado: row.estado_seguimiento || (row.proxima_cita ? 'agendada' : 'pendiente'),
 });
 
 router.get('/', async (req, res) => {
@@ -86,13 +86,15 @@ router.put('/:id', async (req, res) => {
       `UPDATE "${SCHEMA}".nota_medica
        SET diagnostico = $1,
            indicaciones = $2,
-           proxima_cita = $3
-       WHERE id_nota = $4
+           proxima_cita = $3,
+           estado_seguimiento = $4
+       WHERE id_nota = $5
        RETURNING *`,
       [
         s.diagnostico || '',
         s.observaciones || '',
         s.fechaCita || null,
+        s.estado || (s.fechaCita ? 'agendada' : 'pendiente'),
         parseInt(id),
       ]
     );

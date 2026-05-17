@@ -161,6 +161,10 @@ export function DashboardRecepcion() {
               <Heart className="w-4 h-4 mr-2" />
               {t('dash.recep.view_surgeries')}
             </Button>
+            <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/seguimientos')}>
+              <Users className="w-4 h-4 mr-2" />
+              {t('nav.seguimientos')}
+            </Button>
           </CardContent>
         </Card>
       </div>

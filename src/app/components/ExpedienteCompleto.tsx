@@ -39,17 +39,20 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
   const [citaSeleccionadaId, setCitaSeleccionadaId] = useState<string | null>(null);
   const [cirugiaSeleccionadaId, setCirugiaSeleccionadaId] = useState<string | null>(null);
   const [vista, setVista] = useState<'paciente' | 'cita'>('paciente');
+  const [modalCitaId, setModalCitaId] = useState<string | null>(null);
 
-  // Filter data for the specific patient
-  const citasPaciente = citas.filter((c) => c.pacienteId === paciente.id);
-  const triagesPaciente = registrosTriage.filter((t) => t.pacienteId === paciente.id);
-  const consultasPaciente = consultasMedicas.filter((c) => c.pacienteId === paciente.id);
-  const infoMedica = informacionMedica.find((i) => i.pacienteId === paciente.id);
-  const cirugiasPaciente = cirugias.filter((c) => c.pacienteId === paciente.id);
+  // Filter data for the specific patient — use loose string comparison to avoid number/string mismatch
+  const citasPaciente = citas.filter((c) => String(c.pacienteId) === String(paciente.id));
+  const triagesPaciente = registrosTriage.filter((t) => String(t.pacienteId) === String(paciente.id));
+  const consultasPaciente = consultasMedicas.filter((c) => String(c.pacienteId) === String(paciente.id));
+  const infoMedica = informacionMedica.find((i) => String(i.pacienteId) === String(paciente.id));
+  const cirugiasPaciente = cirugias.filter((c) => String(c.pacienteId) === String(paciente.id));
 
   // Helper function to get full consultation data for a specific appointment
   const obtenerDatosCompletoCita = (citaId: string) => {
-    const exp = (expedientesCita || []).find((e) => String(e.citaId) === String(citaId) && String(e.pacienteId) === String(paciente.id));
+    const exp = (expedientesCita || []).find(
+      (e) => String(e.citaId) === String(citaId) && String(e.pacienteId) === String(paciente.id)
+    );
     if (exp) {
       const triageData = exp.triageData || null;
       const consultaData = exp.consultaData || null;
@@ -57,8 +60,8 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
       return { triageData, consultaData };
     }
 
-    const triage = triagesPaciente.find(t => t.citaId === citaId);
-    const citaRef = citasPaciente.find((c) => c.id === citaId) || null;
+    const triage = triagesPaciente.find(t => String(t.citaId) === String(citaId));
+    const citaRef = citasPaciente.find((c) => String(c.id) === String(citaId)) || null;
     const fechaCita = citaRef?.fecha ? String(citaRef.fecha).substring(0, 10) : '';
     const byCitaId = consultasPaciente.find((c) => String(c.citaId || '') === String(citaId));
     const byFecha =
@@ -98,6 +101,49 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
   const cirugiaActual = cirugiaSeleccionadaId ? cirugias.find(c => c.id === cirugiaSeleccionadaId) : null;
   const estudioActual = cirugiaActual ? estudios.find(e => e.cirugiaId === cirugiaActual.id) : undefined;
   const seguimientosActuales = cirugiaActual ? seguimientos.filter(s => s.cirugiaId === cirugiaActual.id) : [];
+
+  const ACCIONES_CITA = ['Completar Consulta', 'Registrar Triage', 'Agendar Cita', 'Consulta Médica', 'Triage Completado'];
+
+  // Shared helper: extract a matching cita from a log entry
+  const resolveCitaFromLog = (log: any) => {
+    // 1. Extract explicit cita ID from text: supports both '(cita ID: cit123)' and 'cita ID: 45'
+    const match = log.detalles.match(/cita ID:\s*([a-zA-Z0-9_-]+)/i);
+    if (match && match[1]) {
+      const found = citasPaciente.find(
+        c => String(c.id) === match[1] || String((c as any).id_cita) === match[1]
+      );
+      if (found) return found;
+    }
+
+    // 2. Backend triage logs use 'Paciente ID: X' — already contain cita id in match group 0 via pattern
+    const matchB = log.detalles.match(/para cita ID:\s*(\d+)/i);
+    if (matchB && matchB[1]) {
+      const found = citasPaciente.find(
+        c => String(c.id) === matchB[1] || String((c as any).id_cita) === matchB[1]
+      );
+      if (found) return found;
+    }
+
+    // 3. Fallback: match by action type + date of the log vs cita date
+    if (ACCIONES_CITA.includes(log.accion)) {
+      const logDate = new Date(log.fechaHora).toISOString().split('T')[0];
+      return citasPaciente.find(c => {
+        const cDate = String(c.fecha || (c as any).fecha_cita || '').split('T')[0];
+        return cDate === logDate;
+      }) || null;
+    }
+
+    return null;
+  };
+
+  const handleLogClick = (log: any) => {
+    const cita = resolveCitaFromLog(log);
+    if (cita) {
+      setModalCitaId(String(cita.id));
+    }
+  };
+
+  const isLogClickable = (log: any) => !!resolveCitaFromLog(log);
 
   return (
     <div className="w-full">
@@ -149,8 +195,17 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
                           )
                           .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime())
                           .map((log) => (
-                            <div key={log.id} className="p-4 hover:bg-gray-50 transition-colors">
-                              <div className="flex justify-between items-start gap-2">
+                            <div 
+                              key={log.id} 
+                              className={`p-4 transition-colors ${isLogClickable(log) ? 'cursor-pointer hover:bg-blue-50 relative group' : 'hover:bg-gray-50'}`}
+                              onClick={() => handleLogClick(log)}
+                            >
+                              {isLogClickable(log) && (
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200">Ver Detalles</Badge>
+                                </div>
+                              )}
+                              <div className="flex justify-between items-start gap-2 pr-24">
                                 <div>
                                   <p className="text-sm font-medium text-gray-900">{log.accion}</p>
                                   <p className="text-xs text-gray-600 mt-0.5">{log.detalles}</p>
@@ -250,6 +305,44 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
           onClose={() => setCirugiaSeleccionadaId(null)}
         />
       )}
+
+      {/* Modal de detalle de consulta desde Historial de Cambios */}
+      {modalCitaId && (() => {
+        const citaModal = citas.find(c => String(c.id) === modalCitaId);
+        const datosModal = obtenerDatosCompletoCita(modalCitaId);
+        if (!citaModal) return null;
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8">
+              <div className="flex items-center justify-between px-6 py-4 border-b">
+                <h2 className="text-lg font-semibold text-gray-900">Detalle de Consulta</h2>
+                <button
+                  onClick={() => setModalCitaId(null)}
+                  className="text-gray-500 hover:text-gray-800 text-xl font-bold leading-none"
+                >
+                  &times;
+                </button>
+              </div>
+              <div className="p-6">
+                {datosModal ? (
+                  <DetalleCitaCompleta
+                    cita={citaModal}
+                    paciente={paciente}
+                    triageData={datosModal.triageData}
+                    consultaData={datosModal.consultaData}
+                    especialidadesCatalogo={especialidadesCatalogo as any}
+                    onBack={() => setModalCitaId(null)}
+                  />
+                ) : (
+                  <p className="text-center text-gray-500 py-8">
+                    Esta cita aún no tiene triage ni consulta médica registrada.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -267,7 +267,7 @@ export interface Seguimiento {
   examenesRequeridos?: string[];
   remisionFarmacia?: string;
   proximoSeguimiento?: string;
-  estado: 'pendiente' | 'agendada' | 'completada';
+  estado: 'pendiente' | 'agendada' | 'completada' | 'pendiente_de_agendar';
 }
 
 // Cirugía

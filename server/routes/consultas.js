@@ -10,6 +10,9 @@ const ensureNotaMedicaColumns = async () => {
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS especialidad TEXT`);
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS fecha_hora TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS medico_usuario_id TEXT`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS estado_seguimiento VARCHAR(50)`);
+  // Backfill estado_seguimiento for existing rows
+  await pool.query(`UPDATE "${SCHEMA}".nota_medica SET estado_seguimiento = CASE WHEN proxima_cita IS NOT NULL THEN 'agendada' ELSE 'pendiente' END WHERE estado_seguimiento IS NULL`);
 };
 
 const tryBackfillNotaMedicaLinks = async () => {
@@ -99,6 +102,7 @@ router.post('/', async (req, res) => {
       medicamentos: JSON.stringify(c.medicamentosRecetados || []),
       indicaciones: c.recomendaciones || '',
       proxima_cita: c.proximaConsulta || null,
+      estado_seguimiento: c.proximaConsulta ? 'pendiente_de_agendar' : 'pendiente',
       observaciones: c.observaciones || ''
     };
 

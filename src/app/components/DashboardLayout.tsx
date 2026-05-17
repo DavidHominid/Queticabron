@@ -86,6 +86,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
           { icon: Calendar, label: t('nav.citas'), path: '/citas' },
           { icon: Activity, label: t('nav.cirugias'), path: '/cirugias' },
+          { icon: UserPlus, label: t('nav.seguimientos'), path: '/seguimientos' },
         ];
       case 'triage':
         return [

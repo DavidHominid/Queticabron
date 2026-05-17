@@ -187,7 +187,7 @@ export function Medico() {
       nombreUsuario: user?.nombre || '',
       rol: user?.rol || 'medico',
       accion: 'Completar Consulta',
-      detalles: `Completó consulta para ${selectedCita.paciente?.nombre || 'paciente'} - Diagnóstico: ${consultaForm.diagnostico}`,
+      detalles: `Completó consulta para ${selectedCita.paciente?.nombre || 'paciente'} (cita ID: ${selectedCita.id}) - Diagnóstico: ${consultaForm.diagnostico}`,
       fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     });
@@ -638,263 +638,263 @@ export function Medico() {
               </p>
             </div>
 
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted/10">
-                  <Clock className="h-6 w-6 text-[color:var(--brand-secondary-strong)]" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('medico.stats.waiting')}</p>
-                  <p className="text-2xl font-semibold text-foreground">{citasEnConsulta.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Estadísticas */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted/10">
+                      <Clock className="h-6 w-6 text-[color:var(--brand-secondary-strong)]" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t('medico.stats.waiting')}</p>
+                      <p className="text-2xl font-semibold text-foreground">{citasEnConsulta.length}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted/10">
-                  <CheckCircle2 className="h-6 w-6 text-[color:var(--brand-tertiary)]" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('medico.stats.completed')}</p>
-                  <p className="text-2xl font-semibold text-foreground">
-                    {
-                      citasCompletadas.filter(
-                        (c) => c.fecha === todayYmd()
-                      ).length
-                    }
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <Card className="shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted/10">
+                      <CheckCircle2 className="h-6 w-6 text-[color:var(--brand-tertiary)]" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t('medico.stats.completed')}</p>
+                      <p className="text-2xl font-semibold text-foreground">
+                        {
+                          citasCompletadas.filter(
+                            (c) => c.fecha === todayYmd()
+                          ).length
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted/10">
-                  <Stethoscope className="h-6 w-6 text-[color:var(--brand-primary-strong)]" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('medico.stats.total')}</p>
-                  <p className="text-2xl font-semibold text-foreground">
-                    {consultasMedicas.filter((c) => c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre).length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              <Card className="shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted/10">
+                      <Stethoscope className="h-6 w-6 text-[color:var(--brand-primary-strong)]" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t('medico.stats.total')}</p>
+                      <p className="text-2xl font-semibold text-foreground">
+                        {consultasMedicas.filter((c) => c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre).length}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted/10">
-                  <Heart className="h-6 w-6 text-[color:var(--brand-secondary-strong)]" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('medico.stats.surgeries')}</p>
-                  <p className="text-2xl font-semibold text-foreground">
-                    {
-                      consultasMedicas.filter(
-                        (c) => (c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre) && c.requiereCirugia
-                      ).length
-                    }
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Pacientes en espera */}
-        <Card className="shadow-sm">
-          <CardHeader className="border-b bg-muted/20">
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              {t('medico.patients.waiting')} ({citasEnConsulta.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-3">
-              {citasEnConsulta.map((cita) => {
-                const paciente = pacientes.find((p) => p.id === cita.pacienteId);
-                const triage = registrosTriage.find((t) => t.citaId === cita.id);
-
-                let stateClasses = "border-border";
-                let clockColor = "text-muted-foreground";
-                
-                if (cita.hora) {
-                  const [citaH, citaM] = cita.hora.split(':').map(Number);
-                  const base = now();
-                  const citaTime = new Date(base.getFullYear(), base.getMonth(), base.getDate(), citaH, citaM);
-                  const diffMinutos = (citaTime.getTime() - base.getTime()) / 60000;
-
-                  if (diffMinutos < -10) {
-                    stateClasses = "border-destructive/40 bg-destructive/10";
-                    clockColor = "text-destructive font-semibold";
-                  } else if (diffMinutos <= 15 && diffMinutos >= -10) {
-                    stateClasses = "border-amber-400 bg-amber-50/30";
-                    clockColor = "text-amber-600 font-semibold";
-                  }
-                }
-
-                return (
-                  <Card
-                    key={cita.id}
-                    className={`border transition-shadow hover:shadow-md ${stateClasses}`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-muted/10">
-                          <User className="h-7 w-7 text-[color:var(--brand-secondary-strong)]" />
-                        </div>
-
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h3 className="text-lg font-semibold text-foreground">
-                                {paciente?.nombre}
-                              </h3>
-                              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                                <Badge variant="outline">{paciente?.numeroExpediente}</Badge>
-                                <span>{paciente?.edad} {t('medico.form.years')}</span>
-                                <span>•</span>
-                                <span>{paciente?.sexo}</span>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2 mt-2">
-                                <Badge variant="secondary">
-                                  {labelEspecialidad(cita.especialidad, especialidadesCatalogo)}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {String(cita.tipoCitaNombre || '').trim() || t('medico.form.no_type')}
-                                </Badge>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className={`flex items-center gap-1 text-sm ${clockColor}`}>
-                                <Clock className="w-4 h-4" />
-                                <span>{cita.hora}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Signos vitales del triage */}
-                          {triage && (
-                            <div className="grid grid-cols-4 gap-3 mt-3">
-                              <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-xs text-muted-foreground">{t('medico.form.vitals.temp')}</p>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {triage.signosVitales.temperatura}°C
-                                </p>
-                              </div>
-                              <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-xs text-muted-foreground">{t('medico.form.vitals.bp')}</p>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {triage.signosVitales.presionArterial}
-                                </p>
-                              </div>
-                              <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-xs text-muted-foreground">{t('medico.form.vitals.hr')}</p>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {triage.signosVitales.ritmoCardiaco} bpm
-                                </p>
-                              </div>
-                              <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-xs text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
-                                <p className="text-sm font-semibold text-foreground">
-                                  {triage.signosVitales.azucarEnSangre || 'N/A'}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex gap-2 mt-4">
-                            <Button
-                              onClick={() => iniciarConsulta(cita)}
-                            >
-                              <Stethoscope className="w-4 h-4 mr-2" />
-                              {t('medico.action.start_consultation')}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-
-              {citasEnConsulta.length === 0 && (
-                <div className="text-center py-12">
-                  <Clock className="mx-auto mb-4 h-16 w-16 text-muted-foreground/40" />
-                  <p className="text-muted-foreground">No hay pacientes en espera</p>
-                </div>
-              )}
+              <Card className="shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-muted/10">
+                      <Heart className="h-6 w-6 text-[color:var(--brand-secondary-strong)]" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">{t('medico.stats.surgeries')}</p>
+                      <p className="text-2xl font-semibold text-foreground">
+                        {
+                          consultasMedicas.filter(
+                            (c) => (c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre) && c.requiereCirugia
+                          ).length
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Consultas completadas hoy */}
-        <Card className="shadow-sm">
-          <CardHeader className="border-b bg-muted/20">
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5" />
-              Consultas Completadas Hoy
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="space-y-3">
-              {citasCompletadas
-                .filter((c) => c.fecha === todayYmd())
-                .map((cita) => {
-                  const paciente = pacientes.find((p) => p.id === cita.pacienteId);
-                  const consulta = consultasMedicas.find((c) => c.citaId === cita.id);
+            {/* Pacientes en espera */}
+            <Card className="shadow-sm">
+              <CardHeader className="border-b bg-muted/20">
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  {t('medico.patients.waiting')} ({citasEnConsulta.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  {citasEnConsulta.map((cita) => {
+                    const paciente = pacientes.find((p) => p.id === cita.pacienteId);
+                    const triage = registrosTriage.find((t) => t.citaId === cita.id);
 
-                  return (
-                    <Card key={cita.id} className="border border-border">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-foreground">{paciente?.nombre}</h4>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              <strong>Diagnóstico:</strong> {consulta?.diagnostico}
-                            </p>
-                            {consulta?.medicamentosRecetados &&
-                              consulta.medicamentosRecetados.length > 0 && (
-                                <div className="mt-2">
-                                  <p className="text-sm text-muted-foreground">
-                                    <strong>Medicamentos:</strong>
-                                  </p>
-                                  <div className="flex flex-wrap gap-2 mt-1">
-                                    {consulta.medicamentosRecetados.map((med, idx) => (
-                                      <Badge key={idx} variant="outline" className="text-xs">
-                                        <Pill className="w-3 h-3 mr-1" />
-                                        {med.nombre} - {med.dosis} ({med.frecuencia} x {med.duracion})
-                                      </Badge>
-                                    ))}
+                    let stateClasses = "border-border";
+                    let clockColor = "text-muted-foreground";
+
+                    if (cita.hora) {
+                      const [citaH, citaM] = cita.hora.split(':').map(Number);
+                      const base = now();
+                      const citaTime = new Date(base.getFullYear(), base.getMonth(), base.getDate(), citaH, citaM);
+                      const diffMinutos = (citaTime.getTime() - base.getTime()) / 60000;
+
+                      if (diffMinutos < -10) {
+                        stateClasses = "border-destructive/40 bg-destructive/10";
+                        clockColor = "text-destructive font-semibold";
+                      } else if (diffMinutos <= 15 && diffMinutos >= -10) {
+                        stateClasses = "border-amber-400 bg-amber-50/30";
+                        clockColor = "text-amber-600 font-semibold";
+                      }
+                    }
+
+                    return (
+                      <Card
+                        key={cita.id}
+                        className={`border transition-shadow hover:shadow-md ${stateClasses}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-4">
+                            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-muted/10">
+                              <User className="h-7 w-7 text-[color:var(--brand-secondary-strong)]" />
+                            </div>
+
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <h3 className="text-lg font-semibold text-foreground">
+                                    {paciente?.nombre}
+                                  </h3>
+                                  <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+                                    <Badge variant="outline">{paciente?.numeroExpediente}</Badge>
+                                    <span>{paciente?.edad} {t('medico.form.years')}</span>
+                                    <span>•</span>
+                                    <span>{paciente?.sexo}</span>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                                    <Badge variant="secondary">
+                                      {labelEspecialidad(cita.especialidad, especialidadesCatalogo)}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {String(cita.tipoCitaNombre || '').trim() || t('medico.form.no_type')}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className={`flex items-center gap-1 text-sm ${clockColor}`}>
+                                    <Clock className="w-4 h-4" />
+                                    <span>{cita.hora}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Signos vitales del triage */}
+                              {triage && (
+                                <div className="grid grid-cols-4 gap-3 mt-3">
+                                  <div className="rounded-md border border-border bg-muted/10 p-2">
+                                    <p className="text-xs text-muted-foreground">{t('medico.form.vitals.temp')}</p>
+                                    <p className="text-sm font-semibold text-foreground">
+                                      {triage.signosVitales.temperatura}°C
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-border bg-muted/10 p-2">
+                                    <p className="text-xs text-muted-foreground">{t('medico.form.vitals.bp')}</p>
+                                    <p className="text-sm font-semibold text-foreground">
+                                      {triage.signosVitales.presionArterial}
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-border bg-muted/10 p-2">
+                                    <p className="text-xs text-muted-foreground">{t('medico.form.vitals.hr')}</p>
+                                    <p className="text-sm font-semibold text-foreground">
+                                      {triage.signosVitales.ritmoCardiaco} bpm
+                                    </p>
+                                  </div>
+                                  <div className="rounded-md border border-border bg-muted/10 p-2">
+                                    <p className="text-xs text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
+                                    <p className="text-sm font-semibold text-foreground">
+                                      {triage.signosVitales.azucarEnSangre || 'N/A'}
+                                    </p>
                                   </div>
                                 </div>
                               )}
-                          </div>
-                          <Badge variant="secondary">Completada</Badge>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
 
-              {citasCompletadas.filter((c) => c.fecha === todayYmd()).length === 0 && (
-                <div className="py-8 text-center text-muted-foreground">
-                  No hay consultas completadas hoy
+                              <div className="flex gap-2 mt-4">
+                                <Button
+                                  onClick={() => iniciarConsulta(cita)}
+                                >
+                                  <Stethoscope className="w-4 h-4 mr-2" />
+                                  {t('medico.action.start_consultation')}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+
+                  {citasEnConsulta.length === 0 && (
+                    <div className="text-center py-12">
+                      <Clock className="mx-auto mb-4 h-16 w-16 text-muted-foreground/40" />
+                      <p className="text-muted-foreground">No hay pacientes en espera</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+
+            {/* Consultas completadas hoy */}
+            <Card className="shadow-sm">
+              <CardHeader className="border-b bg-muted/20">
+                <CardTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5" />
+                  Consultas Completadas Hoy
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  {citasCompletadas
+                    .filter((c) => c.fecha === todayYmd())
+                    .map((cita) => {
+                      const paciente = pacientes.find((p) => p.id === cita.pacienteId);
+                      const consulta = consultasMedicas.find((c) => c.citaId === cita.id);
+
+                      return (
+                        <Card key={cita.id} className="border border-border">
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-foreground">{paciente?.nombre}</h4>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  <strong>Diagnóstico:</strong> {consulta?.diagnostico}
+                                </p>
+                                {consulta?.medicamentosRecetados &&
+                                  consulta.medicamentosRecetados.length > 0 && (
+                                    <div className="mt-2">
+                                      <p className="text-sm text-muted-foreground">
+                                        <strong>Medicamentos:</strong>
+                                      </p>
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        {consulta.medicamentosRecetados.map((med, idx) => (
+                                          <Badge key={idx} variant="outline" className="text-xs">
+                                            <Pill className="w-3 h-3 mr-1" />
+                                            {med.nombre} - {med.dosis} ({med.frecuencia} x {med.duracion})
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                              </div>
+                              <Badge variant="secondary">Completada</Badge>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+
+                  {citasCompletadas.filter((c) => c.fecha === todayYmd()).length === 0 && (
+                    <div className="py-8 text-center text-muted-foreground">
+                      No hay consultas completadas hoy
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </>
         )}
       </div>

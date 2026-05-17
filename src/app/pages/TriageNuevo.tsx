@@ -192,7 +192,7 @@ export function TriageNuevo() {
       nombreUsuario: user?.nombre || '',
       rol: user?.rol || 'triage',
       accion: 'Registrar Triage',
-      detalles: `Registró signos vitales para ${selectedPaciente.nombre}`,
+      detalles: `Registró signos vitales para ${selectedPaciente.nombre} (cita ID: ${selectedPaciente.cita.id})`,
       fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     });
