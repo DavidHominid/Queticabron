@@ -44,7 +44,7 @@ export function Medico() {
   const [selectedCita, setSelectedCita] = useState<any>(null);
   const consultaFormId = useId();
   const especialidadesUsuario = (user?.especialidades?.length ? user.especialidades : user?.especialidad ? [user.especialidad] : []).filter(Boolean);
-  const isCitaDelMedico = (c: any) => c?.medicoEncargado && (c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre);
+  const isCitaDelMedico = (c: any) => !c?.medicoEncargado || (c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre);
 
   const [consultaForm, setConsultaForm] = useState({
     motivoConsulta: '',
@@ -62,14 +62,16 @@ export function Medico() {
   // Obtener citas en consulta para el médico
   // Nota: el usuario medico NO tiene campo especialidad en la BD,
   // por lo que mostramos todas las citas en_consulta sin filtrar por especialidad.
-  const citasEnConsulta = citas.filter(
-    (c) =>
-      (c.estado === 'en_consulta' || c.estado === 'en_triage') &&
-      (user?.rol === 'administrador' ||
-        (user?.rol === 'medico'
-          ? (especialidadesUsuario.length ? especialidadesUsuario.includes(c.especialidad) : true) && isCitaDelMedico(c)
-          : especialidadesUsuario.includes(c.especialidad)))
-  );
+  const citasEnConsulta = citas
+    .filter(
+      (c) =>
+        (c.estado === 'en_consulta' || c.estado === 'en_triage') &&
+        (user?.rol === 'administrador' ||
+          (user?.rol === 'medico'
+            ? (especialidadesUsuario.length ? especialidadesUsuario.includes(c.especialidad) : true) && isCitaDelMedico(c)
+            : especialidadesUsuario.includes(c.especialidad)))
+    )
+    .sort((a, b) => String(a.hora || '').localeCompare(String(b.hora || '')));
 
   const citasCompletadas = citas.filter(
     (c) =>

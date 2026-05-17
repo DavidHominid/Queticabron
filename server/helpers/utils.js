@@ -93,7 +93,7 @@ export const mapCita = (c) => {
   return {
     id: String(c.id_cita || c.id || ''),
     pacienteId: String(c.id_paciente || ''),
-    eventoId: c.evento_id ? String(c.evento_id) : '',
+    eventoId: c.evento_id ? String(c.evento_id) : 'general',
     fecha: c.fecha_cita ? formatDate(c.fecha_cita) : c.fecha,
     hora: normalizeHora(c.hora) || '08:00',
     especialidad: c.especialidad,

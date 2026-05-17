@@ -147,7 +147,7 @@ router.post('/', async (req, res) => {
        RETURNING *`,
       [
         parseInt(c.pacienteId) || null,
-        c.eventoId || null,
+        (c.eventoId === 'general' ? null : c.eventoId) || null,
         c.fecha || null,
         c.hora || '08:00',
         toDBEstado(c.estado || 'programada'),
@@ -224,7 +224,26 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Cita no encontrada' });
     }
 
-    res.json(mapCita(result.rows[0]));
+    const row = result.rows[0];
+    const tipoRefAfter = await detectCitasTipoCitaRef();
+    const joinTipo =
+      tipoRefAfter === 'tipos_cita'
+        ? `LEFT JOIN "${SCHEMA}".tipos_cita etc ON c.tipo_cita_id = etc.id`
+        : `LEFT JOIN "${SCHEMA}".evento_tipo_cita etc ON c.tipo_cita_id = etc.id`;
+    const precioCol = tipoRefAfter === 'tipos_cita' ? 'etc.costo' : 'etc.precio';
+    const durCol = 'etc.duracion_minutos';
+    const enriched = await pool.query(
+      `SELECT c.*, t.id_triaje,
+              etc.nombre AS tipo_cita_nombre,
+              ${durCol} AS tipo_cita_duracion_minutos,
+              ${precioCol} AS tipo_cita_precio
+       FROM "${SCHEMA}".citas c
+       LEFT JOIN "${SCHEMA}".triaje t ON c.id_cita = t.id_cita
+       ${joinTipo}
+       WHERE c.id_cita = $1`,
+      [row.id_cita],
+    );
+    res.json(mapCita(enriched.rows[0] || row));
   } catch (err) {
     console.error('❌ Error en PUT /api/citas/:id:', err.message);
     res.status(500).json({ error: err.message });

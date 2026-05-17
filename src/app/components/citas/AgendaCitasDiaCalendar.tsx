@@ -133,13 +133,26 @@ export function AgendaCitasDiaCalendar({
         }
       }
     }
+    for (const c of citas || []) {
+      if (!c.hora) continue;
+      const start = timeToMinutes(c.hora);
+      mins.push(start);
+      const meta = citaMetaById.get(String(c.id)) || null;
+      const dur = meta?.duracionMinutos ?? c.duracionMinutos ?? 60;
+      maxs.push(start + dur);
+    }
     if (!mins.length || !maxs.length) return { minTime: minutesToTime(baseMin), maxTime: minutesToTime(baseMax) };
     const min = Math.min(...mins.filter((x) => Number.isFinite(x)));
     const max = Math.max(...maxs.filter((x) => Number.isFinite(x)));
     const safeMin = Number.isFinite(min) ? Math.max(0, Math.min(baseMin, min)) : baseMin;
     const safeMax = Number.isFinite(max) ? Math.max(baseMax, max) : baseMax;
-    return { minTime: minutesToTime(safeMin), maxTime: minutesToTime(safeMax) };
-  }, [eventos]);
+    
+    // Redondear a la hora para que la cuadrícula comience limpia
+    const hourMin = Math.floor(safeMin / 60) * 60;
+    const hourMax = Math.min(24 * 60, Math.ceil(safeMax / 60) * 60);
+
+    return { minTime: minutesToTime(hourMin), maxTime: minutesToTime(hourMax) };
+  }, [eventos, citas, citaMetaById]);
 
   const events = useMemo(() => {
     const out: any[] = [];
@@ -147,10 +160,10 @@ export function AgendaCitasDiaCalendar({
     for (const c of citas || []) {
       const meta = citaMetaById.get(String(c.id)) || null;
       const dur = meta?.duracionMinutos ?? 60;
+      const estado = (c.estado || 'programada') as EstadoAgendaDia;
       const startMin = timeToMinutes(c.hora);
       const endMin = startMin + dur;
       const startHm = minutesToHm(startMin);
-      const estado = (c.estado || 'programada') as EstadoAgendaDia;
       const color = ESTADO_COLORS[estado] || ESTADO_COLORS.programada;
       const evento = eventoById.get(c.eventoId) || null;
       const eventoNombre = String(evento?.nombre || '').trim();
@@ -344,10 +357,19 @@ export function AgendaCitasDiaCalendar({
               .join(' · ');
             const secondLine = [especialidadLabel || 'Especialidad', tipoCitaNombre || 'Sin tipo'].filter(Boolean).join(' · ');
             return (
-              <div className="h-full w-full max-w-full overflow-hidden px-1 py-0.5 text-[10px] leading-[1.1]" title={tooltip}>
-                <div className="truncate font-medium">{eventoNombre || 'Cita General'}</div>
-                <div className="truncate">{secondLine}</div>
-                <div className="truncate whitespace-nowrap font-medium tabular-nums">{costo}</div>
+              <div className="flex h-full w-full items-center justify-between gap-4 overflow-hidden px-3 py-1 text-[11px] font-medium leading-none" title={tooltip}>
+                <div className="flex items-center gap-2 truncate">
+                  <span className="font-bold shrink-0">{eventoNombre || 'Cita General'}</span>
+                  {secondLine && (
+                    <>
+                      <span className="opacity-40 select-none">|</span>
+                      <span className="truncate opacity-90">{secondLine}</span>
+                    </>
+                  )}
+                </div>
+                <div className="font-bold tabular-nums shrink-0 bg-white/20 px-2 py-0.5 rounded text-[10px]">
+                  {costo}
+                </div>
               </div>
             );
           }}
