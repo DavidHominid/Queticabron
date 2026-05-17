@@ -3,8 +3,12 @@ import { CalendarDays } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { AgendaCitasDiaCalendar } from '../components/citas/AgendaCitasDiaCalendar';
 import { AgendarCitaDialog } from '../components/eventos/AgendarCitaDialog';
+import { AgendarCitaGeneralDialog } from '../components/eventos/AgendarCitaGeneralDialog';
 import { DetalleCitasBloqueDialog } from '../components/eventos/DetalleCitasBloqueDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -50,6 +54,13 @@ export function Citas() {
   const [agendarEspecialidad, setAgendarEspecialidad] = useState<Especialidad | null>(null);
   const [agendarHorario, setAgendarHorario] = useState<HorarioDisponible | null>(null);
 
+  const [agendarGeneralOpen, setAgendarGeneralOpen] = useState(false);
+  const [agendarGeneralFecha, setAgendarGeneralFecha] = useState('');
+  const [agendarGeneralHora, setAgendarGeneralHora] = useState('');
+  const [agendarGeneralPaciente, setAgendarGeneralPaciente] = useState<Paciente | null>(null);
+  const [elegirPacienteOpen, setElegirPacienteOpen] = useState(false);
+  const [elegirPacienteQuery, setElegirPacienteQuery] = useState('');
+
   const [detalleOpen, setDetalleOpen] = useState(false);
   const [detalleCitas, setDetalleCitas] = useState<Cita[]>([]);
   const [detalleTitulo, setDetalleTitulo] = useState('');
@@ -77,7 +88,11 @@ export function Citas() {
   }, [eventosVisibles]);
 
   const visibleEventIds = useMemo(() => new Set(eventosVisibles.map((e) => e.id)), [eventosVisibles]);
-  const citasVisibles = useMemo(() => (citas || []).filter((c) => visibleEventIds.has(c.eventoId)), [citas, visibleEventIds]);
+  // Incluir citas de eventos visibles + citas generales (sin evento)
+  const citasVisibles = useMemo(
+    () => (citas || []).filter((c) => c.eventoId === 'general' || visibleEventIds.has(c.eventoId)),
+    [citas, visibleEventIds],
+  );
 
   const onClickDisponible = (payload: { evento: Evento; especialidad: Especialidad; horario: HorarioDisponible }) => {
     setAgendaMensaje('');
@@ -180,6 +195,43 @@ export function Citas() {
     });
   };
 
+  const onClickEmptySlot = (payload: { fecha: string; horaInicio: string; horaFin: string }) => {
+    setAgendarGeneralFecha(payload.fecha);
+    setAgendarGeneralHora(payload.horaInicio);
+    setAgendarGeneralPaciente(null);
+    setElegirPacienteQuery('');
+    setElegirPacienteOpen(true); // primero seleccionar paciente
+  };
+
+  const onAgendarGeneral = async (payload: { paciente: Paciente; fecha: string; hora: string; especialidad: string; consultorio: string; costo: number }) => {
+    const nueva: Cita = {
+      id: `cit${Date.now()}`,
+      eventoId: 'general',
+      pacienteId: payload.paciente.id,
+      especialidad: payload.especialidad as Especialidad,
+      fecha: payload.fecha,
+      hora: payload.hora,
+      consultorio: payload.consultorio,
+      estado: 'programada',
+      costoPagado: payload.costo,
+      duracionMinutos: 30, // Citas generales asumen 30 min
+      fechaCreacion: todayYmd(),
+    };
+
+    await addCita(nueva);
+
+    addRegistroAuditoria({
+      id: `aud${Date.now()}`,
+      usuarioId: user?.id || '',
+      nombreUsuario: user?.nombre || '',
+      rol: user?.rol || 'recepcion',
+      accion: 'Agendar Cita General',
+      detalles: `Agendó cita general para ${payload.paciente.nombre} (${payload.paciente.numeroExpediente}) · ${labelEspecialidad(payload.especialidad as Especialidad, especialidadesCatalogo)} · ${payload.fecha} ${payload.hora} (cita ID: ${nueva.id})`,
+      fechaHora: nowIso(),
+      ciudad: user?.ciudad || 'sonoyta',
+    });
+  };
+
   const onCancelarCita = async (cita: Cita) => {
     await updateCita(String(cita.id), { estado: 'cancelada', cedidaA: undefined });
     setDetalleCitas((prev) => prev.map((c) => (c.id === cita.id ? { ...c, estado: 'cancelada', cedidaA: undefined } : c)));
@@ -275,6 +327,7 @@ export function Citas() {
                 especialidadesCatalogo={especialidadesCatalogo}
                 onClickDisponible={onClickDisponible}
                 onClickCitas={onClickCitas}
+                onClickEmptySlot={onClickEmptySlot}
               />
             </CardContent>
           </Card>
@@ -292,6 +345,64 @@ export function Citas() {
           pacientes={pacientes}
           tipoCitaIdFijo={agendarHorario.tipoCitaId}
           onAgendar={onAgendar}
+        />
+      )}
+
+      {/* Paso 1: elegir paciente cuando se hace clic en espacio vacío del calendario */}
+      <Dialog open={elegirPacienteOpen} onOpenChange={setElegirPacienteOpen}>
+        <DialogContent className="flex max-h-[75vh] w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="border-b px-6 py-5">
+            <DialogTitle>Seleccionar Paciente</DialogTitle>
+            <DialogDescription>¿Para quién es la cita del {agendarGeneralFecha} a las {agendarGeneralHora}?</DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-auto px-6 py-4 space-y-3">
+            <Input
+              placeholder="Buscar por nombre, expediente o teléfono…"
+              value={elegirPacienteQuery}
+              onChange={(e) => setElegirPacienteQuery(e.target.value)}
+            />
+            <div className="max-h-72 overflow-auto rounded-lg border border-border">
+              {pacientes
+                .filter((p) => {
+                  const q = elegirPacienteQuery.trim().toLowerCase();
+                  if (!q) return true;
+                  return p.nombre.toLowerCase().includes(q) || p.numeroExpediente.toLowerCase().includes(q) || p.telefono.includes(q);
+                })
+                .map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="flex w-full flex-col px-4 py-3 text-left text-sm hover:bg-muted/30 border-b border-border"
+                    onClick={() => {
+                      setAgendarGeneralPaciente(p);
+                      setElegirPacienteOpen(false);
+                      setAgendarGeneralOpen(true);
+                    }}
+                  >
+                    <span className="font-medium text-foreground">{p.nombre}</span>
+                    <span className="text-xs text-muted-foreground">{p.numeroExpediente} · {p.telefono}</span>
+                  </button>
+                ))}
+            </div>
+          </div>
+          <DialogFooter className="border-t px-6 py-4">
+            <Button variant="outline" onClick={() => setElegirPacienteOpen(false)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Paso 2: diálogo de cita general con paciente ya seleccionado */}
+      {agendarGeneralPaciente && (
+        <AgendarCitaGeneralDialog
+          open={agendarGeneralOpen}
+          onOpenChange={setAgendarGeneralOpen}
+          paciente={agendarGeneralPaciente}
+          citas={citasVisibles}
+          eventos={eventosVisibles}
+          especialidadesCatalogo={especialidadesCatalogo || []}
+          defaultFecha={agendarGeneralFecha}
+          defaultHora={agendarGeneralHora}
+          onAgendar={onAgendarGeneral}
         />
       )}
 

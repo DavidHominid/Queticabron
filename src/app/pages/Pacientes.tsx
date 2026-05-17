@@ -8,25 +8,27 @@ import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { PacienteCard } from '../components/PacienteCard';
 import { ModalNuevaCirugia } from '../components/cirugias/ModalNuevaCirugia';
+import { AgendarCitaGeneralDialog } from '../components/eventos/AgendarCitaGeneralDialog';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
 import { formatDateSafe } from '../components/ui/utils';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Plus, Search, User, Phone, MapPin, FileText, X, Heart } from 'lucide-react';
+import { Plus, Search, User, Phone, MapPin, FileText, X, Heart, Calendar } from 'lucide-react';
 import { Paciente, Ciudad } from '../types';
 import { now, nowIso, todayYmd } from '../utils/clock';
 
 export function Pacientes() {
   const navigate = useNavigate();
-  const { pacientes, citas, consultasMedicas, addPaciente, updatePaciente, addRegistroAuditoria, addCirugia, ciudadesCatalogo } = useData();
+  const { pacientes, citas, eventos, consultasMedicas, addPaciente, updatePaciente, addCita, addRegistroAuditoria, addCirugia, ciudadesCatalogo, especialidadesCatalogo } = useData();
   const { user } = useAuth();
   const { t } = useLanguage();
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPaciente, setSelectedPaciente] = useState<Paciente | null>(null);
   const [showCirugiaModal, setShowCirugiaModal] = useState(false);
+  const [showAgendarGeneralModal, setShowAgendarGeneralModal] = useState(false);
   const [filterType, setFilterType] = useState<'todos' | 'agendados' | 'atendidos'>('todos');
   const ciudadDefault =
     (user?.ciudad || '') ||
@@ -213,6 +215,37 @@ export function Pacientes() {
     } as any);
 
     setShowCirugiaModal(false);
+  };
+
+  const handleAgendarGeneral = async (payload: { paciente: Paciente; fecha: string; hora: string; especialidad: string; consultorio: string; costo: number }) => {
+    const nueva = {
+      id: `cit${Date.now()}`,
+      eventoId: 'general',
+      pacienteId: payload.paciente.id,
+      especialidad: payload.especialidad as any,
+      fecha: payload.fecha,
+      hora: payload.hora,
+      consultorio: payload.consultorio,
+      estado: 'programada',
+      costoPagado: payload.costo,
+      duracionMinutos: 30,
+      fechaCreacion: todayYmd(),
+    };
+
+    await addCita(nueva as any);
+
+    addRegistroAuditoria({
+      id: `aud${Date.now()}`,
+      usuarioId: user?.id || '',
+      nombreUsuario: user?.nombre || '',
+      rol: user?.rol || 'recepcion',
+      accion: 'Agendar Cita General',
+      detalles: `Agendó cita general para ${payload.paciente.nombre} (${payload.paciente.numeroExpediente}) · Especialidad: ${payload.especialidad} · ${payload.fecha} ${payload.hora} (cita ID: ${nueva.id})`,
+      fechaHora: nowIso(),
+      ciudad: user?.ciudad || 'sonoyta',
+    } as any);
+
+    setShowAgendarGeneralModal(false);
   };
 
   const pacienteStatsById = useMemo(() => {
@@ -619,6 +652,26 @@ export function Pacientes() {
                       {t('pac.start_surgery')}
                     </Button>
                   )}
+                  {(user?.rol === 'recepcion' || user?.rol === 'administrador') && (
+                    <div className="flex flex-col gap-2 w-full mt-2">
+                      <Button
+                        variant="secondary"
+                        className="w-full h-11"
+                        onClick={() => navigate('/citas')}
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Ver Calendario y Eventos
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full h-11 border-blue-200 hover:bg-blue-50 text-blue-700"
+                        onClick={() => setShowAgendarGeneralModal(true)}
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Agendar Cita Rápida (Libre)
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -634,6 +687,21 @@ export function Pacientes() {
           initialMedicoACargo={user?.nombre || ''}
           onClose={() => setShowCirugiaModal(false)}
           onSubmit={handleIniciarCirugia}
+        />
+      )}
+
+      {/* Modal para agendar cita libre */}
+      {showAgendarGeneralModal && selectedPaciente && (
+        <AgendarCitaGeneralDialog
+          open={showAgendarGeneralModal}
+          onOpenChange={setShowAgendarGeneralModal}
+          paciente={selectedPaciente}
+          citas={citas}
+          eventos={eventos}
+          especialidadesCatalogo={especialidadesCatalogo || []}
+          defaultFecha={todayYmd()}
+          defaultHora="08:00"
+          onAgendar={handleAgendarGeneral}
         />
       )}
     </DashboardLayout>

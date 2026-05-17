@@ -13,8 +13,8 @@ const eventoIncluyeHoy = (evento: Evento, hoyYmd: string) => {
   return true;
 };
 
-export const triageCanSeeEspecialidad = (evento: Evento | null | undefined, especialidad: string, user: User | null | undefined) => {
-  if (!evento) return false;
+export const triageCanSeeEspecialidad = (evento: Evento | null | undefined, especialidad: string, user: User | null | undefined, isGeneral: boolean = false) => {
+  if (!evento && !isGeneral) return false;
   if (!user) return false;
   if (user.rol === 'administrador') return true;
   if (user.rol !== 'triage') return true;
@@ -29,7 +29,7 @@ export const triageCanSeeEspecialidad = (evento: Evento | null | undefined, espe
 };
 
 export const triageCanSeeCita = (evento: Evento | null | undefined, cita: Cita, user: User | null | undefined) =>
-  triageCanSeeEspecialidad(evento, cita.especialidad, user);
+  triageCanSeeEspecialidad(evento, cita.especialidad, user, cita.eventoId === 'general');
 
 export const pickEventoActivoParaTriage = (eventos: Evento[], user: User | null | undefined, hoyYmd: string, ciudadesNorm: string[]) => {
   const activos = (eventos || []).filter((e) => e && (e as any).estado === 'activo');
@@ -80,7 +80,7 @@ export const pickEventoActivoParaTriageConCitas = (
   const estadosOk = new Set<Cita['estado']>(['programada', 'en_triage', 'en_consulta']);
 
   const tieneCitasHoy = (e: Evento) =>
-    (citas || []).some((c) => c && c.eventoId === e.id && ymd(c.fecha) === hoyYmd && estadosOk.has(c.estado) && triageCanSeeCita(e, c, user));
+    (citas || []).some((c) => (c.eventoId === e.id || c.eventoId === 'general') && ymd(c.fecha) === hoyYmd && estadosOk.has(c.estado) && triageCanSeeCita(e, c, user));
 
   if (base && tieneCitasHoy(base)) return base;
 

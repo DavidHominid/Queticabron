@@ -77,6 +77,7 @@ export function AgendaCitasDiaCalendar({
   especialidadesCatalogo?: EspecialidadCatalogo[];
   onClickDisponible: (payload: { evento: Evento; especialidad: Especialidad; horario: HorarioDisponible }) => void;
   onClickCitas: (payload: { evento: Evento; especialidad: Especialidad; horario: HorarioDisponible; citas: Cita[] }) => void;
+  onClickEmptySlot?: (payload: { fecha: string; horaInicio: string; horaFin: string }) => void;
 }) {
   const eventoById = useMemo(() => {
     const map = new Map<string, Evento>();
@@ -291,7 +292,15 @@ export function AgendaCitasDiaCalendar({
           slotLabelInterval="01:00:00"
           snapDuration="00:15:00"
           allDaySlot={false}
-          selectable={false}
+          selectable={true}
+          select={(info) => {
+            const fechaStr = info.startStr.substring(0, 10);
+            const horaInicio = info.startStr.substring(11, 16);
+            const horaFin = info.endStr.substring(11, 16);
+            if (onClickEmptySlot) {
+              onClickEmptySlot({ fecha: fechaStr, horaInicio, horaFin });
+            }
+          }}
           editable={false}
           eventOverlap={true}
           events={events}
@@ -330,13 +339,13 @@ export function AgendaCitasDiaCalendar({
             const especialidadLabel = String(p.especialidadLabel || p.especialidad || '').trim();
             const tipoCitaNombre = String(p.tipoCitaNombre || '').trim();
             const costo = formatCosto(p.costo);
-            const tooltip = [eventoNombre || 'Evento', especialidadLabel || 'Especialidad', tipoCitaNombre || 'Sin tipo', costo]
+            const tooltip = [eventoNombre || 'Cita General', especialidadLabel || 'Especialidad', tipoCitaNombre || 'Sin tipo', costo]
               .filter(Boolean)
               .join(' · ');
             const secondLine = [especialidadLabel || 'Especialidad', tipoCitaNombre || 'Sin tipo'].filter(Boolean).join(' · ');
             return (
               <div className="h-full w-full max-w-full overflow-hidden px-1 py-0.5 text-[10px] leading-[1.1]" title={tooltip}>
-                <div className="truncate font-medium">{eventoNombre || 'Evento'}</div>
+                <div className="truncate font-medium">{eventoNombre || 'Cita General'}</div>
                 <div className="truncate">{secondLine}</div>
                 <div className="truncate whitespace-nowrap font-medium tabular-nums">{costo}</div>
               </div>

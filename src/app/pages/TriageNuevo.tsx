@@ -80,10 +80,10 @@ export function TriageNuevo() {
   // Tomamos solo los primeros 10 caracteres para evitar conversión UTC
   const normalizarFecha = (f: string | undefined) => (f ? String(f).substring(0, 10) : '');
 
-  // Filtramos por evento activo y estados permitidos, incluyendo las citas futuras
+  // Filtramos por evento activo y citas generales (fuera de evento)
   const citasHoy = citas.filter(
     (c) =>
-      c.eventoId === eventoActivo?.id &&
+      (c.eventoId === eventoActivo?.id || c.eventoId === 'general') &&
       normalizarFecha(c.fecha) === hoy &&
       (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
   );
