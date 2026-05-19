@@ -71,6 +71,7 @@ export function AgendaCitasDiaCalendar({
   especialidadesCatalogo,
   onClickDisponible,
   onClickCitas,
+  onClickEmptySlot,
 }: {
   eventos: Evento[];
   citas: Cita[];
@@ -305,7 +306,7 @@ export function AgendaCitasDiaCalendar({
           slotLabelInterval="01:00:00"
           snapDuration="00:15:00"
           allDaySlot={false}
-          selectable={true}
+          selectable={!!onClickEmptySlot}
           select={(info) => {
             const fechaStr = info.startStr.substring(0, 10);
             const horaInicio = info.startStr.substring(11, 16);

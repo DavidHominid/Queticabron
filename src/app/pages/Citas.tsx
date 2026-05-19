@@ -327,7 +327,7 @@ export function Citas() {
                 especialidadesCatalogo={especialidadesCatalogo}
                 onClickDisponible={onClickDisponible}
                 onClickCitas={onClickCitas}
-                onClickEmptySlot={onClickEmptySlot}
+                // onClickEmptySlot={onClickEmptySlot} // Por mientras se elimina la opcion de crear citas fuera de eventos
               />
             </CardContent>
           </Card>

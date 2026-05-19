@@ -662,6 +662,7 @@ export function Pacientes() {
                         <Calendar className="w-4 h-4 mr-2" />
                         Ver Calendario y Eventos
                       </Button>
+                      {/* Por mientras se elimina la opción de crear citas fuera de eventos
                       <Button
                         variant="outline"
                         className="w-full h-11 border-blue-200 hover:bg-blue-50 text-blue-700"
@@ -670,6 +671,7 @@ export function Pacientes() {
                         <Calendar className="w-4 h-4 mr-2" />
                         Agendar Cita Rápida (Libre)
                       </Button>
+                      */}
                     </div>
                   )}
                 </div>
