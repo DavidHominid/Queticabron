@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { X } from 'lucide-react';
 import { Paciente, Cirugia, EstudioSocioeconomico, Seguimiento } from '../../types';
+import { formatDateYmd } from '../../utils/clock';
 
 interface ModalDetalleCirugiaProps {
   cirugia: Cirugia;
@@ -92,7 +93,7 @@ export function ModalDetalleCirugia({
                   <p className="text-sm text-muted-foreground">Fecha Programada</p>
                   <p className="font-medium text-foreground">
                     {cirugia.fechaCirugia
-                      ? new Date(cirugia.fechaCirugia).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      ? formatDateYmd(cirugia.fechaCirugia)
                       : 'No programada'}
                   </p>
                 </div>
@@ -185,7 +186,7 @@ export function ModalDetalleCirugia({
                         <div>
                           <p className="font-medium text-foreground">{seg.medicoEncargado}</p>
                           <p className="text-sm text-muted-foreground">
-                            {seg.fecha ? new Date(seg.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}
+                            {seg.fecha ? formatDateYmd(seg.fecha) : 'N/A'}
                           </p>
                         </div>
                       </div>
@@ -204,7 +205,7 @@ export function ModalDetalleCirugia({
                               Próximo seguimiento:
                             </p>
                             <p className="text-sm">
-                              {seg.proximoSeguimiento ? new Date(seg.proximoSeguimiento).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}
+                              {seg.proximoSeguimiento ? formatDateYmd(seg.proximoSeguimiento) : 'N/A'}
                             </p>
                           </div>
                         )}

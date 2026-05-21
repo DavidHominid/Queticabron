@@ -19,6 +19,7 @@ import { Cirugias } from './pages/Cirugias';
 import { Medico } from './pages/Medico';
 import { Usuarios } from './pages/Usuarios';
 import { Variables } from './pages/Variables';
+import { AgendaQuirofanos } from './pages/AgendaQuirofanos';
 import { RootLayout } from './components/RootLayout';
 
 export const router = createBrowserRouter([
@@ -95,6 +96,10 @@ export const router = createBrowserRouter([
       {
         path: 'cirugias',
         Component: Cirugias,
+      },
+      {
+        path: 'agenda-quirofanos',
+        Component: AgendaQuirofanos,
       },
       {
         path: 'seguimientos',

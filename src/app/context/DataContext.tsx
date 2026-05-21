@@ -457,9 +457,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const actualizado = await res.json();
         setCirugias(cirugias.map((c) => (c.id === id ? actualizado : c)));
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al actualizar la cirugía.');
       }
     } catch (err) {
       console.error(err);
+      throw err;
     }
   };
 

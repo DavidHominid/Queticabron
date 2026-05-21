@@ -86,6 +86,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
           { icon: Calendar, label: t('nav.citas'), path: '/citas' },
           { icon: Activity, label: t('nav.cirugias'), path: '/cirugias' },
+          { icon: Calendar, label: 'Agenda Quirófanos', path: '/agenda-quirofanos' },
           { icon: UserPlus, label: t('nav.seguimientos'), path: '/seguimientos' },
         ];
       case 'triage':
@@ -99,6 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Stethoscope, label: t('nav.consultas'), path: '/medico' },
           { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
           { icon: Heart, label: t('nav.cirugias'), path: '/cirugias' },
+          { icon: Calendar, label: 'Agenda Quirófanos', path: '/agenda-quirofanos' },
           { icon: UserPlus, label: t('nav.seguimientos'), path: '/seguimientos' },
         ];
       case 'administrador':
@@ -108,6 +110,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Calendar, label: t('nav.citas'), path: '/citas' },
           { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
           { icon: Users, label: t('nav.usuarios'), path: '/usuarios' },
+          { icon: Activity, label: t('nav.cirugias'), path: '/cirugias' },
+          { icon: Calendar, label: 'Agenda Quirófanos', path: '/agenda-quirofanos' },
           { icon: SlidersHorizontal, label: t('nav.variables'), path: '/variables' },
           { icon: ClipboardList, label: t('nav.auditoria'), path: '/auditoria' },
         ];

@@ -401,12 +401,16 @@ export function Cirugias() {
             setSelectedCirugia(null);
           }}
           onSubmit={async (datos) => {
-            await updateCirugia(selectedCirugia.id, {
-              estado: 'programada',
-              ...datos
-            });
-            setShowProgramarModal(false);
-            setSelectedCirugia(null);
+            try {
+              await updateCirugia(selectedCirugia.id, {
+                estado: 'programada',
+                ...datos
+              });
+              setShowProgramarModal(false);
+              setSelectedCirugia(null);
+            } catch (err: any) {
+              alert(err.message || 'Error al programar cirugía. Verifica disponibilidad de quirófano.');
+            }
           }}
         />
       )}

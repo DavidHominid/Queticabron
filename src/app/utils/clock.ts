@@ -49,3 +49,17 @@ export const todayYmd = () => {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
+
+export const formatDateYmd = (ymd: string | null | undefined): string => {
+  if (!ymd) return '';
+  const clean = String(ymd).trim();
+  if (!clean) return '';
+  const parts = clean.split('T')[0].split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    if (y.length === 4 && m.length === 2 && d.length === 2) {
+      return `${d}/${m}/${y}`;
+    }
+  }
+  return clean;
+};

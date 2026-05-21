@@ -303,6 +303,7 @@ export interface Cirugia {
   fechaCirugia?: string;
   horaCirugia?: string;
   horaEstimada?: string;
+  duracionEstimada?: number;
   lugarCirugia?: string;
   costoEstimado?: number;
   indicacionesPreoperatorias?: string;

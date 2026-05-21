@@ -399,12 +399,7 @@ export function Pacientes() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-h-[85vh] w-[calc(100vw-2rem)] max-w-2xl overflow-auto p-0">
           <DialogHeader className="border-b px-6 py-5">
-            <div className="flex items-center justify-between gap-4">
-              <DialogTitle>{t('pac.register_new')}</DialogTitle>
-              <button type="button" onClick={() => setShowModal(false)} aria-label={t('pac.cancel')} className="text-muted-foreground hover:text-foreground">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+            <DialogTitle>{t('pac.register_new')}</DialogTitle>
           </DialogHeader>
           <div className="px-6 py-6">
             <form onSubmit={handleSubmit} className="space-y-4">

@@ -28,7 +28,7 @@ import {
   CalendarClock,
 } from 'lucide-react';
 import { Seguimiento } from '../types';
-import { now, todayYmd } from '../utils/clock';
+import { now, todayYmd, formatDateYmd } from '../utils/clock';
 
 export function Seguimientos() {
   const { t } = useLanguage();
@@ -420,7 +420,7 @@ export function Seguimientos() {
                         <div>
                           <p className="text-xs text-green-700 font-medium">{t('seg.next_appt')}</p>
                           <p className="text-sm font-semibold text-green-900">
-                            {new Date(seguimiento.fechaCita).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}{' '}
+                            {formatDateYmd(seguimiento.fechaCita)}{' '}
                             - {seguimiento.horaCita}
                           </p>
                         </div>
@@ -681,7 +681,7 @@ export function Seguimientos() {
                         <Calendar className="w-5 h-5 text-green-600" />
                         <div>
                           <p className="font-medium text-gray-900">
-                            {new Date(selectedSeguimiento.fechaCita).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            {formatDateYmd(selectedSeguimiento.fechaCita)}
                           </p>
                           <p className="text-sm text-gray-600">Hora: {selectedSeguimiento.horaCita}</p>
                         </div>

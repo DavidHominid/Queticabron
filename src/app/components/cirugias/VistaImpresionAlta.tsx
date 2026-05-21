@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import { Cirugia, Paciente } from '../../types';
+import { formatDateYmd } from '../../utils/clock';
 
 interface VistaImpresionAltaProps {
   cirugia: Cirugia;
@@ -19,7 +20,7 @@ export const VistaImpresionAlta = forwardRef<HTMLDivElement, VistaImpresionAltaP
           <div>
             <p><strong>Paciente:</strong> {paciente?.nombre} {paciente?.apellido}</p>
             <p><strong>Expediente:</strong> {paciente?.numeroExpediente}</p>
-            <p><strong>Fecha de Cirugía:</strong> {cirugia.fechaCirugia}</p>
+            <p><strong>Fecha de Cirugía:</strong> {formatDateYmd(cirugia.fechaCirugia)}</p>
           </div>
           <div>
             <p><strong>Cirujano Responsable:</strong> Dr. {cirugia.medicoACargo}</p>
