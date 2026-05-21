@@ -32,17 +32,6 @@ export async function migrateDoctorFksToUsuarios() {
        ON DELETE SET NULL`,
     );
   }
-
-  const agendaFk = 'agenda_cirugias_medico_usuario_id_fkey';
-  if (!(await constraintExists('agenda_cirugias', agendaFk))) {
-    await pool.query(
-      `ALTER TABLE "${SCHEMA}".agenda_cirugias
-       ADD CONSTRAINT ${agendaFk}
-       FOREIGN KEY (medico_usuario_id)
-       REFERENCES "${SCHEMA}".usuarios(id)
-       ON DELETE SET NULL`,
-    );
-  }
 }
 
 export async function migrateExpedienteCitaToExpediente() {
@@ -66,4 +55,15 @@ export async function migrateExpedienteCitaToExpediente() {
       `,
     );
   }
+}
+
+export async function migrateAgendaCirugiasEstados() {
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS procedimiento VARCHAR`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS fecha_cirugia VARCHAR`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS hora_cirugia VARCHAR`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS consultorio VARCHAR`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS estado VARCHAR`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS costo_total NUMERIC`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS nota_postoperatoria JSONB`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias DROP CONSTRAINT IF EXISTS agenda_cirugias_medico_usuario_id_fkey`);
 }

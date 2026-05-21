@@ -130,17 +130,16 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit, initialPacient
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="lugar">Lugar de Cirugía *</Label>
+                <Label htmlFor="lugar">Lugar de Cirugía</Label>
                 <Input
                   id="lugar"
                   value={formData.lugarCirugia}
                   onChange={(e) => setFormData({ ...formData, lugarCirugia: e.target.value })}
-                  placeholder="Hospital General"
-                  required
+                  placeholder="Ej. Quirófano 2"
                 />
               </div>
               <div>
-                <Label htmlFor="costo">Costo Estimado *</Label>
+                <Label htmlFor="costo">Costo Estimado</Label>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -151,7 +150,6 @@ export function ModalNuevaCirugia({ pacientes, onClose, onSubmit, initialPacient
                     onChange={(e) =>
                       setFormData({ ...formData, costoEstimado: Number(e.target.value) })
                     }
-                    required
                   />
                 </div>
               </div>

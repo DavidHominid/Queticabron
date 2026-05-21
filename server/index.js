@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import pool from './config/db.js';
-import { migrateDoctorFksToUsuarios, migrateExpedienteCitaToExpediente } from './helpers/migrations.js';
+import { migrateDoctorFksToUsuarios, migrateExpedienteCitaToExpediente, migrateAgendaCirugiasEstados } from './helpers/migrations.js';
 
 // Importación de rutas
 import pacientesRoutes from './routes/pacientes.js';
@@ -55,6 +55,9 @@ migrateDoctorFksToUsuarios().catch((err) => {
 });
 migrateExpedienteCitaToExpediente().catch((err) => {
   console.error('❌ Error migrando expediente:', err.message);
+});
+migrateAgendaCirugiasEstados().catch((err) => {
+  console.error('❌ Error migrando estados cirugia:', err.message);
 });
 
 // Montaje de rutas

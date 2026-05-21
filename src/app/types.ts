@@ -278,7 +278,16 @@ export interface Cirugia {
   diagnostico: string;
   medicoACargo: string;
   especialidad: Especialidad;
-  estado: 'pendiente_estudio' | 'estudio_completado' | 'candidato' | 'estudios_pendientes' | 'cita_internista' | 'estudio_socioeconomico' | 'programada' | 'realizada' | 'seguimiento' | 'cancelada';
+  estado: 'pendiente_estudio' | 'lista_programar' | 'programada' | 'en_procedimiento' | 'postoperatorio' | 'realizada' | 'cancelada';
+  notaPostoperatoria?: {
+    diagnosticoPreoperatorio?: string;
+    diagnosticoPostoperatorio?: string;
+    tipoAnestesia?: string;
+    tecnicaQuirurgica?: string;
+    hallazgos?: string;
+    insumosConsumidos?: string;
+    incidentes?: string;
+  };
   estudios?: {
     requeridos: string[];
     completados: boolean;

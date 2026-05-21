@@ -1,32 +1,30 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { DashboardLayout } from '../components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import {
   Plus,
-  Search,
   Calendar,
   User,
-  FileText,
-  CheckCircle2,
-  Clock,
   Heart,
-  ClipboardList,
   Eye,
+  ArrowRight,
+  ClipboardList,
+  Printer
 } from 'lucide-react';
 import { Cirugia, EstudioSocioeconomico, Seguimiento, Especialidad } from '../types';
 
-// Extracted Modals
+// Modals
 import { ModalNuevaCirugia } from '../components/cirugias/ModalNuevaCirugia';
-import { ModalEstudioSocioeconomico } from '../components/cirugias/ModalEstudioSocioeconomico';
-import { ModalSeguimiento } from '../components/cirugias/ModalSeguimiento';
 import { ModalDetalleCirugia } from '../components/cirugias/ModalDetalleCirugia';
+import { ModalNotaPostoperatoria } from '../components/cirugias/ModalNotaPostoperatoria';
+import { VistaImpresionAlta } from '../components/cirugias/VistaImpresionAlta';
+import { ModalSeguimiento } from '../components/cirugias/ModalSeguimiento';
 import { nowIso, todayYmd } from '../utils/clock';
 
 export function Cirugias() {
@@ -35,20 +33,22 @@ export function Cirugias() {
     pacientes, 
     addCirugia, 
     updateCirugia, 
-    addEstudioSocioeconomico,
-    addSeguimiento,
     estudios,
     seguimientos,
+    addSeguimiento,
     addRegistroAuditoria 
   } = useData();
   const { user } = useAuth();
   const { t } = useLanguage();
+  
   const [showModal, setShowModal] = useState(false);
-  const [showEstudioModal, setShowEstudioModal] = useState(false);
-  const [showSeguimientoModal, setShowSeguimientoModal] = useState(false);
   const [showDetallesModal, setShowDetallesModal] = useState(false);
+  const [showNotaPostopModal, setShowNotaPostopModal] = useState(false);
+  const [showSeguimientoModal, setShowSeguimientoModal] = useState(false);
   const [selectedCirugia, setSelectedCirugia] = useState<Cirugia | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const printRef = useRef<HTMLDivElement>(null);
 
   const handleSubmitCirugia = (data: Partial<Cirugia>) => {
     const nuevaCirugia: Cirugia = {
@@ -81,45 +81,51 @@ export function Cirugias() {
     setShowModal(false);
   };
 
-  const handleSubmitEstudio = (data: Partial<EstudioSocioeconomico>) => {
+  const handleStatusChange = async (cirugia: Cirugia, newStatus: string) => {
+    if (newStatus === 'postoperatorio') {
+      setSelectedCirugia(cirugia);
+      setShowNotaPostopModal(true);
+      return;
+    }
+    
+    if (newStatus === 'realizada') {
+      setSelectedCirugia(cirugia);
+      // Actualizamos estado en DB primero
+      updateCirugia(cirugia.id, { estado: newStatus });
+      // Y lanzamos el modal de seguimiento pre-llenado
+      setShowSeguimientoModal(true);
+      return;
+    }
+
+    try {
+      await updateCirugia(cirugia.id, { estado: newStatus as any });
+      addRegistroAuditoria({
+        id: `aud${Date.now()}`,
+        usuarioId: user?.id || '',
+        nombreUsuario: user?.nombre || '',
+        rol: user?.rol || 'medico',
+        accion: 'Actualizar Estado Cirugía',
+        detalles: `Cambió cirugía ${cirugia.id} a estado ${newStatus}`,
+        fechaHora: nowIso(),
+        ciudad: user?.ciudad || 'sonoyta',
+      });
+    } catch (err: any) {
+      alert(err.message || 'Error al actualizar el estado. Revisa los conflictos de agenda.');
+    }
+  };
+
+  const handleNotaPostoperatoriaSubmit = async (data: Partial<Cirugia>) => {
     if (!selectedCirugia) return;
-
-    const nuevoEstudio: EstudioSocioeconomico = {
-      id: `est${Date.now()}`,
-      pacienteId: selectedCirugia.pacienteId,
-      fechaEstudio: todayYmd(),
-      realizadoPor: user?.nombre || '',
-      ingresoMensual: data.ingresoMensual || 0,
-      numeroPersonasDependientes: data.numeroPersonasDependientes || 1,
-      vivienda: data.vivienda || {
-        tipo: 'propia',
-        numeroCuartos: 1,
-        servicios: [],
-      },
-      ocupacion: data.ocupacion || '',
-      situacionFamiliar: data.situacionFamiliar || '',
-      necesidadesEspeciales: data.necesidadesEspeciales,
-      apoyosGubernamentales: data.apoyosGubernamentales || [],
-      nivelSocioeconomico: data.nivelSocioeconomico || 'medio',
-      observaciones: data.observaciones,
-    };
-
-    addEstudioSocioeconomico(nuevoEstudio);
-    updateCirugia(selectedCirugia.id, { estado: 'estudio_completado' });
-
-    addRegistroAuditoria({
-      id: `aud${Date.now()}`,
-      usuarioId: user?.id || '',
-      nombreUsuario: user?.nombre || '',
-      rol: user?.rol || 'recepcion',
-      accion: 'Completar Estudio Socioeconómico',
-      detalles: `Completó estudio socioeconómico para cirugía ${selectedCirugia.id}`,
-      fechaHora: nowIso(),
-      ciudad: user?.ciudad || 'sonoyta',
-    });
-
-    setShowEstudioModal(false);
-    setSelectedCirugia(null);
+    try {
+      await updateCirugia(selectedCirugia.id, { 
+        estado: 'postoperatorio', 
+        notaPostoperatoria: data.notaPostoperatoria 
+      });
+      setShowNotaPostopModal(false);
+      setSelectedCirugia(null);
+    } catch (err: any) {
+      alert(err.message || 'Error al guardar la nota');
+    }
   };
 
   const handleSubmitSeguimiento = (data: Partial<Seguimiento>) => {
@@ -139,304 +145,164 @@ export function Cirugias() {
     };
 
     addSeguimiento(nuevoSeguimiento);
-
-    addRegistroAuditoria({
-      id: `aud${Date.now()}`,
-      usuarioId: user?.id || '',
-      nombreUsuario: user?.nombre || '',
-      rol: user?.rol || 'medico',
-      accion: 'Registrar Seguimiento',
-      detalles: `Registró seguimiento para cirugía ${selectedCirugia.id}`,
-      fechaHora: nowIso(),
-      ciudad: user?.ciudad || 'sonoyta',
-    });
-
     setShowSeguimientoModal(false);
-  };
-  const estadoBadgeStyle = (estado: string) => {
-    switch (estado) {
-      case 'cancelada':
-        return { variant: 'destructive' as const, className: '' };
-      case 'realizada':
-        return { variant: 'default' as const, className: '' };
-      case 'programada':
-      case 'estudio_completado':
-        return { variant: 'secondary' as const, className: '' };
-      case 'pendiente_estudio':
-        return { variant: 'outline' as const, className: 'bg-accent text-accent-foreground border-transparent' };
-      default:
-        return { variant: 'outline' as const, className: 'bg-background' };
-    }
+    
+    // Opcional: Podríamos llamar a window.print() aquí si queremos que imprima justo después de agendar
+    // window.print();
   };
 
-  const estadoTexto = (estado: string) => {
-    switch (estado) {
-      case 'pendiente_estudio': return t('cirugias.status.pending_study');
-      case 'estudio_completado': return t('cirugias.status.study_completed');
-      case 'programada': return t('cirugias.status.scheduled');
-      case 'realizada': return t('cirugias.status.completed');
-      case 'cancelada': return t('cirugias.status.cancelled');
-      default: return estado.replace('_', ' ');
-    }
+  const fases = [
+    { id: 'pendiente_estudio', titulo: 'Pendiente Estudios', color: 'bg-slate-100', next: 'lista_programar', nextText: 'Aprobar' },
+    { id: 'lista_programar', titulo: 'Lista Programar', color: 'bg-blue-50', next: 'programada', nextText: 'Programar' },
+    { id: 'programada', titulo: 'Programadas', color: 'bg-indigo-50', next: 'en_procedimiento', nextText: 'Ingresar a Qx' },
+    { id: 'en_procedimiento', titulo: 'En Quirófano', color: 'bg-orange-50', next: 'postoperatorio', nextText: 'Pasar a Recup.' },
+    { id: 'postoperatorio', titulo: 'Recuperación', color: 'bg-green-50', next: 'realizada', nextText: 'Dar de Alta' }
+  ];
+
+  const renderCirugiaCard = (cirugia: Cirugia, fase: any) => {
+    const paciente = pacientes.find((p) => p.id === cirugia.pacienteId);
+    return (
+      <Card key={cirugia.id} className="shadow-sm hover:shadow-md transition-shadow mb-3 border-l-4" style={{borderLeftColor: 'var(--primary)'}}>
+        <CardContent className="p-4">
+          <div className="flex justify-between items-start mb-2">
+            <h4 className="font-semibold text-sm line-clamp-2">{cirugia.diagnostico}</h4>
+          </div>
+          <div className="text-xs text-muted-foreground space-y-1 mb-3">
+            <div className="flex items-center gap-1">
+              <User className="w-3 h-3" /> {paciente?.nombre} {paciente?.apellido}
+            </div>
+            {cirugia.fechaCirugia && (
+              <div className="flex items-center gap-1 text-primary font-medium">
+                <Calendar className="w-3 h-3" /> {cirugia.fechaCirugia} {cirugia.horaEstimada}
+              </div>
+            )}
+            {cirugia.lugarCirugia && (
+               <div className="text-xs font-mono bg-muted inline-block px-1 rounded">
+                 {cirugia.lugarCirugia}
+               </div>
+            )}
+          </div>
+          <div className="flex gap-2 justify-between mt-3 pt-3 border-t">
+            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => {
+              setSelectedCirugia(cirugia);
+              setShowDetallesModal(true);
+            }}>
+              <Eye className="w-4 h-4" />
+            </Button>
+            
+            {fase.next && (
+              <Button size="sm" className="h-8 text-xs" onClick={() => handleStatusChange(cirugia, fase.next)}>
+                {fase.nextText} <ArrowRight className="w-3 h-3 ml-1" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">{t('cirugias.title')}</h1>
-            <p className="text-muted-foreground mt-1">
-              {t('cirugias.subtitle')}
-            </p>
-          </div>
-          <Button onClick={() => setShowModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('cirugias.start_process')}
-          </Button>
-        </div>
-
-        {/* Estadísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
-                  <ClipboardList className="w-6 h-6 text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('cirugias.total')}</p>
-                  <p className="text-2xl font-semibold text-foreground">{cirugias.length}</p>
-                </div>
+    <>
+      <div className="print:hidden">
+        <DashboardLayout>
+          <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
+            <div className="flex items-center justify-between shrink-0">
+              <div>
+                <h1 className="text-2xl font-semibold text-foreground">Tablero Quirúrgico</h1>
+                <p className="text-muted-foreground mt-1">
+                  Control de flujo de pacientes desde consulta hasta recuperación.
+                </p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('cirugias.pending')}</p>
-                  <p className="text-2xl font-semibold text-foreground">
-                    {cirugias.filter((c) => c.estado === 'pendiente_estudio').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('cirugias.scheduled')}</p>
-                  <p className="text-2xl font-semibold text-foreground">
-                    {cirugias.filter((c) => c.estado === 'programada').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('cirugias.completed')}</p>
-                  <p className="text-2xl font-semibold text-foreground">
-                    {cirugias.filter((c) => c.estado === 'realizada').length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-secondary-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('cirugias.followups')}</p>
-                  <p className="text-2xl font-semibold text-foreground">{seguimientos.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filtros */}
-        <Card className="shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex gap-4">
-              <div className="flex-1">
+              <div className="flex gap-3">
                 <Input
-                  placeholder={t('cirugias.search_placeholder')}
+                  placeholder="Buscar paciente..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-64"
                 />
+                <Button onClick={() => setShowModal(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nueva Cirugía
+                </Button>
               </div>
-              <select className="px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring">
-                <option value="">{t('cirugias.all_statuses')}</option>
-                <option value="pendiente_estudio">{t('cirugias.status.pending_study')}</option>
-                <option value="estudio_completado">{t('cirugias.status.study_completed')}</option>
-                <option value="programada">{t('cirugias.status.scheduled')}</option>
-                <option value="realizada">{t('cirugias.status.completed')}</option>
-                <option value="cancelada">{t('cirugias.status.cancelled')}</option>
-              </select>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Lista de cirugías */}
-        <div className="grid grid-cols-1 gap-4">
-          {cirugias.map((cirugia) => {
-            const paciente = pacientes.find((p) => p.id === cirugia.pacienteId);
-            const estudio = estudios.find((e) => e.pacienteId === cirugia.pacienteId);
-            const seguimientosCirugia = seguimientos.filter((s) => s.cirugiaId === cirugia.id);
-
-            return (
-              <Card key={cirugia.id} className="shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
-                      <Heart className="w-8 h-8 text-accent-foreground" />
+            {/* Tablero Kanban */}
+            <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
+              {fases.map(fase => {
+                const cirugiasFase = cirugias.filter(c => c.estado === fase.id && 
+                  (searchTerm === '' || 
+                   (c.diagnostico || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                   (pacientes.find(p => p.id === c.pacienteId)?.nombre || '').toLowerCase().includes(searchTerm.toLowerCase())
+                  )
+                );
+                
+                return (
+                  <div key={fase.id} className={`flex-1 min-w-[280px] flex flex-col rounded-xl border ${fase.color}`}>
+                    <div className="p-3 border-b bg-white/50 rounded-t-xl font-semibold flex justify-between items-center shrink-0">
+                      <span>{fase.titulo}</span>
+                      <Badge variant="secondary">{cirugiasFase.length}</Badge>
                     </div>
-
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <h3 className="font-semibold text-foreground text-lg">{cirugia.diagnostico}</h3>
-                          <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <User className="w-4 h-4" />
-                              <span>{paciente?.nombre}</span>
-                            </div>
-                            <span>•</span>
-                            <span>Dr. {cirugia.medicoACargo}</span>
-                            {cirugia.fechaCirugia && (
-                              <>
-                                <span>•</span>
-                                <div className="flex items-center gap-1">
-                                  <Calendar className="w-4 h-4" />
-                                  <span>{new Date(cirugia.fechaCirugia).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
-                                </div>
-                              </>
-                            )}
-                          </div>
+                    <div className="p-3 overflow-y-auto flex-1">
+                      {cirugiasFase.map(c => renderCirugiaCard(c, fase))}
+                      {cirugiasFase.length === 0 && (
+                        <div className="text-center p-4 text-sm text-muted-foreground border-2 border-dashed rounded-lg border-muted">
+                          Sin pacientes
                         </div>
-                        <Badge variant={estadoBadgeStyle(cirugia.estado).variant} className={estadoBadgeStyle(cirugia.estado).className}>
-                          {estadoTexto(cirugia.estado)}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-4 gap-4 mt-4">
-                        <div className="p-3 bg-muted/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground">{t('cirugias.specialty')}</p>
-                          <p className="text-sm font-medium text-foreground capitalize mt-1">
-                            {cirugia.especialidad?.replace('_', ' ') || t('cirugias.unspecified')}
-                          </p>
-                        </div>
-                        <div className="p-3 bg-muted/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground">{t('cirugias.location')}</p>
-                          <p className="text-sm font-medium text-foreground mt-1">
-                            {cirugia.lugarCirugia || t('cirugias.unassigned')}
-                          </p>
-                        </div>
-                        <div className="p-3 bg-muted/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground">{t('cirugias.est_cost')}</p>
-                          <p className="text-sm font-medium text-foreground mt-1">
-                            ${cirugia.costoEstimado?.toLocaleString() || '0'}
-                          </p>
-                        </div>
-                        <div className="p-3 bg-muted/20 rounded-lg">
-                          <p className="text-xs text-muted-foreground">{t('cirugias.followups')}</p>
-                          <p className="text-sm font-medium text-foreground mt-1">
-                            {seguimientosCirugia.length}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2 mt-4 pt-4 border-t border-border">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedCirugia(cirugia);
-                            setShowDetallesModal(true);
-                          }}
-                        >
-                          <Eye className="w-4 h-4 mr-2" />
-                          {t('cirugias.view_details')}
-                        </Button>
-
-                        {cirugia.estado === 'pendiente_estudio' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedCirugia(cirugia);
-                              setShowEstudioModal(true);
-                            }}
-                          >
-                            <FileText className="w-4 h-4 mr-2" />
-                            {t('cirugias.do_study')}
-                          </Button>
-                        )}
-
-                        {(cirugia.estado === 'programada' || cirugia.estado === 'realizada') && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedCirugia(cirugia);
-                              setShowSeguimientoModal(true);
-                            }}
-                          >
-                            <ClipboardList className="w-4 h-4 mr-2" />
-                            {t('cirugias.add_followup')}
-                          </Button>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-        {cirugias.length === 0 && (
-          <Card className="shadow-sm">
-            <CardContent className="p-12 text-center">
-              <Heart className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                {t('cirugias.empty_title')}
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                {t('cirugias.empty_desc')}
-              </p>
-              <Button onClick={() => setShowModal(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                {t('cirugias.start_process')}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                );
+              })}
+              
+              {/* Columna especial para altas/historial rápido */}
+              <div className="flex-1 min-w-[280px] flex flex-col rounded-xl border bg-gray-50">
+                <div className="p-3 border-b bg-white/50 rounded-t-xl font-semibold flex justify-between items-center shrink-0">
+                  <span>Altas Recientes</span>
+                  <Badge variant="outline">
+                    {cirugias.filter(c => c.estado === 'realizada').length}
+                  </Badge>
+                </div>
+                <div className="p-3 overflow-y-auto flex-1">
+                   {cirugias.filter(c => c.estado === 'realizada').slice(0, 10).map(cirugia => {
+                      const paciente = pacientes.find((p) => p.id === cirugia.pacienteId);
+                      return (
+                        <Card key={cirugia.id} className="shadow-sm mb-3">
+                          <CardContent className="p-4">
+                            <h4 className="font-semibold text-sm line-clamp-1">{cirugia.diagnostico}</h4>
+                            <div className="text-xs text-muted-foreground my-1">
+                              {paciente?.nombre} {paciente?.apellido}
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                              <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => {
+                                setSelectedCirugia(cirugia);
+                                setTimeout(() => window.print(), 100);
+                              }}>
+                                <Printer className="w-3 h-3 mr-1" /> Imprimir
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                   })}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </DashboardLayout>
       </div>
 
-      {/* Modal components are called here */}
+      {/* Componente oculto para impresión */}
+      {selectedCirugia && selectedCirugia.estado === 'realizada' && (
+        <VistaImpresionAlta 
+          ref={printRef}
+          cirugia={selectedCirugia} 
+          paciente={pacientes.find(p => p.id === selectedCirugia.pacienteId)} 
+        />
+      )}
 
-      {/* New Surgery Modal */}
+      {/* Modals */}
       {showModal && (
         <ModalNuevaCirugia
           pacientes={pacientes}
@@ -445,33 +311,15 @@ export function Cirugias() {
         />
       )}
 
-      {/* Socio-economic Study Modal */}
-      {showEstudioModal && selectedCirugia && (
-        <ModalEstudioSocioeconomico
+      {showNotaPostopModal && selectedCirugia && (
+         <ModalNotaPostoperatoria
           cirugia={selectedCirugia}
           paciente={pacientes.find(p => p.id === selectedCirugia.pacienteId)}
-          onClose={() => {
-            setShowEstudioModal(false);
-            setSelectedCirugia(null);
-          }}
-          onSubmit={handleSubmitEstudio}
-        />
+          onClose={() => setShowNotaPostopModal(false)}
+          onSubmit={handleNotaPostoperatoriaSubmit}
+         />
       )}
 
-      {/* Follow-up Modal */}
-      {showSeguimientoModal && selectedCirugia && (
-        <ModalSeguimiento
-          cirugia={selectedCirugia}
-          paciente={pacientes.find(p => p.id === selectedCirugia.pacienteId)}
-          onClose={() => {
-            setShowSeguimientoModal(false);
-            setSelectedCirugia(null);
-          }}
-          onSubmit={handleSubmitSeguimiento}
-        />
-      )}
-
-      {/* Details Modal */}
       {showDetallesModal && selectedCirugia && (
         <ModalDetalleCirugia
           cirugia={selectedCirugia}
@@ -484,6 +332,22 @@ export function Cirugias() {
           }}
         />
       )}
-    </DashboardLayout>
+      
+      {showSeguimientoModal && selectedCirugia && (
+        <ModalSeguimiento
+          cirugia={selectedCirugia}
+          paciente={pacientes.find(p => p.id === selectedCirugia.pacienteId)}
+          onClose={() => {
+            setShowSeguimientoModal(false);
+            // Optionally close selected if not needed for print
+          }}
+          onSubmit={(data) => {
+             handleSubmitSeguimiento(data);
+             // After scheduling follow-up, prompt print
+             setTimeout(() => window.print(), 500);
+          }}
+        />
+      )}
+    </>
   );
 }

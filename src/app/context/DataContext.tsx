@@ -436,9 +436,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const nuevo = await res.json();
         setCirugias([...cirugias, nuevo]);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error("Backend error addCirugia:", err);
+        alert(`Error al crear cirugía: ${err.error || 'Desconocido'}`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(`Error de red al crear cirugía: ${err.message}`);
     }
   };
 
