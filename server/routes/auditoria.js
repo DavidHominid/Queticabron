@@ -24,11 +24,11 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const a = req.body;
-  console.log('📝 Auditoría recibida:', a.accion);
+  console.log(' Auditoría recibida:', a.accion);
   try {
     const tableInfo = await pool.query(`SELECT * FROM "${SCHEMA}".auditoria LIMIT 0`);
     const dbCols = tableInfo.fields.map(f => f.name);
-    
+
     const incomingData = {
       usuario_id: String(a.usuarioId || ''),
       nombre_usuario: a.nombreUsuario || 'Sistema',
@@ -46,7 +46,7 @@ router.post('/', async (req, res) => {
         finalData[dbColName] = incomingData[key];
       }
     }
-    
+
     if (!finalData.detalles && !finalData.Detalles) {
       finalData['detalles'] = a.detalles || '';
     }
@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
     if (!finalData.id && !finalData.Id) {
       const dbColId = dbCols.find(c => c.trim().toLowerCase() === 'id');
       if (dbColId) {
-        finalData[dbColId] = a.id || `aud${Date.now()}-${Math.floor(Math.random()*10000)}`;
+        finalData[dbColId] = a.id || `aud${Date.now()}-${Math.floor(Math.random() * 10000)}`;
       }
     }
 

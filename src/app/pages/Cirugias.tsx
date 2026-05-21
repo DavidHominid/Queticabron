@@ -25,6 +25,8 @@ import { ModalDetalleCirugia } from '../components/cirugias/ModalDetalleCirugia'
 import { ModalNotaPostoperatoria } from '../components/cirugias/ModalNotaPostoperatoria';
 import { VistaImpresionAlta } from '../components/cirugias/VistaImpresionAlta';
 import { ModalSeguimiento } from '../components/cirugias/ModalSeguimiento';
+import { ModalValidarEstudios } from '../components/cirugias/ModalValidarEstudios';
+import { ModalProgramarCirugia } from '../components/cirugias/ModalProgramarCirugia';
 import { nowIso, todayYmd } from '../utils/clock';
 
 export function Cirugias() {
@@ -36,7 +38,8 @@ export function Cirugias() {
     estudios,
     seguimientos,
     addSeguimiento,
-    addRegistroAuditoria 
+    addRegistroAuditoria,
+    consultasMedicas
   } = useData();
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -45,6 +48,8 @@ export function Cirugias() {
   const [showDetallesModal, setShowDetallesModal] = useState(false);
   const [showNotaPostopModal, setShowNotaPostopModal] = useState(false);
   const [showSeguimientoModal, setShowSeguimientoModal] = useState(false);
+  const [showValidarEstudios, setShowValidarEstudios] = useState(false);
+  const [showProgramarModal, setShowProgramarModal] = useState(false);
   const [selectedCirugia, setSelectedCirugia] = useState<Cirugia | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -82,6 +87,29 @@ export function Cirugias() {
   };
 
   const handleStatusChange = async (cirugia: Cirugia, newStatus: string) => {
+    if (newStatus === 'lista_programar') {
+      setSelectedCirugia(cirugia);
+      setShowValidarEstudios(true); // Abrimos validación de estudios
+      return;
+    }
+
+    if (newStatus === 'programada') {
+      setSelectedCirugia(cirugia);
+      setShowProgramarModal(true);
+      return;
+    }
+
+    if (newStatus === 'en_procedimiento') {
+      const isToday = cirugia.fechaCirugia === todayYmd();
+      let confirmMsg = '¿Estás seguro de ingresar a este paciente a Quirófano?';
+      if (!isToday) {
+        confirmMsg = `La fecha programada para esta cirugía (${cirugia.fechaCirugia || 'ninguna'}) NO coincide con el día de hoy. ¿Estás absolutamente seguro de continuar?`;
+      }
+      
+      const confirm = window.confirm(confirmMsg);
+      if (!confirm) return;
+    }
+
     if (newStatus === 'postoperatorio') {
       setSelectedCirugia(cirugia);
       setShowNotaPostopModal(true);
@@ -345,6 +373,40 @@ export function Cirugias() {
              handleSubmitSeguimiento(data);
              // After scheduling follow-up, prompt print
              setTimeout(() => window.print(), 500);
+          }}
+        />
+      )}
+
+      {showValidarEstudios && selectedCirugia && (
+        <ModalValidarEstudios
+          cirugia={selectedCirugia}
+          consultaRelacionada={consultasMedicas.find(c => c.citaId === selectedCirugia.citaId)}
+          onClose={() => {
+            setShowValidarEstudios(false);
+            setSelectedCirugia(null);
+          }}
+          onValidar={async () => {
+            await updateCirugia(selectedCirugia.id, { estado: 'lista_programar' });
+            setShowValidarEstudios(false);
+            setSelectedCirugia(null);
+          }}
+        />
+      )}
+
+      {showProgramarModal && selectedCirugia && (
+        <ModalProgramarCirugia
+          cirugia={selectedCirugia}
+          onClose={() => {
+            setShowProgramarModal(false);
+            setSelectedCirugia(null);
+          }}
+          onSubmit={async (datos) => {
+            await updateCirugia(selectedCirugia.id, {
+              estado: 'programada',
+              ...datos
+            });
+            setShowProgramarModal(false);
+            setSelectedCirugia(null);
           }}
         />
       )}
