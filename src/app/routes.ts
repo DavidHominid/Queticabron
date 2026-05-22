@@ -123,4 +123,7 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+], {
+  // CORREGIDO: Se cierra el arreglo con "]" y se abre el objeto de configuración "{ basename: ... }"
+  basename: '/citas',
+});
