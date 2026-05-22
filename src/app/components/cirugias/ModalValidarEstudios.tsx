@@ -13,7 +13,7 @@ interface ModalValidarEstudiosProps {
 
 export function ModalValidarEstudios({ cirugia, consultaRelacionada, onClose, onValidar }: ModalValidarEstudiosProps) {
   // Extraemos los estudios de la consulta (si existen)
-  const estudiosSolicitados = consultaRelacionada?.estudios || [];
+  const estudiosSolicitados = consultaRelacionada?.estudiosIndicados || [];
 
   // Estado para llevar el control de cuáles ya nos entregó el paciente
   const [estudiosRecibidos, setEstudiosRecibidos] = useState<string[]>([]);

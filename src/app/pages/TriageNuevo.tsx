@@ -80,14 +80,17 @@ export function TriageNuevo() {
   // Tomamos solo los primeros 10 caracteres para evitar conversión UTC
   const normalizarFecha = (f: string | undefined) => (f ? String(f).substring(0, 10) : '');
 
-  // Filtramos por evento activo y citas generales (fuera de evento)
+  // Filtramos por todas las citas del día aplicables
   const citasHoy = citas.filter(
     (c) =>
-      (c.eventoId === eventoActivo?.id || c.eventoId === 'general') &&
       normalizarFecha(c.fecha) === hoy &&
-      (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
+      (c.estado === 'programada' || c.estado === 'agendada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
   );
-  const citasVisibles = citasHoy.filter((c) => triageCanSeeCita(eventoActivo || null, c, user));
+
+  const citasVisibles = citasHoy.filter((c) => {
+    const eventoDeLaCita = c.eventoId === 'general' ? null : (eventos.find(e => e.id === c.eventoId) || null);
+    return triageCanSeeCita(eventoDeLaCita, c, user);
+  });
 
   // Obtener pacientes con citas hoy
   const pacientesDisponibles = citasVisibles
@@ -113,12 +116,18 @@ export function TriageNuevo() {
     })
     .filter((v): v is NonNullable<typeof v> => Boolean(v));
 
-  // Filtrar pacientes por búsqueda (mostrar todos, incluyendo completados)
-  const pacientesFiltrados = pacientesDisponibles.filter(
-    (p) =>
-      p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filtrar pacientes por búsqueda (mostrar todos, incluyendo completados) y ORDENAR POR HORA
+  const pacientesFiltrados = pacientesDisponibles
+    .filter(
+      (p) =>
+        p.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      const horaA = a.cita?.hora || '23:59';
+      const horaB = b.cita?.hora || '23:59';
+      return horaA.localeCompare(horaB);
+    });
 
   const handleSeleccionarPaciente = (paciente: any) => {
     setSelectedPaciente(paciente);

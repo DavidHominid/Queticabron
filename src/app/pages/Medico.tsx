@@ -207,17 +207,8 @@ export function Medico() {
       ciudad: user?.ciudad || 'sonoyta',
     });
 
-    // NUEVO: Guardar el resumen para el modal ANTES de limpiar
-    setResumenConsulta({
-      pacienteNombre: selectedCita.paciente?.nombre,
-      diagnostico: consultaForm.diagnostico,
-      medicamentos: consultaForm.medicamentos.filter((m) => m.nombre.trim() !== ''),
-      estudios: consultaForm.estudios.filter((e) => e.tipo.trim() !== ''),
-      requiereCirugia: consultaForm.requiereCirugia
-    });
-
-    // Abrir el modal en lugar de limpiar inmediatamente
-    setShowExitModal(true);
+    // Cerrar y limpiar inmediatamente sin mostrar modal
+    handleCerrarModal();
   };
 
   const handleCerrarModal = () => {
@@ -941,66 +932,7 @@ export function Medico() {
         )}
       </div>
 
-      {/* MODAL DE SALIDA DE CONSULTA */}
-      <Dialog open={showExitModal} onOpenChange={handleCerrarModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-xl text-[color:var(--brand-tertiary)]">
-              <CheckCircle2 className="h-6 w-6" />
-              ¡Consulta Completada!
-            </DialogTitle>
-            <DialogDescription>
-              La consulta de <strong>{resumenConsulta?.pacienteNombre}</strong> se ha guardado correctamente. Selecciona los documentos que deseas imprimir o entregar al paciente.
-            </DialogDescription>
-          </DialogHeader>
 
-          <div className="flex flex-col gap-3 py-4">
-            {/* Botón de Receta (Solo aparece si se recetaron medicamentos) */}
-            {resumenConsulta?.medicamentos?.length > 0 && (
-              <Button onClick={imprimirReceta} className="w-full justify-start text-left h-12" variant="outline">
-                <Printer className="mr-3 h-5 w-5 text-primary" />
-                <div>
-                  <div className="font-semibold">Imprimir Receta Médica</div>
-                  <div className="text-xs text-muted-foreground">{resumenConsulta.medicamentos.length} medicamento(s)</div>
-                </div>
-              </Button>
-            )}
-
-            {/* Botón de Estudios (Aparece si hay estudios O si requiere cirugía) */}
-            {(resumenConsulta?.estudios?.length > 0 || resumenConsulta?.requiereCirugia) && (
-              <Button onClick={imprimirEstudios} className="w-full justify-start text-left h-12" variant="outline">
-                <FileText className="mr-3 h-5 w-5 text-[color:var(--brand-secondary-strong)]" />
-                <div>
-                  <div className="font-semibold">
-                    {resumenConsulta?.requiereCirugia ? "Imprimir Orden (Preoperatorios)" : "Imprimir Orden de Estudios"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Para presentar en el laboratorio
-                  </div>
-                </div>
-              </Button>
-            )}
-
-            {/* Alerta Visual si requiere Cirugía */}
-            {resumenConsulta?.requiereCirugia && (
-              <div className="mt-2 rounded-lg bg-amber-50 p-3 border border-amber-200">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div className="text-sm text-amber-800">
-                    <strong>Paciente requiere Cirugía:</strong> Recuerde entregarle la orden de estudios preoperatorios. La cirugía quedará <em>Pendiente de Estudios</em> en el sistema.
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="sm:justify-end">
-            <Button type="button" onClick={handleCerrarModal}>
-              Finalizar y Siguiente Paciente
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 }

@@ -8,6 +8,16 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '../components/ui/alert-dialog';
+import {
   Plus,
   Calendar,
   User,
@@ -28,6 +38,7 @@ import { ModalSeguimiento } from '../components/cirugias/ModalSeguimiento';
 import { ModalValidarEstudios } from '../components/cirugias/ModalValidarEstudios';
 import { ModalProgramarCirugia } from '../components/cirugias/ModalProgramarCirugia';
 import { nowIso, todayYmd } from '../utils/clock';
+import { toast } from 'sonner';
 
 export function Cirugias() {
   const { 
@@ -52,6 +63,19 @@ export function Cirugias() {
   const [showProgramarModal, setShowProgramarModal] = useState(false);
   const [selectedCirugia, setSelectedCirugia] = useState<Cirugia | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    isWarning: boolean;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    isWarning: false,
+    onConfirm: () => {},
+  });
   
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -101,13 +125,43 @@ export function Cirugias() {
 
     if (newStatus === 'en_procedimiento') {
       const isToday = cirugia.fechaCirugia === todayYmd();
-      let confirmMsg = '¿Estás seguro de ingresar a este paciente a Quirófano?';
-      if (!isToday) {
-        confirmMsg = `La fecha programada para esta cirugía (${cirugia.fechaCirugia || 'ninguna'}) NO coincide con el día de hoy. ¿Estás absolutamente seguro de continuar?`;
+
+      const doIngresar = async () => {
+        try {
+          await updateCirugia(cirugia.id, { estado: 'en_procedimiento' as any });
+          addRegistroAuditoria({
+            id: `aud${Date.now()}`,
+            usuarioId: user?.id || '',
+            nombreUsuario: user?.nombre || '',
+            rol: user?.rol || 'medico',
+            accion: 'Actualizar Estado Cirugía',
+            detalles: `Cambió cirugía ${cirugia.id} a estado en_procedimiento`,
+            fechaHora: nowIso(),
+            ciudad: user?.ciudad || 'sonoyta',
+          });
+        } catch (err: any) {
+          toast.error(err.message || 'Error al actualizar el estado.');
+        }
+      };
+
+      if (isToday) {
+        setConfirmDialog({
+          open: true,
+          title: 'Ingresar a Quirófano',
+          description: '¿Estás seguro de ingresar a este paciente a Quirófano?',
+          isWarning: false,
+          onConfirm: doIngresar,
+        });
+      } else {
+        setConfirmDialog({
+          open: true,
+          title: '⚠️ Fecha diferente a hoy',
+          description: `La fecha programada para esta cirugía (${cirugia.fechaCirugia || 'ninguna'}) NO coincide con el día de hoy. ¿Estás absolutamente seguro de continuar?`,
+          isWarning: true,
+          onConfirm: doIngresar,
+        });
       }
-      
-      const confirm = window.confirm(confirmMsg);
-      if (!confirm) return;
+      return;
     }
 
     if (newStatus === 'postoperatorio') {
@@ -118,9 +172,8 @@ export function Cirugias() {
     
     if (newStatus === 'realizada') {
       setSelectedCirugia(cirugia);
-      // Actualizamos estado en DB primero
-      updateCirugia(cirugia.id, { estado: newStatus });
-      // Y lanzamos el modal de seguimiento pre-llenado
+      // Lanzamos el modal de seguimiento pre-llenado ANTES de actualizar el estado
+      // El estado se actualizará una vez que se guarde el formulario de seguimiento
       setShowSeguimientoModal(true);
       return;
     }
@@ -138,7 +191,7 @@ export function Cirugias() {
         ciudad: user?.ciudad || 'sonoyta',
       });
     } catch (err: any) {
-      alert(err.message || 'Error al actualizar el estado. Revisa los conflictos de agenda.');
+      toast.error(err.message || 'Error al actualizar el estado. Revisa los conflictos de agenda.');
     }
   };
 
@@ -156,7 +209,7 @@ export function Cirugias() {
     }
   };
 
-  const handleSubmitSeguimiento = (data: Partial<Seguimiento>) => {
+  const handleSubmitSeguimiento = async (data: Partial<Seguimiento>) => {
     if (!selectedCirugia) return;
 
     const nuevoSeguimiento: Seguimiento = {
@@ -173,10 +226,15 @@ export function Cirugias() {
     };
 
     addSeguimiento(nuevoSeguimiento);
-    setShowSeguimientoModal(false);
     
-    // Opcional: Podríamos llamar a window.print() aquí si queremos que imprima justo después de agendar
-    // window.print();
+    // Actualizar estado en DB después de llenar el formulario
+    try {
+      await updateCirugia(selectedCirugia.id, { estado: 'realizada' as any });
+    } catch (err: any) {
+      toast.error(err.message || 'Error al actualizar el estado a alta.');
+    }
+
+    setShowSeguimientoModal(false);
   };
 
   const fases = [
@@ -282,39 +340,6 @@ export function Cirugias() {
                   </div>
                 );
               })}
-              
-              {/* Columna especial para altas/historial rápido */}
-              <div className="flex-1 min-w-[280px] flex flex-col rounded-xl border bg-gray-50">
-                <div className="p-3 border-b bg-white/50 rounded-t-xl font-semibold flex justify-between items-center shrink-0">
-                  <span>Altas Recientes</span>
-                  <Badge variant="outline">
-                    {cirugias.filter(c => c.estado === 'realizada').length}
-                  </Badge>
-                </div>
-                <div className="p-3 overflow-y-auto flex-1">
-                   {cirugias.filter(c => c.estado === 'realizada').slice(0, 10).map(cirugia => {
-                      const paciente = pacientes.find((p) => p.id === cirugia.pacienteId);
-                      return (
-                        <Card key={cirugia.id} className="shadow-sm mb-3">
-                          <CardContent className="p-4">
-                            <h4 className="font-semibold text-sm line-clamp-1">{cirugia.diagnostico}</h4>
-                            <div className="text-xs text-muted-foreground my-1">
-                              {paciente?.nombre} {paciente?.apellido}
-                            </div>
-                            <div className="flex gap-2 mt-2">
-                              <Button variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => {
-                                setSelectedCirugia(cirugia);
-                                setTimeout(() => window.print(), 100);
-                              }}>
-                                <Printer className="w-3 h-3 mr-1" /> Imprimir
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )
-                   })}
-                </div>
-              </div>
 
             </div>
           </div>
@@ -371,8 +396,6 @@ export function Cirugias() {
           }}
           onSubmit={(data) => {
              handleSubmitSeguimiento(data);
-             // After scheduling follow-up, prompt print
-             setTimeout(() => window.print(), 500);
           }}
         />
       )}
@@ -409,11 +432,42 @@ export function Cirugias() {
               setShowProgramarModal(false);
               setSelectedCirugia(null);
             } catch (err: any) {
-              alert(err.message || 'Error al programar cirugía. Verifica disponibilidad de quirófano.');
+              toast.error(err.message || 'Error al programar cirugía. Verifica disponibilidad de quirófano.');
             }
           }}
         />
       )}
+
+      {/* ── Diálogo de confirmación personalizado (reemplaza window.confirm) ── */}
+      <AlertDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
+      >
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className={confirmDialog.isWarning ? 'text-amber-600' : ''}>
+              {confirmDialog.title}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm leading-relaxed">
+              {confirmDialog.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className={confirmDialog.isWarning
+                ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                : 'bg-teal-600 hover:bg-teal-700 text-white'}
+              onClick={() => {
+                confirmDialog.onConfirm();
+                setConfirmDialog((prev) => ({ ...prev, open: false }));
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

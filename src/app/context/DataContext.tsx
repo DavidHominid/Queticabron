@@ -142,7 +142,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
             return;
           }
           const data = await res.json();
-          
+
           // Especial care for audit mapping
           if (path === 'auditoria') {
             console.log('🔍 Auditoría raw from server:', data.length, 'records');
@@ -190,7 +190,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Fetch all data on mount and poll
   useEffect(() => {
     let isMounted = true;
-    
+
     fetchAllData().finally(() => {
       if (isMounted) {
         setIsInitialized(true);
@@ -447,23 +447,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateCirugia = async (id: string, cirugiaUpdate: Partial<Cirugia>) => {
+  const updateCirugia = async (id: string, campos: Partial<Cirugia>) => {
     try {
       const res = await fetch(`/api/cirugias/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cirugiaUpdate),
+        body: JSON.stringify(campos),
       });
-      if (res.ok) {
-        const actualizado = await res.json();
-        setCirugias(cirugias.map((c) => (c.id === id ? actualizado : c)));
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Error al actualizar la cirugía.');
+
+      if (!res.ok) {
+        let errorMsg = 'Error al actualizar la cirugía.';
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.error || errorMsg;
+        } catch(e) {
+          errorMsg = `Error del servidor (HTTP ${res.status}).`;
+        }
+        throw new Error(errorMsg);
       }
+
+      // Si todo salió bien, actualizamos el estado local de React
+      setCirugias((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...campos } : c))
+      );
     } catch (err) {
       console.error(err);
-      throw err;
+      throw err; // <--- SÚPER IMPORTANTE: Lanzar el error para que el componente lo atrape
     }
   };
 

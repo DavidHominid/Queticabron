@@ -280,13 +280,30 @@ export interface Cirugia {
   especialidad: Especialidad;
   estado: 'pendiente_estudio' | 'lista_programar' | 'programada' | 'en_procedimiento' | 'postoperatorio' | 'realizada' | 'cancelada';
   notaPostoperatoria?: {
+    // Tiempos reales de quirófano
+    horaInicioReal?: string;
+    horaTerminoReal?: string;
+    // Diagnósticos
     diagnosticoPreoperatorio?: string;
     diagnosticoPostoperatorio?: string;
+    // Responsables
+    cirujanoPrincipal?: string;
+    anestesiologo?: string;
     tipoAnestesia?: string;
     tecnicaQuirurgica?: string;
+    // Hallazgos y seguridad
     hallazgos?: string;
-    insumosConsumidos?: string;
+    sangradoEstimado?: string;
     incidentes?: string;
+    sinIncidentes?: boolean;
+    // Insumos
+    insumosConsumidos?: string;
+    // Aldrete (salida de quirófano)
+    aldreteActividad?: number;
+    aldreteRespiracion?: number;
+    aldreteCirculacion?: number;
+    aldreteConciencia?: number;
+    aldreteSaturacion?: number;
   };
   estudios?: {
     requeridos: string[];

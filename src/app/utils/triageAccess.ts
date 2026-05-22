@@ -19,7 +19,7 @@ export const triageCanSeeEspecialidad = (evento: Evento | null | undefined, espe
   if (user.rol === 'administrador') return true;
   if (user.rol !== 'triage') return true;
 
-  const esp = (evento.especialidades || []).find((e) => e.especialidad === especialidad) || null;
+  const esp = (evento?.especialidades || []).find((e) => e.especialidad === especialidad) || null;
   const list = Array.isArray((esp as any)?.practicantes) ? (((esp as any).practicantes as unknown[]) || []).map(norm).filter(Boolean) : [];
   if (!list.length) return true;
 

@@ -20,14 +20,14 @@ async function checkConflict(req, res, next) {
         AND estado IN ('programada', 'en_procedimiento')
       `;
       let params = [fechaCirugia, lugarCirugia];
-      
+
       if (id) {
         query += ` AND id_agenda != $3`;
         params.push(parseInt(id.replace('cir', '')) || parseInt(id));
       }
 
       const conflict = await pool.query(query, params);
-      
+
       const hayCruce = conflict.rows.some(cirugia => {
         if (!cirugia.hora_cirugia || !cirugia.duracion_estimada) return false;
         const [exH, exM] = cirugia.hora_cirugia.split(':').map(Number);
@@ -42,20 +42,20 @@ async function checkConflict(req, res, next) {
         return res.status(409).json({ error: 'Conflicto de agenda: El quirófano ya está ocupado en ese rango de horario.' });
       }
     }
-    
+
     // Check doctor conflict
     if (fechaCirugia && horaEstimada && medicoACargo && duracionEstimada) {
       const [h, m] = horaEstimada.split(':').map(Number);
       const nuevoInicio = h * 60 + m;
       const nuevoFin = nuevoInicio + Number(duracionEstimada);
 
-       let queryDoc = `
+      let queryDoc = `
         SELECT id_agenda, hora_cirugia, duracion_estimada FROM "${SCHEMA}".agenda_cirugias 
         WHERE fecha_cirugia = $1 AND (medico_usuario_id = $2 OR procedimiento = $2) 
         AND estado IN ('programada', 'en_procedimiento')
       `;
       let paramsDoc = [fechaCirugia, medicoACargo];
-      
+
       if (id) {
         queryDoc += ` AND id_agenda != $3`;
         paramsDoc.push(parseInt(id.replace('cir', '')) || parseInt(id));
@@ -102,13 +102,13 @@ router.post('/', checkConflict, async (req, res) => {
        (id_paciente, procedimiento, fecha_cirugia, hora_cirugia, duracion_estimada, consultorio, estado, costo_total, medico_usuario_id, nota_postoperatoria) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
-        parseInt(c.pacienteId), 
-        c.diagnostico || 'Sin diagnóstico', 
-        c.fechaCirugia || null, 
-        c.horaEstimada || null, 
+        parseInt(c.pacienteId),
+        c.diagnostico || 'Sin diagnóstico',
+        c.fechaCirugia || null,
+        c.horaEstimada || null,
         c.duracionEstimada ? parseInt(c.duracionEstimada) : 60,
-        c.lugarCirugia || null, 
-        c.estado || 'pendiente_estudio', 
+        c.lugarCirugia || null,
+        c.estado || 'pendiente_estudio',
         c.costoEstimado || 0,
         c.medicoACargo || null,
         c.notaPostoperatoria ? JSON.stringify(c.notaPostoperatoria) : null
@@ -131,6 +131,32 @@ router.put('/:id', checkConflict, async (req, res) => {
   }
 
   try {
+    // 1. Obtener la cirugía existente primero para preservar campos no enviados en la petición parcial
+    const existing = await pool.query(`SELECT * FROM "${SCHEMA}".agenda_cirugias WHERE id_agenda = $1`, [idNum]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Cirugía no encontrada' });
+    }
+    const current = existing.rows[0];
+
+    // 2. Fusionar valores anteriores con los nuevos recibidos
+    const procedimiento = c.diagnostico !== undefined ? c.diagnostico : current.procedimiento;
+    const fecha_cirugia = c.fechaCirugia !== undefined ? c.fechaCirugia : current.fecha_cirugia;
+    const hora_cirugia = c.horaEstimada !== undefined ? c.horaEstimada : current.hora_cirugia;
+    const duracion_estimada = c.duracionEstimada !== undefined ? parseInt(c.duracionEstimada) : current.duracion_estimada;
+    const consultorio = c.lugarCirugia !== undefined ? c.lugarCirugia : current.consultorio;
+    const estado = c.estado !== undefined ? c.estado : current.estado;
+    const costo_total = c.costoEstimado !== undefined ? c.costoEstimado : current.costo_total;
+    const medico_usuario_id = c.medicoACargo !== undefined ? c.medicoACargo : current.medico_usuario_id;
+    
+    // Para notas postoperatorias, manejamos tanto objetos estructurados como JSON string
+    let nota_postoperatoria = current.nota_postoperatoria;
+    if (c.notaPostoperatoria !== undefined) {
+      nota_postoperatoria = c.notaPostoperatoria ? (typeof c.notaPostoperatoria === 'object' ? JSON.stringify(c.notaPostoperatoria) : c.notaPostoperatoria) : null;
+    } else if (current.nota_postoperatoria && typeof current.nota_postoperatoria === 'object') {
+      nota_postoperatoria = JSON.stringify(current.nota_postoperatoria);
+    }
+
+    // 3. Ejecutar la actualización completa con valores consolidados
     const result = await pool.query(
       `UPDATE "${SCHEMA}".agenda_cirugias SET 
         procedimiento = $1,
@@ -144,23 +170,22 @@ router.put('/:id', checkConflict, async (req, res) => {
         nota_postoperatoria = $9
        WHERE id_agenda = $10 RETURNING *`,
       [
-        c.diagnostico,
-        c.fechaCirugia || null,
-        c.horaEstimada || null,
-        c.duracionEstimada ? parseInt(c.duracionEstimada) : 60,
-        c.lugarCirugia || null,
-        c.estado,
-        c.costoEstimado || 0,
-        c.medicoACargo || null,
-        c.notaPostoperatoria ? JSON.stringify(c.notaPostoperatoria) : null,
+        procedimiento,
+        fecha_cirugia,
+        hora_cirugia,
+        duracion_estimada,
+        consultorio,
+        estado,
+        costo_total,
+        medico_usuario_id,
+        nota_postoperatoria,
         idNum
       ]
     );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Cirugía no encontrada' });
-    }
+
     res.json(mapRowToFrontend(result.rows[0]));
   } catch (err) {
+    console.error("Error en PUT /cirugias:", err);
     res.status(500).json({ error: err.message });
   }
 });
