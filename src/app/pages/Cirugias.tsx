@@ -25,7 +25,8 @@ import {
   Eye,
   ArrowRight,
   ClipboardList,
-  Printer
+  Printer,
+  AlertTriangle
 } from 'lucide-react';
 import { Cirugia, EstudioSocioeconomico, Seguimiento, Especialidad } from '../types';
 
@@ -247,11 +248,29 @@ export function Cirugias() {
 
   const renderCirugiaCard = (cirugia: Cirugia, fase: any) => {
     const paciente = pacientes.find((p) => p.id === cirugia.pacienteId);
+    const isPendienteSede = cirugia.requiereRentaExterna && cirugia.estatusRentaSede === 'pendiente_confirmar';
+
+    // Find associated consultation to show ordered studies on the card
+    const consultaAsociada = cirugia.citaId
+      ? consultasMedicas.find(c => c.citaId === cirugia.citaId)
+      : consultasMedicas.slice().reverse().find(c => c.pacienteId === cirugia.pacienteId && c.requiereCirugia) ||
+        consultasMedicas.slice().reverse().find(c => c.pacienteId === cirugia.pacienteId);
+    const estudiosSolicitados = consultaAsociada?.estudiosIndicados?.filter(e => e.tipo?.trim()) || [];
+
     return (
-      <Card key={cirugia.id} className="shadow-sm hover:shadow-md transition-shadow mb-3 border-l-4" style={{borderLeftColor: 'var(--primary)'}}>
+      <Card 
+        key={cirugia.id} 
+        className={`shadow-sm hover:shadow-md transition-shadow mb-3 border-l-4 ${isPendienteSede ? 'border-orange-500' : ''}`} 
+        style={!isPendienteSede ? {borderLeftColor: 'var(--primary)'} : undefined}
+      >
         <CardContent className="p-4">
           <div className="flex justify-between items-start mb-2">
             <h4 className="font-semibold text-sm line-clamp-2">{cirugia.diagnostico}</h4>
+            {isPendienteSede && (
+              <span className="text-orange-500 flex items-center shrink-0 ml-2" title="Alerta: Quirófano sin confirmar">
+                <AlertTriangle className="w-4 h-4" />
+              </span>
+            )}
           </div>
           <div className="text-xs text-muted-foreground space-y-1 mb-3">
             <div className="flex items-center gap-1">
@@ -268,6 +287,35 @@ export function Cirugias() {
                </div>
             )}
           </div>
+
+          {/* Studies chip — only visible in pendiente_estudio phase */}
+          {fase.id === 'pendiente_estudio' && (
+            <div className="mb-3">
+              {estudiosSolicitados.length > 0 ? (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                    <ClipboardList className="w-3 h-3" /> Estudios solicitados
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {estudiosSolicitados.map((est, i) => (
+                      <span
+                        key={i}
+                        title={est.indicaciones}
+                        className="inline-block rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700"
+                      >
+                        {est.tipo}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[10px] italic text-muted-foreground/70 flex items-center gap-1">
+                  <ClipboardList className="w-3 h-3" /> Sin estudios registrados
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-2 justify-between mt-3 pt-3 border-t">
             <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => {
               setSelectedCirugia(cirugia);
@@ -403,7 +451,11 @@ export function Cirugias() {
       {showValidarEstudios && selectedCirugia && (
         <ModalValidarEstudios
           cirugia={selectedCirugia}
-          consultaRelacionada={consultasMedicas.find(c => c.citaId === selectedCirugia.citaId)}
+          consultaRelacionada={
+            selectedCirugia.citaId 
+              ? consultasMedicas.find(c => c.citaId === selectedCirugia.citaId)
+              : consultasMedicas.slice().reverse().find(c => c.pacienteId === selectedCirugia.pacienteId && c.requiereCirugia) || consultasMedicas.slice().reverse().find(c => c.pacienteId === selectedCirugia.pacienteId)
+          }
           onClose={() => {
             setShowValidarEstudios(false);
             setSelectedCirugia(null);

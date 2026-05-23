@@ -11,6 +11,8 @@ const ensureNotaMedicaColumns = async () => {
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS fecha_hora TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS medico_usuario_id TEXT`);
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS estado_seguimiento VARCHAR(50)`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS estudios_indicados JSONB`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS requiere_cirugia BOOLEAN DEFAULT false`);
   // Backfill estado_seguimiento for existing rows
   await pool.query(`UPDATE "${SCHEMA}".nota_medica SET estado_seguimiento = CASE WHEN proxima_cita IS NOT NULL THEN 'agendada' ELSE 'pendiente' END WHERE estado_seguimiento IS NULL`);
 };
@@ -100,6 +102,8 @@ router.post('/', async (req, res) => {
       tratamiento: c.tratamiento,
       plan_tratamiento: c.planTratamiento || c.tratamiento,
       medicamentos: JSON.stringify(c.medicamentosRecetados || []),
+      estudios_indicados: JSON.stringify(c.estudiosIndicados || []),
+      requiere_cirugia: c.requiereCirugia || false,
       indicaciones: c.recomendaciones || '',
       proxima_cita: c.proximaConsulta || null,
       estado_seguimiento: c.proximaConsulta ? 'pendiente_de_agendar' : 'pendiente',

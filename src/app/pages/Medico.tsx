@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, useRef } from 'react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useLanguage } from '../context/LanguageContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -50,7 +50,12 @@ export function Medico() {
     updateCita,
     addCirugia,
     addRegistroAuditoria,
+    cirugias,
   } = useData();
+
+  // Pending duplicate surgery confirmation
+  const [showDuplicateSurgeryDialog, setShowDuplicateSurgeryDialog] = useState(false);
+  const pendingSubmitRef = useRef<(() => void) | null>(null);
   const { user } = useAuth();
   const [selectedCita, setSelectedCita] = useState<any>(null);
   const [showExitModal, setShowExitModal] = useState(false);
@@ -144,9 +149,13 @@ export function Medico() {
     setConsultaForm({ ...consultaForm, estudios: nuevosEstudios });
   };
 
-  const handleSubmitConsulta = (e: React.FormEvent) => {
-    e.preventDefault();
+  /** Builds and saves the consultation + optional surgery. */
+  const ejecutarGuardadoConsulta = (overrideSurgery = false) => {
     if (!selectedCita) return;
+
+    const estudiosParaGuardar = consultaForm.estudios.filter(
+      (e) => e.tipo.trim() !== '' || e.indicaciones.trim() !== ''
+    );
 
     const nuevaConsulta: ConsultaMedica = {
       id: `con${Date.now()}`,
@@ -163,9 +172,7 @@ export function Medico() {
       medicamentosRecetados: consultaForm.medicamentos.filter(
         (m) => m.nombre.trim() !== '' || m.dosis.trim() !== '' || m.frecuencia.trim() !== '' || m.duracion.trim() !== ''
       ),
-      estudiosIndicados: consultaForm.estudios.filter(
-        (e) => e.tipo.trim() !== '' || e.indicaciones.trim() !== ''
-      ),
+      estudiosIndicados: estudiosParaGuardar,
       recomendaciones: consultaForm.recomendaciones,
       proximaConsulta: consultaForm.proximaConsulta || undefined,
       requiereCirugia: consultaForm.requiereCirugia,
@@ -180,11 +187,12 @@ export function Medico() {
     } as any);
     updateCita(selectedCita.id, { estado: 'completada' });
 
-    // Si requiere cirugía, iniciar proceso
-    if (consultaForm.requiereCirugia) {
+    // Si requiere cirugía, iniciar proceso (con o sin override de duplicado)
+    if (consultaForm.requiereCirugia && overrideSurgery) {
       addCirugia({
         id: `cir${Date.now()}`,
         pacienteId: selectedCita.pacienteId,
+        citaId: selectedCita.id,
         diagnostico: consultaForm.diagnostico,
         medicoACargo: user?.nombre || '',
         especialidad: selectedCita.especialidad,
@@ -207,8 +215,29 @@ export function Medico() {
       ciudad: user?.ciudad || 'sonoyta',
     });
 
-    // Cerrar y limpiar inmediatamente sin mostrar modal
     handleCerrarModal();
+  };
+
+  const handleSubmitConsulta = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCita) return;
+
+    // If surgery is checked, look for existing active surgery for this patient
+    if (consultaForm.requiereCirugia) {
+      const ESTADOS_VIVOS: string[] = ['pendiente_estudio', 'lista_programar', 'programada'];
+      const cirugiaViva = cirugias.find(
+        (c) => c.pacienteId === selectedCita.pacienteId && ESTADOS_VIVOS.includes(c.estado)
+      );
+
+      if (cirugiaViva) {
+        // Save the action for later in case the doctor confirms override
+        pendingSubmitRef.current = () => ejecutarGuardadoConsulta(true);
+        setShowDuplicateSurgeryDialog(true);
+        return;
+      }
+    }
+
+    ejecutarGuardadoConsulta(true);
   };
 
   const handleCerrarModal = () => {
@@ -932,6 +961,66 @@ export function Medico() {
         )}
       </div>
 
+      {/* ─── Duplicate Surgery Warning ─────────────────────────── */}
+      {showDuplicateSurgeryDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-amber-200 overflow-hidden">
+            {/* Header */}
+            <div className="flex items-start gap-4 bg-amber-50 border-b border-amber-200 px-6 py-5">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
+                <AlertCircle className="h-6 w-6 text-amber-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-amber-900">Cirugía Activa Detectada</h2>
+                <p className="mt-1 text-sm text-amber-700">
+                  Este paciente ya tiene un proceso de cirugía abierto en el sistema.
+                </p>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-3 text-sm text-gray-700">
+              <p>
+                Crear una segunda cirugía podría generar registros duplicados y confusión en el flujo quirúrgico.
+              </p>
+              <p className="font-medium text-gray-900">¿Qué deseas hacer?</p>
+              <ul className="space-y-1 list-disc list-inside text-gray-600">
+                <li><strong>Guardar sin cirugía</strong> — Completa la consulta normalmente sin abrir un nuevo expediente quirúrgico.</li>
+                <li><strong>Crear de todas formas</strong> — Si el caso es distinto y justifica un nuevo proceso quirúrgico independiente.</li>
+              </ul>
+            </div>
+
+            {/* Footer */}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end px-6 pb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDuplicateSurgeryDialog(false);
+                  pendingSubmitRef.current = null;
+                  // Save the consultation WITHOUT creating a new surgery
+                  ejecutarGuardadoConsulta(false);
+                }}
+                className="w-full sm:w-auto rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Guardar sin cirugía
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDuplicateSurgeryDialog(false);
+                  if (pendingSubmitRef.current) {
+                    pendingSubmitRef.current();
+                    pendingSubmitRef.current = null;
+                  }
+                }}
+                className="w-full sm:w-auto rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-600 transition-colors"
+              >
+                Crear de todas formas
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </DashboardLayout>
   );

@@ -158,6 +158,8 @@ export const mapConsultaMedica = (n) => {
     diagnostico: String(n.diagnostico ?? ''),
     tratamiento: String(n.tratamiento ?? n.plan_tratamiento ?? ''),
     medicamentosRecetados: parseJsonArray(n.medicamentos ?? n.medicamentos_recetados ?? n.medicamentosRecetados),
+    estudiosIndicados: parseJsonArray(n.estudios_indicados ?? n.estudiosIndicados),
+    requiereCirugia: Boolean(n.requiere_cirugia ?? n.requiereCirugia),
     recomendaciones: String(n.indicaciones ?? n.recomendaciones ?? ''),
     proximaConsulta: n.proxima_cita ?? n.proximaConsulta ?? undefined,
   };

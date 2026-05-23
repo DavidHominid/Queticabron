@@ -274,6 +274,7 @@ export interface Seguimiento {
 export interface Cirugia {
   id: string;
   pacienteId: string;
+  citaId?: string;
   consultaId?: string;
   diagnostico: string;
   medicoACargo: string;
@@ -322,6 +323,8 @@ export interface Cirugia {
   horaEstimada?: string;
   duracionEstimada?: number;
   lugarCirugia?: string;
+  requiereRentaExterna?: boolean;
+  estatusRentaSede?: 'no_aplica' | 'pendiente_confirmar' | 'confirmada';
   costoEstimado?: number;
   indicacionesPreoperatorias?: string;
   resultadoCirugia?: string;

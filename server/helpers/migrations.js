@@ -66,5 +66,8 @@ export async function migrateAgendaCirugiasEstados() {
   await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS costo_total NUMERIC`);
   await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS nota_postoperatoria JSONB`);
   await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS duracion_estimada INTEGER DEFAULT 60`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS requiere_renta_externa BOOLEAN DEFAULT false`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS estatus_renta_sede VARCHAR DEFAULT 'no_aplica'`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS id_cita INTEGER`);
   await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias DROP CONSTRAINT IF EXISTS agenda_cirugias_medico_usuario_id_fkey`);
 }

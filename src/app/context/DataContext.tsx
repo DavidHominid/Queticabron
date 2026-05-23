@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { toast } from 'sonner';
 import {
   Evento,
   Paciente,
@@ -439,11 +440,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       } else {
         const err = await res.json().catch(() => ({}));
         console.error("Backend error addCirugia:", err);
-        alert(`Error al crear cirugía: ${err.error || 'Desconocido'}`);
+        toast.error(`Error al crear cirugía: ${err.error || 'Problema de conexión con el servidor'}`);
       }
     } catch (err: any) {
       console.error(err);
-      alert(`Error de red al crear cirugía: ${err.message}`);
+      toast.error(`Error de red al crear cirugía: ${err.message}`);
     }
   };
 

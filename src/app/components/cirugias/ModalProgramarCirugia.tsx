@@ -4,13 +4,22 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Checkbox } from '../ui/checkbox';
 import { AlertCircle } from 'lucide-react';
 import { Cirugia } from '../../types';
+import { useData } from '../../context/DataContext';
 
 interface ModalProgramarCirugiaProps {
   cirugia: Cirugia;
   onClose: () => void;
-  onSubmit: (datos: { fechaCirugia: string; horaEstimada: string; lugarCirugia: string; duracionEstimada: number }) => Promise<void>;
+  onSubmit: (datos: { 
+    fechaCirugia: string; 
+    horaEstimada: string; 
+    lugarCirugia: string; 
+    duracionEstimada: number;
+    requiereRentaExterna: boolean;
+    estatusRentaSede: 'no_aplica' | 'pendiente_confirmar' | 'confirmada';
+  }) => Promise<void>;
 }
 
 export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgramarCirugiaProps) {
@@ -18,17 +27,38 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
   const [horaEstimada, setHoraEstimada] = useState(cirugia.horaEstimada || '');
   const [lugarCirugia, setLugarCirugia] = useState(cirugia.lugarCirugia || '');
   const [duracionEstimada, setDuracionEstimada] = useState<string>(cirugia.duracionEstimada ? String(cirugia.duracionEstimada) : '60');
+  const [requiereRentaExterna, setRequiereRentaExterna] = useState<boolean>(cirugia.requiereRentaExterna || false);
+  const [estatusRentaSede, setEstatusRentaSede] = useState<'no_aplica' | 'pendiente_confirmar' | 'confirmada'>(
+    cirugia.estatusRentaSede || 'no_aplica'
+  );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const { cirugias } = useData();
+  const sedesHistoricas = Array.from(
+    new Set(
+      cirugias
+        .map(c => c.lugarCirugia)
+        .filter(lugar => lugar && lugar.trim() !== '')
+    )
+  ) as string[];
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fechaCirugia || !horaEstimada || !lugarCirugia || !duracionEstimada) return;
+    if (!fechaCirugia || !horaEstimada || !duracionEstimada) return;
 
     setLoading(true);
     setErrorMsg(null);
     try {
-      await onSubmit({ fechaCirugia, horaEstimada, lugarCirugia, duracionEstimada: parseInt(duracionEstimada) });
+      await onSubmit({ 
+        fechaCirugia, 
+        horaEstimada, 
+        lugarCirugia, 
+        duracionEstimada: parseInt(duracionEstimada),
+        requiereRentaExterna,
+        estatusRentaSede: requiereRentaExterna && estatusRentaSede === 'no_aplica' ? 'pendiente_confirmar' : 
+                          !requiereRentaExterna ? 'no_aplica' : estatusRentaSede
+      });
       // onSubmit closes the modal on success — nothing else to do here
     } catch (err: any) {
       setErrorMsg(err.message || 'Ocurrió un error al programar la cirugía.');
@@ -100,17 +130,45 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-semibold text-slate-800">Lugar (Quirófano) *</Label>
-            <Select value={lugarCirugia} onValueChange={(v) => { setLugarCirugia(v); setErrorMsg(null); }} required>
-              <SelectTrigger className="w-full text-slate-900">
-                <SelectValue placeholder="Seleccione quirófano" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Quirófano 1">Quirófano 1</SelectItem>
-                <SelectItem value="Quirófano 2">Quirófano 2</SelectItem>
-                <SelectItem value="Quirófano Ambulatorio">Quirófano Ambulatorio</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-sm font-semibold text-slate-800">Lugar (Sede o Quirófano a rentar)</Label>
+            <Input 
+              list="sedes-list"
+              value={lugarCirugia}
+              onChange={(e) => { setLugarCirugia(e.target.value); setErrorMsg(null); }}
+              placeholder="Ej. Clínica San Lucas o escriba uno nuevo..."
+              className="w-full text-slate-900"
+            />
+            <datalist id="sedes-list">
+              {sedesHistoricas.map((sede, index) => (
+                <option key={index} value={sede} />
+              ))}
+            </datalist>
+
+            <div className="flex items-center space-x-2 mt-3 p-2 bg-slate-50 border border-slate-100 rounded-lg">
+              <Checkbox 
+                id="renta" 
+                checked={requiereRentaExterna}
+                onCheckedChange={(checked) => setRequiereRentaExterna(checked as boolean)}
+              />
+              <label htmlFor="renta" className="text-sm cursor-pointer text-slate-700 font-medium">
+                Esta sede externa requiere pago/renta por este evento
+              </label>
+            </div>
+
+            {requiereRentaExterna && (
+              <div className="mt-3 ml-6">
+                <Label className="text-sm font-semibold text-slate-800">Estatus de la Renta</Label>
+                <Select value={estatusRentaSede !== 'no_aplica' ? estatusRentaSede : 'pendiente_confirmar'} onValueChange={(v: any) => { setEstatusRentaSede(v); }}>
+                  <SelectTrigger className="w-full text-slate-900 mt-1">
+                    <SelectValue placeholder="Seleccione estatus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendiente_confirmar">Pendiente de confirmar</SelectItem>
+                    <SelectItem value="confirmada">Confirmada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="pt-4 flex gap-2 sm:gap-0">
@@ -119,7 +177,7 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
             </Button>
             <Button
               type="submit"
-              disabled={!fechaCirugia || !horaEstimada || !lugarCirugia || !duracionEstimada || loading}
+              disabled={!fechaCirugia || !horaEstimada || !duracionEstimada || loading}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
             >
               {loading ? 'Verificando...' : 'Confirmar Programación'}

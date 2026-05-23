@@ -4,11 +4,11 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, AlertTriangle } from 'lucide-react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const QUIROFANOS = ['Quirófano 1', 'Quirófano 2', 'Quirófano Ambulatorio'];
+const QUIROFANOS_BASE = ['Quirófano 1', 'Quirófano 2', 'Quirófano Ambulatorio'];
 const START_HOUR = 7; // 07:00
 const END_HOUR = 19; // 19:00
 const MINUTE_STEP = 30; // Granularidad de 30 mins para las filas
@@ -23,14 +23,25 @@ export function AgendaQuirofanos() {
 
   const dateStr = format(currentDate, 'yyyy-MM-dd');
 
+  // Obtener sedes dinámicas del día
+  const columnasSedes = useMemo(() => {
+    const sedesDia = cirugias
+      .filter(c => c.fechaCirugia === dateStr && ['programada', 'en_procedimiento'].includes(c.estado))
+      .map(c => c.lugarCirugia)
+      .filter((sede): sede is string => !!sede && sede.trim() !== '');
+      
+    // Combinar bases con las del día (asegurar que las base siempre estén al principio)
+    return Array.from(new Set([...QUIROFANOS_BASE, ...sedesDia]));
+  }, [cirugias, dateStr]);
+
   // Filtrar cirugías del día actual que estén programadas o en procedimiento
   const cirugiasDelDia = useMemo(() => {
     return cirugias.filter(c => 
       c.fechaCirugia === dateStr && 
       ['programada', 'en_procedimiento'].includes(c.estado) &&
-      QUIROFANOS.includes(c.lugarCirugia || '')
+      columnasSedes.includes(c.lugarCirugia || '')
     );
-  }, [cirugias, dateStr]);
+  }, [cirugias, dateStr, columnasSedes]);
 
   // Generar las franjas horarias
   const timeSlots = useMemo(() => {
@@ -92,8 +103,8 @@ export function AgendaQuirofanos() {
             <div className="w-24 shrink-0 border-r border-slate-200 flex items-center justify-center font-medium text-xs text-slate-500 bg-slate-100/50">
               Hora
             </div>
-            {QUIROFANOS.map((quirofano, idx) => (
-              <div key={idx} className="flex-1 py-3 px-4 border-r border-slate-200 last:border-r-0 text-center font-bold text-slate-700 bg-white shadow-sm">
+            {columnasSedes.map((quirofano, idx) => (
+              <div key={idx} className="flex-1 py-3 px-4 border-r border-slate-200 last:border-r-0 text-center font-bold text-slate-700 bg-white shadow-sm min-w-[200px]">
                 {quirofano}
               </div>
             ))}
@@ -117,8 +128,8 @@ export function AgendaQuirofanos() {
               <div className="flex flex-1 relative">
                 {/* Rejilla de fondo */}
                 <div className="absolute inset-0 flex">
-                  {QUIROFANOS.map((_, idx) => (
-                    <div key={idx} className="flex-1 border-r border-slate-200 last:border-r-0">
+                  {columnasSedes.map((_, idx) => (
+                    <div key={idx} className="flex-1 border-r border-slate-200 last:border-r-0 min-w-[200px]">
                       {timeSlots.map((_, i) => (
                         <div key={i} className="h-16 border-b border-slate-100/50" />
                       ))}
@@ -127,7 +138,7 @@ export function AgendaQuirofanos() {
                 </div>
 
                 {/* Eventos (Cirugías) renderizados por posición absoluta */}
-                {QUIROFANOS.map((quirofano, qIdx) => {
+                {columnasSedes.map((quirofano, qIdx) => {
                   const cirugiasQ = cirugiasDelDia.filter(c => c.lugarCirugia === quirofano);
                   
                   return (
@@ -145,21 +156,27 @@ export function AgendaQuirofanos() {
                         const heightPixels = (durationMins / 60) * 128;
                         
                         const paciente = pacientes.find(p => p.id === cirugia.pacienteId);
+                        const isPendienteSede = cirugia.requiereRentaExterna && cirugia.estatusRentaSede === 'pendiente_confirmar';
 
                         return (
                           <div 
                             key={cirugia.id}
-                            className={`absolute left-1 right-2 rounded-lg border shadow-sm p-3 overflow-hidden transition-all hover:shadow-md z-10 ${getCirugiaColor(cirugia.estado)}`}
+                            className={`absolute left-1 right-2 rounded-lg border shadow-sm p-3 overflow-hidden transition-all hover:shadow-md z-10 ${getCirugiaColor(cirugia.estado)} ${isPendienteSede ? 'border-orange-500 border-2' : ''}`}
                             style={{ 
                               top: `${topPixels}px`, 
                               height: `${heightPixels}px`,
                               minHeight: '40px' 
                             }}
                           >
-                            <div className="flex flex-col h-full">
-                              <div className="font-bold text-sm leading-tight line-clamp-1 mb-1">
+                            <div className="flex flex-col h-full relative">
+                              <div className="font-bold text-sm leading-tight line-clamp-1 mb-1 pr-6">
                                 {cirugia.diagnostico}
                               </div>
+                              {isPendienteSede && (
+                                <div className="absolute top-0 right-0 text-orange-500" title="Alerta: Sede sin confirmar">
+                                  <AlertTriangle className="w-4 h-4" />
+                                </div>
+                              )}
                               <div className="flex items-center gap-1 text-xs opacity-90 mb-1">
                                 <User className="w-3 h-3" />
                                 <span className="truncate">{paciente?.nombre} {paciente?.apellido}</span>
