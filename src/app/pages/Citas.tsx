@@ -5,6 +5,7 @@ import { AgendaCitasDiaCalendar } from '../components/citas/AgendaCitasDiaCalend
 import { AgendarCitaDialog } from '../components/eventos/AgendarCitaDialog';
 import { AgendarCitaGeneralDialog } from '../components/eventos/AgendarCitaGeneralDialog';
 import { DetalleCitasBloqueDialog } from '../components/eventos/DetalleCitasBloqueDialog';
+import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
@@ -12,7 +13,7 @@ import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, TipoCitaEvento } from '../types';
+import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, Seguimiento, TipoCitaEvento } from '../types';
 import { labelEspecialidad } from '../utils/especialidades';
 import { nowIso, todayYmd } from '../utils/clock';
 
@@ -43,11 +44,24 @@ const hasCita = (
 };
 
 export function Citas() {
-  const { eventos, citas, pacientes, usuarios, especialidadesCatalogo, addCita, updateCita, addRegistroAuditoria, isInitialized } = useData();
+  const {
+    eventos,
+    citas,
+    pacientes,
+    usuarios,
+    especialidadesCatalogo,
+    seguimientos,
+    addCita,
+    updateCita,
+    updateSeguimiento,
+    addRegistroAuditoria,
+    isInitialized,
+  } = useData();
   const { user } = useAuth();
   const { t } = useLanguage();
 
   const [agendaMensaje, setAgendaMensaje] = useState('');
+  const [seguimientoParaAgendar, setSeguimientoParaAgendar] = useState<Seguimiento | null>(null);
 
   const [agendarOpen, setAgendarOpen] = useState(false);
   const [agendarEvento, setAgendarEvento] = useState<Evento | null>(null);
@@ -94,8 +108,44 @@ export function Citas() {
     [citas, visibleEventIds],
   );
 
+  const pacientesById = useMemo(() => {
+    const out = new Map<string, Paciente>();
+    for (const p of pacientes || []) {
+      if (p?.id) out.set(String(p.id), p);
+    }
+    return out;
+  }, [pacientes]);
+
+  const ultimaCitaByPacienteId = useMemo(() => {
+    const out = new Map<string, Cita>();
+    const ordenadas = [...(citasVisibles || [])].filter((c) => c && c.estado !== 'cancelada');
+    ordenadas.sort((a, b) => {
+      const ka = `${String(a.fecha || '').trim()} ${String(a.hora || '').trim()}`;
+      const kb = `${String(b.fecha || '').trim()} ${String(b.hora || '').trim()}`;
+      return kb.localeCompare(ka);
+    });
+    for (const c of ordenadas) {
+      const pid = String(c.pacienteId || '').trim();
+      if (!pid) continue;
+      if (!out.has(pid)) out.set(pid, c);
+    }
+    return out;
+  }, [citasVisibles]);
+
+  const seguimientosPendientesAgendar = useMemo(() => {
+    const allow = user?.rol === 'recepcion' || user?.rol === 'administrador';
+    if (!allow) return [] as Seguimiento[];
+    return (seguimientos || []).filter((s) => s.estado === 'pendiente_de_agendar');
+  }, [seguimientos, user?.rol]);
+
   const onClickDisponible = (payload: { evento: Evento; especialidad: Especialidad; horario: HorarioDisponible }) => {
     setAgendaMensaje('');
+    if (seguimientoParaAgendar && String(seguimientoParaAgendar.eventoSeguimientoId || '').trim()) {
+      if (String(payload.evento.id) !== String(seguimientoParaAgendar.eventoSeguimientoId)) {
+        setAgendaMensaje(t('citas.followups_wrong_event'));
+        return;
+      }
+    }
     if (payload.evento.estado !== 'activo') {
       setAgendaMensaje(t('citas.not_active'));
       return;
@@ -160,6 +210,11 @@ export function Citas() {
 
     const espEvento = agendarEvento.especialidades.find((e) => e.especialidad === agendarEspecialidad) || null;
     const tipo = payload.tipoCita;
+    const costoRaw = Number.isFinite(Number(tipo?.precio))
+      ? Number(tipo?.precio)
+      : Number.isFinite(Number(espEvento?.costo))
+        ? Number(espEvento?.costo)
+        : 0;
     const nueva: Cita = {
       id: `cit${Date.now()}`,
       eventoId: agendarEvento.id,
@@ -173,11 +228,7 @@ export function Citas() {
       duracionMinutos: tipo?.duracionMinutos ? Number(tipo.duracionMinutos) : undefined,
       medicoEncargado: String(tipo?.medicoEncargado || '').trim() || espEvento?.medicoEncargado || '',
       estado: 'programada',
-      costoPagado: Number.isFinite(Number(tipo?.precio))
-        ? Number(tipo?.precio)
-        : Number.isFinite(Number(espEvento?.costo))
-          ? Number(espEvento?.costo)
-          : 0,
+      costoPagado: seguimientoParaAgendar ? 0 : costoRaw,
       fechaCreacion: todayYmd(),
     };
 
@@ -193,6 +244,20 @@ export function Citas() {
       fechaHora: nowIso(),
       ciudad: user?.ciudad || agendarEvento.ciudad || 'sonoyta',
     });
+
+    if (seguimientoParaAgendar && updateSeguimiento) {
+      await updateSeguimiento(seguimientoParaAgendar.id, {
+        citaId: nueva.id,
+        estado: 'agendada',
+        fechaCita: nueva.fecha,
+        horaCita: nueva.hora,
+        requiereSeguimiento: true,
+        notaSeguimiento: seguimientoParaAgendar.notaSeguimiento || '',
+        observaciones: seguimientoParaAgendar.observaciones || '',
+        diagnostico: seguimientoParaAgendar.diagnostico || '',
+      });
+      setSeguimientoParaAgendar(null);
+    }
   };
 
   const onClickEmptySlot = (payload: { fecha: string; horaInicio: string; horaFin: string }) => {
@@ -311,26 +376,117 @@ export function Citas() {
         )}
 
         {isInitialized && eventosVisibles.length > 0 && (
-          <Card className="shadow-sm">
-            <CardHeader className="border-b">
-              <CardTitle className="text-base">{t('citas.agenda')}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 p-6">
-              {agendaMensaje && (
-                <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
-                  {agendaMensaje}
-                </div>
-              )}
-              <AgendaCitasDiaCalendar
-                eventos={eventosVisibles}
-                citas={citasVisibles}
-                especialidadesCatalogo={especialidadesCatalogo}
-                onClickDisponible={onClickDisponible}
-                onClickCitas={onClickCitas}
-                // onClickEmptySlot={onClickEmptySlot} // Por mientras se elimina la opcion de crear citas fuera de eventos
-              />
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+            <Card className="shadow-sm lg:col-span-3">
+              <CardHeader className="border-b">
+                <CardTitle className="text-base">{t('citas.agenda')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 p-6">
+                {agendaMensaje && (
+                  <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm text-muted-foreground">
+                    {agendaMensaje}
+                  </div>
+                )}
+                <AgendaCitasDiaCalendar
+                  eventos={eventosVisibles}
+                  citas={citasVisibles}
+                  especialidadesCatalogo={especialidadesCatalogo}
+                  onClickDisponible={onClickDisponible}
+                  onClickCitas={onClickCitas}
+                  // onClickEmptySlot={onClickEmptySlot} // Por mientras se elimina la opcion de crear citas fuera de eventos
+                />
+              </CardContent>
+            </Card>
+
+            {(user?.rol === 'recepcion' || user?.rol === 'administrador') && (
+              <Card className="shadow-sm lg:col-span-1">
+                <CardHeader className="border-b">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-base">{t('citas.followups_pending')}</CardTitle>
+                    <Badge variant="secondary">{seguimientosPendientesAgendar.length}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 p-4">
+                  {seguimientoParaAgendar && (
+                    <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-xs text-muted-foreground">{t('citas.followups_selected')}</div>
+                          <div className="truncate font-medium text-foreground">
+                            {pacientesById.get(String(seguimientoParaAgendar.pacienteId))?.nombre || seguimientoParaAgendar.pacienteId}
+                          </div>
+                          {String(seguimientoParaAgendar.notaSeguimiento || '').trim() && (
+                            <div className="mt-1 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">
+                              {String(seguimientoParaAgendar.notaSeguimiento || '').trim()}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSeguimientoParaAgendar(null)}
+                        >
+                          {t('citas.followups_clear')}
+                        </Button>
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">{t('citas.followups_pick_slot')}</div>
+                    </div>
+                  )}
+
+                  {seguimientosPendientesAgendar.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+                      {t('citas.followups_empty')}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {seguimientosPendientesAgendar.slice(0, 20).map((s) => {
+                        const paciente = pacientesById.get(String(s.pacienteId));
+                        const nota = String(s.notaSeguimiento || '').trim();
+                        const eventoTarget = String(s.eventoSeguimientoId || '').trim();
+                        const eventoNombre = eventoTarget ? (eventosVisibles.find((e) => String(e.id) === eventoTarget)?.nombre || eventoTarget) : '';
+                        const ultimaCita = ultimaCitaByPacienteId.get(String(s.pacienteId));
+                        const eventoUltimoNombre = ultimaCita
+                          ? eventoById.get(String(ultimaCita.eventoId))?.nombre ||
+                            eventos.find((e) => String(e.id) === String(ultimaCita.eventoId))?.nombre ||
+                            String(ultimaCita.eventoId || '')
+                          : '';
+                        const tipoUltimo = ultimaCita?.tipoCitaNombre ? String(ultimaCita.tipoCitaNombre) : '';
+                        return (
+                          <div key={s.id} className="rounded-lg border border-border bg-background p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium text-foreground">{paciente?.nombre || s.pacienteId}</div>
+                                <div className="text-xs text-muted-foreground">{paciente?.numeroExpediente || ''}</div>
+                                {eventoNombre && <div className="mt-1 text-xs text-muted-foreground">{eventoNombre}</div>}
+                                {(eventoUltimoNombre || tipoUltimo) && (
+                                  <div className="mt-1 text-xs text-muted-foreground">
+                                    Último seguimiento: {eventoUltimoNombre || 'Evento N/A'}
+                                    {tipoUltimo ? ` · ${tipoUltimo}` : ''}
+                                  </div>
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                  setSeguimientoParaAgendar(s);
+                                  setAgendaMensaje(t('citas.followups_msg_selected'));
+                                }}
+                              >
+                                {t('citas.followups_action')}
+                              </Button>
+                            </div>
+                            {nota && <div className="mt-2 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">{nota}</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
         )}
       </div>
 
@@ -343,6 +499,9 @@ export function Citas() {
           horario={agendarHorario}
           citas={citasVisibles}
           pacientes={pacientes}
+          pacienteInicial={
+            seguimientoParaAgendar ? pacientesById.get(String(seguimientoParaAgendar.pacienteId)) || null : null
+          }
           tipoCitaIdFijo={agendarHorario.tipoCitaId}
           onAgendar={onAgendar}
         />

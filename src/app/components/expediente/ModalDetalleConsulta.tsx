@@ -6,6 +6,7 @@ import {
   X, Activity, Thermometer, Heart, Droplet, Stethoscope, Pill, FileText, Calendar 
 } from 'lucide-react';
 import { Paciente, Cita } from '../../types';
+import { formatDateSafe } from '../ui/utils';
 
 interface ModalDetalleConsultaProps {
   cita: Cita;
@@ -22,181 +23,214 @@ export function ModalDetalleConsulta({
   consultaData, 
   onClose 
 }: ModalDetalleConsultaProps) {
+  const texto = (value: any) => String(value ?? '').trim();
+
+  const vitals = triageData
+    ? [
+        {
+          label: 'Temperatura',
+          icon: Thermometer,
+          value: Number.isFinite(Number(triageData.temperatura)) ? `${triageData.temperatura} °C` : 'N/A',
+        },
+        {
+          label: 'Presión arterial',
+          icon: Heart,
+          value: texto(triageData.presionArterial) || 'N/A',
+        },
+        {
+          label: 'Ritmo cardíaco',
+          icon: Activity,
+          value: Number.isFinite(Number(triageData.ritmoCardiaco)) ? `${triageData.ritmoCardiaco} bpm` : 'N/A',
+        },
+        {
+          label: 'Glucosa',
+          icon: Droplet,
+          value: Number.isFinite(Number(triageData.azucarEnSangre)) ? `${triageData.azucarEnSangre} mg/dL` : 'N/A',
+        },
+        {
+          label: 'Peso',
+          icon: Activity,
+          value: Number.isFinite(Number(triageData.peso)) ? `${triageData.peso} kg` : 'N/A',
+        },
+        {
+          label: 'Altura',
+          icon: Activity,
+          value: Number.isFinite(Number(triageData.altura)) ? `${triageData.altura} cm` : 'N/A',
+        },
+        {
+          label: 'Frecuencia resp.',
+          icon: Activity,
+          value: Number.isFinite(Number(triageData.frecuenciaRespiratoria)) ? `${triageData.frecuenciaRespiratoria} rpm` : 'N/A',
+        },
+        {
+          label: 'Saturación O₂',
+          icon: Activity,
+          value: Number.isFinite(Number(triageData.saturacionOxigeno)) ? `${triageData.saturacionOxigeno}%` : 'N/A',
+        },
+      ]
+    : [];
+
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 overflow-y-auto">
       <Card className="w-full max-w-5xl my-8 max-h-[90vh] overflow-y-auto">
-        <CardHeader className="border-b bg-gradient-to-r from-purple-50 to-white sticky top-0 z-10">
+        <CardHeader className="sticky top-0 z-10 border-b bg-card">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl">Detalle de Consulta Médica</CardTitle>
-              <div className="flex items-center gap-3 mt-2">
-                <Badge variant="outline" className="text-sm capitalize text-gray-900 border-gray-300">
+              <CardTitle className="text-xl text-foreground">Detalle de consulta médica</CardTitle>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="bg-accent text-[color:var(--accent-foreground)] capitalize">
                   {cita.especialidad.replace('_', ' ')}
                 </Badge>
-                <Badge className="bg-blue-100 text-blue-700 text-sm">
-                  {formatDateSafe(cita.fecha)} - {cita.hora}
+                <Badge variant="outline" className="bg-card text-muted-foreground">
+                  <Calendar className="mr-1 h-3.5 w-3.5" />
+                  {formatDateSafe(cita.fecha)} · {cita.hora}
+                </Badge>
+                <Badge variant="outline" className="bg-card text-muted-foreground">
+                  Consultorio: {texto(cita.consultorio) || 'Sin asignar'}
                 </Badge>
               </div>
             </div>
             <button 
               onClick={onClose} 
-              className="text-gray-500 hover:text-gray-700"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border bg-card text-muted-foreground shadow-[0_2px_8px_rgba(121,201,197,0.08)] transition-colors hover:bg-accent hover:text-foreground"
             >
-              <X className="w-6 h-6" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </CardHeader>
 
-        <CardContent className="p-6 space-y-6">
-          {/* Información del Paciente */}
-          <Card className="bg-gray-50">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-600">Paciente</p>
-                  <p className="font-medium text-gray-900">{paciente.nombre}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Expediente</p>
-                  <p className="font-medium text-gray-900">{paciente.numeroExpediente}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Consultorio</p>
-                  <p className="font-medium text-gray-900">{cita.consultorio}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Signos Vitales */}
+        <CardContent className="pt-5 space-y-6">
           <Card>
-            <CardHeader className="bg-purple-50">
-              <CardTitle className="text-lg flex items-center gap-2 text-purple-900">
-                <Activity className="w-5 h-5" />
-                Signos Vitales
-              </CardTitle>
+            <CardHeader className="border-b">
+              <CardTitle className="text-base text-foreground">Paciente</CardTitle>
             </CardHeader>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-4 gap-4">
-                <div className="p-3 bg-red-50 rounded-lg text-center">
-                  <Thermometer className="w-5 h-5 text-red-600 mx-auto mb-1" />
-                  <p className="text-xs text-gray-600">Temperatura</p>
-                  <p className="font-semibold text-gray-900">{triageData.temperatura}°C</p>
+            <CardContent className="pt-5">
+              <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+                <div className="rounded-xl border bg-accent p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Nombre</p>
+                  <p className="mt-1 font-semibold text-foreground">{paciente.nombre}</p>
                 </div>
-                <div className="p-3 bg-pink-50 rounded-lg text-center">
-                  <Heart className="w-5 h-5 text-pink-600 mx-auto mb-1" />
-                  <p className="text-xs text-gray-600">Presión Arterial</p>
-                  <p className="font-semibold text-gray-900">{triageData.presionArterial}</p>
+                <div className="rounded-xl border bg-accent p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Expediente</p>
+                  <p className="mt-1 font-semibold text-foreground">{paciente.numeroExpediente}</p>
                 </div>
-                <div className="p-3 bg-blue-50 rounded-lg text-center">
-                  <Activity className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                  <p className="text-xs text-gray-600">Ritmo Cardíaco</p>
-                  <p className="font-semibold text-gray-900">{triageData.ritmoCardiaco} bpm</p>
-                </div>
-                <div className="p-3 bg-purple-50 rounded-lg text-center">
-                  <Droplet className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                  <p className="text-xs text-gray-600">Glucosa</p>
-                  <p className="font-semibold text-gray-900">{triageData.azucarEnSangre} mg/dL</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 gap-4 mt-3">
-                <div className="p-3 bg-green-50 rounded-lg text-center">
-                  <p className="text-xs text-gray-600">Peso</p>
-                  <p className="font-semibold text-gray-900">{triageData.peso} kg</p>
-                </div>
-                <div className="p-3 bg-green-50 rounded-lg text-center">
-                  <p className="text-xs text-gray-600">Altura</p>
-                  <p className="font-semibold text-gray-900">{triageData.altura} cm</p>
-                </div>
-                <div className="p-3 bg-orange-50 rounded-lg text-center">
-                  <p className="text-xs text-gray-600">Frecuencia Respiratoria</p>
-                  <p className="font-semibold text-gray-900">{triageData.frecuenciaRespiratoria} rpm</p>
-                </div>
-                <div className="p-3 bg-cyan-50 rounded-lg text-center">
-                  <p className="text-xs text-gray-600">Saturación O₂</p>
-                  <p className="font-semibold text-gray-900">{triageData.saturacionOxigeno}%</p>
+                <div className="rounded-xl border bg-accent p-3">
+                  <p className="text-xs font-medium text-muted-foreground">Consultorio</p>
+                  <p className="mt-1 font-semibold text-foreground">{texto(cita.consultorio) || 'N/A'}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Consulta Médica */}
+          <Card>
+            <CardHeader className="border-b gap-2">
+              <CardTitle className="flex items-center gap-2 text-foreground">
+                <Activity className="h-5 w-5 text-[color:var(--brand-secondary-strong)]" />
+                Triage
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Signos vitales y observaciones del ingreso.</p>
+            </CardHeader>
+            <CardContent className="pt-5">
+              {triageData ? (
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  {vitals.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.label} className="rounded-xl border bg-accent p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+                          <Icon className="h-4 w-4 text-[color:var(--brand-secondary-strong)]" />
+                        </div>
+                        <p className="mt-2 text-sm font-semibold text-foreground">{item.value}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hay triage registrado para esta cita.</p>
+              )}
+            </CardContent>
+          </Card>
+
           <div className="space-y-4">
             <Card>
-              <CardHeader className="bg-blue-50">
-                <CardTitle className="text-base text-gray-900">Motivo de Consulta</CardTitle>
+              <CardHeader className="border-b">
+                <CardTitle className="text-base text-foreground">Motivo de consulta</CardTitle>
               </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-gray-900">{consultaData.motivoConsulta}</p>
+              <CardContent className="pt-5">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{texto(consultaData.motivoConsulta) || 'No registrado.'}</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="bg-blue-50">
-                <CardTitle className="text-base text-gray-900">Padecimiento Actual</CardTitle>
+              <CardHeader className="border-b">
+                <CardTitle className="text-base text-foreground">Padecimiento actual</CardTitle>
               </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-gray-900">{consultaData.padecimientoActual}</p>
+              <CardContent className="pt-5">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{texto(consultaData.padecimientoActual) || 'No registrado.'}</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="bg-blue-50">
-                <CardTitle className="text-base flex items-center gap-2 text-gray-900">
-                  <Stethoscope className="w-5 h-5" />
+              <CardHeader className="border-b">
+                <CardTitle className="text-base flex items-center gap-2 text-foreground">
+                  <Stethoscope className="h-5 w-5 text-[color:var(--brand-secondary-strong)]" />
                   Exploración Física
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-gray-900">{consultaData.exploracionFisica}</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-purple-200">
-              <CardHeader className="bg-purple-50">
-                <CardTitle className="text-base text-purple-900">Diagnóstico</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-lg font-semibold text-purple-900">{consultaData.diagnostico}</p>
+              <CardContent className="pt-5">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{texto(consultaData.exploracionFisica) || 'No registrado.'}</p>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader className="bg-green-50">
-                <CardTitle className="text-base text-gray-900">Tratamiento</CardTitle>
+              <CardHeader className="border-b">
+                <CardTitle className="text-base text-foreground">Diagnóstico</CardTitle>
               </CardHeader>
-              <CardContent className="p-4">
-                <p className="text-gray-900">{consultaData.tratamiento}</p>
+              <CardContent className="pt-5">
+                <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
+                  <p className="text-sm font-semibold text-[color:var(--brand-primary-strong)]">Diagnóstico</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground whitespace-pre-wrap">{texto(consultaData.diagnostico) || 'No registrado.'}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="border-b">
+                <CardTitle className="text-base text-foreground">Tratamiento</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{texto(consultaData.tratamiento) || 'No registrado.'}</p>
               </CardContent>
             </Card>
 
             {consultaData.medicamentosRecetados && consultaData.medicamentosRecetados.length > 0 && (
               <Card>
-                <CardHeader className="bg-orange-50">
-                  <CardTitle className="text-base flex items-center gap-2 text-gray-900">
-                    <Pill className="w-5 h-5" />
+                <CardHeader className="border-b">
+                  <CardTitle className="text-base flex items-center gap-2 text-foreground">
+                    <Pill className="h-5 w-5 text-[color:var(--brand-tertiary)]" />
                     Medicamentos Recetados
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4">
+                <CardContent className="pt-5">
                   <div className="space-y-3">
                     {consultaData.medicamentosRecetados.map((med: any, idx: number) => (
-                      <div key={idx} className="p-3 bg-white border border-orange-200 rounded-lg">
+                      <div key={idx} className="rounded-xl border bg-accent p-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className="font-semibold text-gray-900">{med.nombre}</p>
+                            <p className="font-semibold text-foreground">{texto(med.nombre) || 'Medicamento'}</p>
                             <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
                               <div>
-                                <p className="text-gray-600">Dosis</p>
-                                <p className="text-gray-900">{med.dosis}</p>
+                                <p className="text-xs text-muted-foreground">Dosis</p>
+                                <p className="text-sm text-foreground">{texto(med.dosis) || 'N/A'}</p>
                               </div>
                               <div>
-                                <p className="text-gray-600">Frecuencia</p>
-                                <p className="text-gray-900">{med.frecuencia}</p>
+                                <p className="text-xs text-muted-foreground">Frecuencia</p>
+                                <p className="text-sm text-foreground">{texto(med.frecuencia) || 'N/A'}</p>
                               </div>
                               <div>
-                                <p className="text-gray-600">Duración</p>
-                                <p className="text-gray-900">{med.duracion}</p>
+                                <p className="text-xs text-muted-foreground">Duración</p>
+                                <p className="text-sm text-foreground">{texto(med.duracion) || 'N/A'}</p>
                               </div>
                             </div>
                           </div>
@@ -210,18 +244,18 @@ export function ModalDetalleConsulta({
 
             {consultaData.estudiosIndicados && consultaData.estudiosIndicados.length > 0 && (
               <Card>
-                <CardHeader className="bg-cyan-50">
-                  <CardTitle className="text-base flex items-center gap-2 text-gray-900">
-                    <FileText className="w-5 h-5" />
+                <CardHeader className="border-b">
+                  <CardTitle className="text-base flex items-center gap-2 text-foreground">
+                    <FileText className="h-5 w-5 text-[color:var(--brand-secondary-strong)]" />
                     Estudios de Laboratorio / Gabinete
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4">
+                <CardContent className="pt-5">
                   <div className="space-y-3">
                     {consultaData.estudiosIndicados.map((estudio: any, idx: number) => (
-                      <div key={idx} className="p-3 bg-white border border-cyan-200 rounded-lg text-gray-900">
-                        <p className="font-semibold text-gray-900">{estudio.tipo}</p>
-                        <p className="text-sm text-gray-600 mt-1">{estudio.indicaciones}</p>
+                      <div key={idx} className="rounded-xl border bg-accent p-3">
+                        <p className="font-semibold text-foreground">{texto(estudio.tipo) || 'Estudio'}</p>
+                        <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{texto(estudio.indicaciones) || 'Sin indicaciones.'}</p>
                       </div>
                     ))}
                   </div>
@@ -231,35 +265,33 @@ export function ModalDetalleConsulta({
 
             {consultaData.recomendaciones && (
               <Card>
-                <CardHeader className="bg-yellow-50">
-                  <CardTitle className="text-base text-gray-900">Recomendaciones</CardTitle>
+                <CardHeader className="border-b">
+                  <CardTitle className="text-base text-foreground">Recomendaciones</CardTitle>
                 </CardHeader>
-                <CardContent className="p-4">
-                  <p className="text-gray-900">{consultaData.recomendaciones}</p>
+                <CardContent className="pt-5">
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{consultaData.recomendaciones}</p>
                 </CardContent>
               </Card>
             )}
 
             {consultaData.proximaConsulta && (
-              <Card className="bg-indigo-50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-indigo-600" />
-                    <div>
-                      <p className="text-sm text-gray-600">Próxima Consulta</p>
-                      <p className="font-medium text-gray-900">{consultaData.proximaConsulta}</p>
-                    </div>
+              <div className="rounded-xl border border-secondary/20 bg-secondary/10 p-4">
+                <div className="flex items-start gap-3">
+                  <Calendar className="mt-0.5 h-5 w-5 text-[color:var(--brand-secondary-strong)]" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Próxima consulta</p>
+                    <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{consultaData.proximaConsulta}</p>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose} className="text-gray-900">
+            <Button variant="outline" onClick={onClose}>
               Cerrar
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700">
+            <Button variant="secondary">
               <FileText className="w-4 h-4 mr-2" />
               Imprimir Consulta
             </Button>

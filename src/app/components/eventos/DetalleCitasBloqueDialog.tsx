@@ -97,6 +97,22 @@ export function DetalleCitasBloqueDialog({
   const esDiaDeCita = Boolean(fechaCita && fechaCita === hoy);
   const esFuturo = Boolean(fechaCita && fechaCita > hoy);
 
+  const pagoMeta = useMemo(() => {
+    if (!seleccionada) return { pagado: 0, esperado: 0, pendiente: false };
+    const pagadoRaw = Number(seleccionada.costoPagado);
+    const pagado = Number.isFinite(pagadoRaw) ? pagadoRaw : 0;
+    const espEvento = evento?.especialidades?.find((e) => e.especialidad === seleccionada.especialidad) || null;
+    const tipoId = String(seleccionada.tipoCitaId || '').trim();
+    const tipo = tipoId && espEvento ? (espEvento.tiposCita || []).find((t) => String(t.id || '') === tipoId) || null : null;
+    const esperado = Number.isFinite(Number(tipo?.precio))
+      ? Number(tipo?.precio)
+      : Number.isFinite(Number(espEvento?.costo))
+        ? Number(espEvento?.costo)
+        : 0;
+    const pendiente = !(pagado > 0) && esperado > 0;
+    return { pagado, esperado, pendiente };
+  }, [evento?.especialidades, seleccionada]);
+
   const canCancelar = Boolean(
     seleccionada &&
       onCancelarCita &&
@@ -185,7 +201,16 @@ export function DetalleCitasBloqueDialog({
 
                   <div className="rounded-lg border border-border p-4">
                     <div className="text-sm font-medium text-foreground">Pago</div>
-                    <div className="mt-2 text-sm text-foreground font-semibold">${seleccionada.costoPagado}</div>
+                    {pagoMeta.pendiente ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="bg-background">
+                          Pago pendiente
+                        </Badge>
+                        <div className="text-sm text-foreground font-semibold">${pagoMeta.esperado.toFixed(2)}</div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-sm text-foreground font-semibold">${pagoMeta.pagado.toFixed(2)}</div>
+                    )}
                   </div>
 
                   {(onCancelarCita || onCederCita || onRegistrarLlegada) && (

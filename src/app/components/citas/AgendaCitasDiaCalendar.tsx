@@ -172,9 +172,12 @@ export function AgendaCitasDiaCalendar({
       const tipoId = c.tipoCitaId ? String(c.tipoCitaId) : '';
       const tipoCitaNombre = meta?.tipoCitaNombre ?? '';
       const costo = meta?.costo ?? 0;
+      const pagadoRaw = Number(c.costoPagado);
+      const pagado = Number.isFinite(pagadoRaw) ? pagadoRaw : 0;
+      const pagoPendiente = !(pagado > 0) && costo > 0;
       out.push({
         id: `cita|${c.id}`,
-        title: `${startHm} · ${estado}`,
+        title: `${startHm} · ${estado}${pagoPendiente ? ' · pago pendiente' : ''}`,
         start: `${c.fecha}T${startHm}:00`,
         end: `${c.fecha}T${minutesToHm(endMin)}:00`,
         backgroundColor: color.bg,
@@ -191,6 +194,7 @@ export function AgendaCitasDiaCalendar({
           tipoCitaId: tipoId || undefined,
           tipoCitaNombre,
           costo,
+          pagoPendiente,
           horaInicio: startHm,
           horaFin: minutesToHm(endMin),
         },

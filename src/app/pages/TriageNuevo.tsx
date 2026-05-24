@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Textarea } from '../components/ui/textarea';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -84,7 +85,7 @@ export function TriageNuevo() {
   const citasHoy = citas.filter(
     (c) =>
       normalizarFecha(c.fecha) === hoy &&
-      (c.estado === 'programada' || c.estado === 'agendada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
+      (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
   );
 
   const citasVisibles = citasHoy.filter((c) => {
@@ -231,10 +232,10 @@ export function TriageNuevo() {
   };
 
   const getIMCCategoria = (imc: number) => {
-    if (imc < 18.5) return { texto: t('triage.underweight'), color: 'text-blue-600' };
-    if (imc < 25) return { texto: t('triage.normal_weight'), color: 'text-green-600' };
-    if (imc < 30) return { texto: t('triage.overweight'), color: 'text-yellow-600' };
-    return { texto: t('triage.obesity'), color: 'text-red-600' };
+    if (imc < 18.5) return { texto: t('triage.underweight'), color: 'text-[color:var(--brand-secondary-strong)]' };
+    if (imc < 25) return { texto: t('triage.normal_weight'), color: 'text-[color:var(--brand-primary-strong)]' };
+    if (imc < 30) return { texto: t('triage.overweight'), color: 'text-[color:var(--brand-tertiary)]' };
+    return { texto: t('triage.obesity'), color: 'text-[color:var(--chart-4)]' };
   };
 
   const evaluarSignosVitales = (signos: SignosVitales, edad: number = 30) => {
@@ -294,21 +295,21 @@ export function TriageNuevo() {
   const getEstadoBadge = (estado: string) => {
     if (estado === 'completado') {
       return (
-        <Badge className="bg-green-100 text-green-700">
+        <Badge className="border border-[color:var(--brand-primary-strong)] bg-[color:var(--brand-primary-strong)] text-primary-foreground">
           <CheckCircle2 className="w-3 h-3 mr-1" />
           {t('triage.completed')}
         </Badge>
       );
     } else if (estado === 'en_proceso') {
       return (
-        <Badge className="bg-yellow-100 text-yellow-700">
+        <Badge className="border border-[color:var(--brand-secondary-strong)] bg-[color:var(--brand-secondary-strong)] text-secondary-foreground">
           <Clock className="w-3 h-3 mr-1" />
           {t('triage.in_progress')}
         </Badge>
       );
     } else {
       return (
-        <Badge className="bg-gray-100 text-gray-700">
+        <Badge className="border border-[color:var(--outline)] bg-muted text-foreground">
           <Activity className="w-3 h-3 mr-1" />
           {t('triage.no_capture')}
         </Badge>
@@ -327,65 +328,69 @@ export function TriageNuevo() {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{t('triage.title')}</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">{t('triage.title')}</h1>
+          <p className="text-muted-foreground mt-1">
             {t('triage.subtitle')} {eventoActivo?.nombre || t('triage.no_event')}
           </p>
         </div>
 
         {/* Estadísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <User className="w-6 h-6 text-blue-600" />
-                </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">{t('triage.total_today')}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{contadores.total}</p>
+                  <p className="text-sm font-semibold text-foreground">{t('triage.total_today')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{t('triage.available_patients')}</p>
+                  <p className="mt-3 text-xl font-semibold text-foreground">{contadores.total}</p>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-[color:var(--brand-primary-strong)]">
+                  <User className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-gray-600" />
-                </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">{t('triage.no_capture')}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{contadores.sinCaptura}</p>
+                  <p className="text-sm font-semibold text-foreground">{t('triage.no_capture')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Sin captura aún</p>
+                  <p className="mt-3 text-xl font-semibold text-foreground">{contadores.sinCaptura}</p>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                  <Activity className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-yellow-600" />
-                </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">{t('triage.in_progress')}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{contadores.enProceso}</p>
+                  <p className="text-sm font-semibold text-foreground">{t('triage.in_progress')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Guardado como triage</p>
+                  <p className="mt-3 text-xl font-semibold text-foreground">{contadores.enProceso}</p>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-secondary/10 text-[color:var(--brand-secondary-strong)]">
+                  <Clock className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-green-600" />
-                </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">{t('triage.completed')}</p>
-                  <p className="text-2xl font-semibold text-gray-900">{contadores.completados}</p>
+                  <p className="text-sm font-semibold text-foreground">{t('triage.completed')}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Listo para consulta</p>
+                  <p className="mt-3 text-xl font-semibold text-foreground">{contadores.completados}</p>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-[color:var(--brand-primary-strong)]">
+                  <CheckCircle2 className="h-6 w-6" />
                 </div>
               </div>
             </CardContent>
@@ -397,7 +402,7 @@ export function TriageNuevo() {
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row gap-4 items-center">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder={t('triage.search')}
                   className="pl-10"
@@ -422,47 +427,47 @@ export function TriageNuevo() {
               {pacientesFiltrados.map((paciente) => (
                 <Card
                   key={paciente?.id}
-                  className={`cursor-pointer hover:shadow-lg transition-all border-2 ${
+                  className={`cursor-pointer transition-shadow hover:shadow-[0_8px_22px_rgba(1,106,103,0.08)] ${
                     paciente.estado === 'completado'
-                      ? 'border-green-200 bg-green-50'
+                      ? 'border border-primary/25 bg-primary/10'
                       : paciente.estado === 'en_proceso'
-                      ? 'border-yellow-200 bg-yellow-50'
-                      : 'border-gray-200 hover:border-blue-300'
+                        ? 'border border-secondary/20 bg-secondary/10'
+                        : 'border border-border bg-card hover:bg-accent'
                   }`}
                   onClick={() => handleSeleccionarPaciente(paciente)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <div
-                        className={`w-12 h-12 rounded-lg ${
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border ${
                           paciente.estado === 'completado'
-                            ? 'bg-green-500'
+                            ? 'bg-primary/15 text-[color:var(--brand-primary-strong)] border-primary/25'
                             : paciente.estado === 'en_proceso'
-                            ? 'bg-yellow-500'
-                            : 'bg-blue-500'
-                        } flex items-center justify-center flex-shrink-0`}
+                              ? 'bg-secondary/10 text-[color:var(--brand-secondary-strong)] border-secondary/25'
+                              : 'bg-accent text-[color:var(--brand-secondary-strong)] border-border'
+                        }`}
                       >
-                        <User className="w-6 h-6 text-white" />
+                        <User className="w-6 h-6" />
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 truncate">{paciente?.nombre}</h3>
-                        <p className="text-sm text-gray-600 mt-1">{paciente?.numeroExpediente}</p>
+                        <h3 className="font-semibold text-foreground truncate">{paciente?.nombre}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">{paciente?.numeroExpediente}</p>
                         <div className="flex flex-wrap items-center gap-2 mt-2">
-                          <Badge className="bg-blue-100 text-blue-700">
+                          <Badge variant="outline" className="bg-accent text-[color:var(--accent-foreground)]">
                             {labelEspecialidad(paciente.cita.especialidad, especialidadesCatalogo)}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
                             {String(paciente.cita.tipoCitaNombre || '').trim() || t('triage.no_appt_type')}
                           </Badge>
                         </div>
-                        <div className="flex flex-col gap-1 mt-2 text-sm text-gray-600">
+                        <div className="flex flex-col gap-1 mt-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
-                            <Calendar className="w-3 h-3 text-blue-500" />
+                            <Calendar className="w-3 h-3 text-[color:var(--brand-secondary-strong)]" />
                             <span>{t('triage.scheduled_for')} {new Date(paciente.cita.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Clock className="w-3 h-3 text-purple-500" />
+                            <Clock className="w-3 h-3 text-[color:var(--brand-secondary-strong)]" />
                             <span>{t('triage.assigned_time')} {paciente.cita.hora}</span>
                           </div>
                         </div>
@@ -470,22 +475,6 @@ export function TriageNuevo() {
                       </div>
                     </div>
 
-                    {paciente.triageCompletado && (
-                      <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t">
-                        <div className="text-xs">
-                          <p className="text-gray-600">{t('triage.temp')}</p>
-                          <p className="font-semibold text-gray-900">
-                            {paciente.triageCompletado.signosVitales.temperatura}°C
-                          </p>
-                        </div>
-                        <div className="text-xs">
-                          <p className="text-gray-600">{t('triage.pressure')}</p>
-                          <p className="font-semibold text-gray-900">
-                            {paciente.triageCompletado.signosVitales.presionArterial}
-                          </p>
-                        </div>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -493,8 +482,10 @@ export function TriageNuevo() {
 
             {pacientesFiltrados.length === 0 && (
               <div className="text-center py-12">
-                <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600">{t('triage.empty_patients')}</p>
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-[color:var(--brand-secondary-strong)]">
+                  <User className="h-7 w-7" />
+                </div>
+                <p className="mt-4 text-sm text-muted-foreground">{t('triage.empty_patients')}</p>
               </div>
             )}
           </CardContent>
@@ -505,46 +496,50 @@ export function TriageNuevo() {
       {showModal && selectedPaciente && (
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
           <Card className="w-full max-w-4xl my-8 gap-0">
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">{t('triage.modal_title')}</h2>
-                <div className="flex items-center gap-3 mt-1">
-                  <p className="text-sm text-gray-600">{selectedPaciente.nombre}</p>
-                  <Badge variant="outline">{selectedPaciente.numeroExpediente}</Badge>
-                  <span className="text-sm text-gray-600">{t('triage.appt')} {selectedPaciente.cita.hora}</span>
-                  {getEstadoBadge(selectedPaciente.estado)}
+            <CardHeader className="border-b gap-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <CardTitle className="text-lg text-foreground">{t('triage.modal_title')}</CardTitle>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="bg-accent text-[color:var(--accent-foreground)]">
+                      {selectedPaciente.nombre}
+                    </Badge>
+                    <Badge variant="outline" className="bg-card text-muted-foreground">{selectedPaciente.numeroExpediente}</Badge>
+                    <Badge variant="outline" className="bg-card text-muted-foreground">{t('triage.appt')} {selectedPaciente.cita.hora}</Badge>
+                    {getEstadoBadge(selectedPaciente.estado)}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="bg-accent text-[color:var(--accent-foreground)]">
+                      {labelEspecialidad(selectedPaciente.cita.especialidad, especialidadesCatalogo)}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs bg-card text-muted-foreground">
+                      {String(selectedPaciente.cita.tipoCitaNombre || '').trim() || 'Sin tipo de cita'}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <Badge className="bg-blue-100 text-blue-700">
-                    {labelEspecialidad(selectedPaciente.cita.especialidad, especialidadesCatalogo)}
-                  </Badge>
-                  <Badge variant="outline" className="text-xs">
-                    {String(selectedPaciente.cita.tipoCitaNombre || '').trim() || 'Sin tipo de cita'}
-                  </Badge>
-                </div>
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    setSelectedPaciente(null);
+                    resetForm();
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border bg-card text-muted-foreground shadow-[0_2px_8px_rgba(121,201,197,0.08)] transition-colors hover:bg-accent hover:text-foreground flex-shrink-0"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedPaciente(null);
-                  resetForm();
-                }}
-                className="text-gray-500 hover:text-gray-700 flex-shrink-0"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <CardContent className="p-6">
+            </CardHeader>
+            <CardContent className="pt-5">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Signos vitales */}
-                <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-                  <h3 className="font-medium text-gray-900 mb-3">{t('triage.vitals')}</h3>
+                <div className="rounded-xl border bg-card p-4 space-y-4">
+                  <h3 className="font-medium text-foreground">{t('triage.vitals')}</h3>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div>
                       <Label htmlFor="temperatura">
                         <div className="flex items-center gap-2 mb-1">
-                          <Thermometer className="w-4 h-4 text-red-500" />
+                          <Thermometer className="w-4 h-4 text-[color:var(--brand-secondary-strong)]" />
                           <span>{t('triage.temp_input')}</span>
                         </div>
                       </Label>
@@ -559,13 +554,13 @@ export function TriageNuevo() {
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 36.0 - 37.5</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('triage.normal')} 36.0 - 37.5</p>
                     </div>
 
                     <div>
                       <Label htmlFor="presion">
                         <div className="flex items-center gap-2 mb-1">
-                          <Heart className="w-4 h-4 text-pink-500" />
+                          <Heart className="w-4 h-4 text-[color:var(--brand-secondary-strong)]" />
                           <span>{t('triage.pressure_input')}</span>
                         </div>
                       </Label>
@@ -579,13 +574,13 @@ export function TriageNuevo() {
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 120/80</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('triage.normal')} 120/80</p>
                     </div>
 
                     <div>
                       <Label htmlFor="ritmo">
                         <div className="flex items-center gap-2 mb-1">
-                          <Activity className="w-4 h-4 text-blue-500" />
+                          <Activity className="w-4 h-4 text-[color:var(--brand-secondary-strong)]" />
                           <span>{t('triage.hr_input')}</span>
                         </div>
                       </Label>
@@ -599,7 +594,7 @@ export function TriageNuevo() {
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 60 - 100</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('triage.normal')} 60 - 100</p>
                     </div>
 
                     <div>
@@ -617,7 +612,7 @@ export function TriageNuevo() {
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 12 - 20</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('triage.normal')} 12 - 20</p>
                     </div>
 
                     <div>
@@ -634,7 +629,7 @@ export function TriageNuevo() {
                         }
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} &gt;95%</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('triage.normal')} &gt;95%</p>
                     </div>
 
                     <div>
@@ -651,14 +646,14 @@ export function TriageNuevo() {
                         }
                         disabled={selectedPaciente.estado === 'completado'}
                       />
-                      <p className="text-xs text-gray-500 mt-1">{t('triage.normal')} 70 - 140</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t('triage.normal')} 70 - 140</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Antropometría */}
-                <div className="p-4 bg-gray-50 rounded-lg space-y-4">
-                  <h3 className="font-medium text-gray-900 mb-3">{t('triage.anthropometry')}</h3>
+                <div className="rounded-xl border bg-card p-4 space-y-4">
+                  <h3 className="font-medium text-foreground">{t('triage.anthropometry')}</h3>
 
                   <div className="grid grid-cols-3 gap-4">
                     <div>
@@ -692,8 +687,8 @@ export function TriageNuevo() {
 
                     <div>
                       <Label>{t('triage.imc_calc')}</Label>
-                      <div className="h-10 px-3 py-2 border border-gray-300 rounded-lg bg-blue-50 flex items-center">
-                        <span className="font-semibold text-gray-900">
+                      <div className="h-11 px-3 border border-border rounded-lg bg-accent flex items-center">
+                        <span className="font-semibold text-foreground">
                           {calcularIMC(signosForm.peso, signosForm.altura)}
                         </span>
                         <span
@@ -703,12 +698,7 @@ export function TriageNuevo() {
                             ).color
                           }`}
                         >
-                          -{' '}
-                          {
-                            getIMCCategoria(
-                              Number(calcularIMC(signosForm.peso, signosForm.altura))
-                            ).texto
-                          }
+                          · {getIMCCategoria(Number(calcularIMC(signosForm.peso, signosForm.altura))).texto}
                         </span>
                       </div>
                     </div>
@@ -718,9 +708,8 @@ export function TriageNuevo() {
                 {/* Observaciones */}
                 <div>
                   <Label htmlFor="observaciones">{t('triage.observations')}</Label>
-                  <textarea
+                  <Textarea
                     id="observaciones"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     rows={3}
                     value={observaciones}
                     onChange={(e) => setObservaciones(e.target.value)}
@@ -734,14 +723,14 @@ export function TriageNuevo() {
                   const alertas = evaluarSignosVitales(signosForm, selectedPaciente?.edad);
                   if (alertas.length > 0) {
                     return (
-                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="rounded-xl border border-secondary/20 bg-secondary/10 p-4">
                         <div className="flex gap-3">
-                          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                          <AlertTriangle className="w-5 h-5 text-[color:var(--brand-secondary-strong)] flex-shrink-0 mt-0.5" />
                           <div>
-                            <p className="font-medium text-yellow-900 mb-1">
+                            <p className="font-semibold text-foreground mb-1">
                               {t('triage.out_of_range')}
                             </p>
-                            <ul className="text-sm text-yellow-800 list-disc list-inside space-y-1">
+                            <ul className="text-sm text-foreground list-disc list-inside space-y-1">
                               {alertas.map((alerta, idx) => (
                                 <li key={idx}>{alerta}</li>
                               ))}
@@ -772,12 +761,12 @@ export function TriageNuevo() {
                       type="button"
                       variant="outline"
                       onClick={handleGuardarEnProceso}
-                      className="flex-1 border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+                      className="flex-1 border-secondary/25 bg-secondary/10 text-[color:var(--brand-secondary-strong)] hover:bg-secondary/15"
                     >
                       <Edit2 className="w-4 h-4 mr-2" />
                       {t('triage.save_progress')}
                     </Button>
-                    <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+                    <Button type="submit" className="flex-1">
                       <CheckCircle2 className="w-4 h-4 mr-2" />
                       {t('triage.complete_send')}
                     </Button>
