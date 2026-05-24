@@ -13,8 +13,12 @@ const ensureNotaMedicaColumns = async () => {
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS estado_seguimiento VARCHAR(50)`);
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS estudios_indicados JSONB`);
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS requiere_cirugia BOOLEAN DEFAULT false`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS requiere_seguimiento BOOLEAN`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS nota_seguimiento TEXT`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS evento_seguimiento_id TEXT`);
   // Backfill estado_seguimiento for existing rows
   await pool.query(`UPDATE "${SCHEMA}".nota_medica SET estado_seguimiento = CASE WHEN proxima_cita IS NOT NULL THEN 'agendada' ELSE 'pendiente' END WHERE estado_seguimiento IS NULL`);
+  await pool.query(`UPDATE "${SCHEMA}".nota_medica SET requiere_seguimiento = FALSE WHERE requiere_seguimiento IS NULL`);
 };
 
 const tryBackfillNotaMedicaLinks = async () => {
@@ -106,8 +110,14 @@ router.post('/', async (req, res) => {
       requiere_cirugia: c.requiereCirugia || false,
       indicaciones: c.recomendaciones || '',
       proxima_cita: c.proximaConsulta || null,
-      estado_seguimiento: c.proximaConsulta ? 'pendiente_de_agendar' : 'pendiente',
-      observaciones: c.observaciones || ''
+      requiere_seguimiento: Boolean(c.requiereSeguimiento),
+      nota_seguimiento: c.notaSeguimiento || '',
+      evento_seguimiento_id: String(c.eventoSeguimientoId || '').trim() || null,
+      estado_seguimiento:
+        Boolean(c.requiereSeguimiento) && String(c.eventoSeguimientoId || '').trim()
+          ? 'pendiente_de_agendar'
+          : 'pendiente',
+      observaciones: c.observaciones || '',
     };
 
     const finalData = {};

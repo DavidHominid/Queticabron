@@ -213,7 +213,7 @@ export function AgendaQuirofanos() {
                         return (
                           <div 
                             key={cirugia.id}
-                            className={`absolute left-1 right-2 rounded-lg border shadow-sm p-3 overflow-hidden transition-all hover:shadow-md z-10 ${getCirugiaColor(cirugia.estado)} ${isPendienteSede ? 'border-orange-500 border-2' : ''}`}
+                            className={`absolute left-1 right-2 rounded-lg border shadow-sm p-2 overflow-hidden transition-all hover:shadow-md z-10 ${getCirugiaColor(cirugia.estado)} ${isPendienteSede ? 'border-orange-500 border-2' : ''}`}
                             style={{ 
                               top: `${topPixels}px`, 
                               height: `${heightPixels}px`,
@@ -221,20 +221,20 @@ export function AgendaQuirofanos() {
                             }}
                           >
                             <div className="flex flex-col h-full relative">
-                              <div className="font-bold text-sm leading-tight line-clamp-1 mb-1 pr-6">
+                              <div className="font-semibold text-xs leading-tight line-clamp-2 mb-0.5 pr-5">
                                 {cirugia.diagnostico}
                               </div>
                               {isPendienteSede && (
                                 <div className="absolute top-0 right-0 text-orange-500" title="Alerta: Sede sin confirmar">
-                                  <AlertTriangle className="w-4 h-4" />
+                                  <AlertTriangle className="w-3 h-3" />
                                 </div>
                               )}
-                              <div className="flex items-center gap-1 text-xs opacity-90 mb-1">
-                                <User className="w-3 h-3" />
+                              <div className="flex items-center gap-1 text-xs opacity-80 mb-0.5">
+                                <User className="w-3 h-3 shrink-0" />
                                 <span className="truncate">{paciente?.nombre} {paciente?.apellido}</span>
                               </div>
-                              <div className="flex items-center gap-1 text-xs font-medium opacity-80 mt-auto">
-                                <Clock className="w-3 h-3" />
+                              <div className="flex items-center gap-1 text-xs font-medium opacity-70 mt-auto">
+                                <Clock className="w-3 h-3 shrink-0" />
                                 <span>{cirugia.horaEstimada} ({durationMins} min)</span>
                               </div>
                             </div>

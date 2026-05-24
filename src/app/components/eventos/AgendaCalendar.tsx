@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -31,18 +31,18 @@ const computeSlotsOcupados = (citas: Cita[], eventoId: string, esp: Especialidad
   const fin = timeToMinutes(h.horaFin);
   if (inicio >= fin) return 0;
   const tipoId = h.tipoCitaId ? String(h.tipoCitaId) : '';
-  const ocupada = (citas || []).some((c) => {
-    if (c.eventoId !== eventoId) return false;
-    if (c.especialidad !== esp) return false;
-    if (c.fecha !== h.dia) return false;
-    if (c.estado === 'cancelada') return false;
-    if (tipoId && String(c.tipoCitaId || '') !== tipoId) return false;
+  return (citas || []).reduce((acc, c) => {
+    if (c.eventoId !== eventoId) return acc;
+    if (c.especialidad !== esp) return acc;
+    if (c.fecha !== h.dia) return acc;
+    if (c.estado === 'cancelada') return acc;
+    if (tipoId && String(c.tipoCitaId || '') !== tipoId) return acc;
     const cs = timeToMinutes(c.hora);
     const cdur = Number.isFinite(Number(c.duracionMinutos)) ? Math.max(1, Math.floor(Number(c.duracionMinutos))) : 60;
     const ce = cs + cdur;
-    return cs < fin && ce > inicio;
-  });
-  return ocupada ? 1 : 0;
+    if (!(cs < fin && ce > inicio)) return acc;
+    return acc + 1;
+  }, 0);
 };
 
 const startOfHour = (d: Date) => {
@@ -76,6 +76,10 @@ export function AgendaCalendar({
   horarios,
   citas,
   onSlotAction,
+  readOnly,
+  allowPick,
+  selectedEventId,
+  minDay,
 }: {
   eventoId: string;
   especialidad: Especialidad;
@@ -93,7 +97,35 @@ export function AgendaCalendar({
     cupoOcupado: number;
     disponibles: number;
   }) => void;
+  readOnly?: boolean;
+  allowPick?: boolean;
+  selectedEventId?: string;
+  minDay?: string;
 }) {
+  const plugins = useMemo(() => [timeGridPlugin, interactionPlugin, listPlugin], []);
+  const headerToolbar = useMemo(
+    () => ({ left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay,listWeek' }),
+    [],
+  );
+  const buttonText = useMemo(() => ({ today: 'Hoy', week: 'Semana', day: 'Día', list: 'Lista' }), []);
+  const eventTimeFormat = useMemo(() => ({ hour: '2-digit', minute: '2-digit', meridiem: false }), []);
+  const slotLabelFormat = useMemo(() => ({ hour: '2-digit', minute: '2-digit', meridiem: false }), []);
+
+  const minDaySafe = useMemo(() => {
+    const a = String(desde || '').trim();
+    const b = String(minDay || '').trim();
+    if (a && b) return a > b ? a : b;
+    return a || b || '';
+  }, [desde, minDay]);
+
+  const isDayDisabled = useCallback(
+    (ymd: string) => {
+      if (!minDaySafe) return false;
+      return String(ymd || '') < minDaySafe;
+    },
+    [minDaySafe],
+  );
+
   const validRange = useMemo(() => {
     if (!desde || !hasta) return undefined;
     const start = new Date(`${desde}T00:00:00`);
@@ -122,12 +154,15 @@ export function AgendaCalendar({
       .map((h) => {
         const intervalo = Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60;
         const slotKey = `${h.horaInicio}|${h.horaFin}|${intervalo}|${h.tipoCitaId || ''}`;
+        const id = `${h.dia}|${slotKey}`;
         const cupoTotal = Number.isFinite(Number(h.cupoTotal))
           ? Math.max(0, Math.floor(Number(h.cupoTotal)))
           : computeDefaultCupo(h);
-        const cupoOcupado = computeSlotsOcupados(citas, eventoId, especialidad, h);
+        const cupoOcupadoRaw = computeSlotsOcupados(citas, eventoId, especialidad, h);
+        const cupoOcupado = Math.max(0, Math.min(cupoTotal || cupoOcupadoRaw, cupoOcupadoRaw));
         const disponibles = Math.max(0, cupoTotal - cupoOcupado);
         const ratio = cupoTotal > 0 ? disponibles / cupoTotal : 0;
+        const isSelected = selectedEventId ? String(selectedEventId) === id : false;
         const bg =
           cupoTotal <= 0
             ? 'var(--outline)'
@@ -138,14 +173,19 @@ export function AgendaCalendar({
                 : ratio < 0.5
                   ? 'var(--secondary)'
                   : 'var(--primary)';
-        const text = bg === 'var(--brand-soft-peach)' ? 'var(--accent-foreground)' : 'var(--primary-foreground)';
+        const bgFinal = isSelected ? 'var(--muted)' : bg;
+        const text = isSelected
+          ? 'var(--foreground)'
+          : bg === 'var(--brand-soft-peach)'
+            ? 'var(--accent-foreground)'
+            : 'var(--primary-foreground)';
         return {
-          id: `${h.dia}|${slotKey}`,
+          id,
           title: cupoTotal > 0 ? `Disp: ${disponibles}/${cupoTotal}` : 'Sin cupo',
           start: `${h.dia}T${h.horaInicio}`,
           end: `${h.dia}T${h.horaFin}`,
-          backgroundColor: bg,
-          borderColor: bg,
+          backgroundColor: bgFinal,
+          borderColor: bgFinal,
           textColor: text,
           extendedProps: {
             dia: h.dia,
@@ -157,96 +197,145 @@ export function AgendaCalendar({
             cupoTotal,
             cupoOcupado,
             disponibles,
+            selected: isSelected,
           },
         };
       });
-  }, [citas, desde, eventoId, especialidad, hasta, horarios]);
+  }, [citas, desde, eventoId, especialidad, hasta, horarios, selectedEventId]);
+
+  const selectAllow = useCallback(
+    (info: any) => {
+      const endInclusive = new Date(info.end.getTime() - 1);
+      const day = toYmd(info.start);
+      if (toYmd(info.start) !== toYmd(endInclusive)) return false;
+      if (isDayDisabled(day)) return false;
+      return true;
+    },
+    [isDayDisabled],
+  );
+
+  const dateClick = useCallback(
+    (info: any) => {
+      if (readOnly) return;
+      const start = info.date;
+      const day = toYmd(start);
+      if (isDayDisabled(day)) return;
+      const end = addHours(start, 1);
+      const horaInicio = toHm(start);
+      const horaFin = toHm(end);
+      onSlotAction({
+        source: 'nuevo',
+        day,
+        slotKey: `${horaInicio}|${horaFin}|60`,
+        start: `${day}T${horaInicio}`,
+        end: `${day}T${horaFin}`,
+        cupoTotal: 1,
+        cupoOcupado: 0,
+        disponibles: 1,
+      });
+    },
+    [isDayDisabled, onSlotAction, readOnly],
+  );
+
+  const select = useCallback(
+    (info: any) => {
+      if (readOnly) return;
+      const normalized = normalizeSelection(info.start, info.end);
+      const day = toYmd(normalized.start);
+      if (isDayDisabled(day)) return;
+      const horaInicio = toHm(normalized.start);
+      const horaFin = toHm(normalized.end);
+      onSlotAction({
+        source: 'nuevo',
+        day,
+        slotKey: `${horaInicio}|${horaFin}|60`,
+        start: `${day}T${horaInicio}`,
+        end: `${day}T${horaFin}`,
+        cupoTotal: 1,
+        cupoOcupado: 0,
+        disponibles: 1,
+      });
+    },
+    [isDayDisabled, onSlotAction, readOnly],
+  );
+
+  const eventClick = useCallback(
+    (info: any) => {
+      if (readOnly && !allowPick) return;
+      const dia = String(info.event.extendedProps.dia || '');
+      if (isDayDisabled(dia)) return;
+      const slotKey = String(info.event.extendedProps.slotKey || '');
+      const start = String(info.event.extendedProps.start || info.event.startStr || '');
+      const end = String(info.event.extendedProps.end || info.event.endStr || '');
+      const cupoTotal = Number(info.event.extendedProps.cupoTotal) || 0;
+      const cupoOcupado = Number(info.event.extendedProps.cupoOcupado) || 0;
+      const disponibles = Math.max(0, cupoTotal - cupoOcupado);
+      if (!dia || !slotKey) return;
+      onSlotAction({
+        source: 'bloque',
+        day: dia,
+        slotKey,
+        start,
+        end,
+        cupoTotal,
+        cupoOcupado,
+        disponibles,
+      });
+    },
+    [allowPick, isDayDisabled, onSlotAction, readOnly],
+  );
+
+  const dayHeaderClassNames = useCallback(
+    (arg: any) => {
+      const day = toYmd(arg.date);
+      return isDayDisabled(day) ? ['fc-day-disabled-custom'] : [];
+    },
+    [isDayDisabled],
+  );
+
+  const dayCellClassNames = useCallback(
+    (arg: any) => {
+      const day = toYmd(arg.date);
+      return isDayDisabled(day) ? ['fc-day-disabled-custom'] : [];
+    },
+    [isDayDisabled],
+  );
 
   return (
     <div className="rounded-lg border border-border overflow-hidden bg-card">
       <FullCalendar
-        plugins={[timeGridPlugin, interactionPlugin, listPlugin]}
+        plugins={plugins}
         initialView="timeGridWeek"
         initialDate={desde || undefined}
         locale={esLocale}
-        headerToolbar={{ left: 'prev,next today', center: 'title', right: 'timeGridWeek,timeGridDay,listWeek' }}
-        buttonText={{ today: 'Hoy', week: 'Semana', day: 'Día', list: 'Lista' }}
+        headerToolbar={headerToolbar}
+        buttonText={buttonText}
         slotMinTime={slotBounds.minTime}
         slotMaxTime={slotBounds.maxTime}
         slotDuration="01:00:00"
         slotLabelInterval="01:00:00"
         snapDuration="01:00:00"
         allDaySlot={false}
-        selectable={true}
+        selectable={!readOnly}
         selectMirror={true}
         editable={false}
         eventOverlap={false}
         selectOverlap={false}
         events={events}
         validRange={validRange}
-        selectAllow={(info) => {
-          const endInclusive = new Date(info.end.getTime() - 1);
-          return toYmd(info.start) === toYmd(endInclusive);
-        }}
-        dateClick={(info) => {
-          const start = info.date;
-          const end = addHours(start, 1);
-          const day = toYmd(start);
-          const horaInicio = toHm(start);
-          const horaFin = toHm(end);
-          onSlotAction({
-            source: 'nuevo',
-            day,
-            slotKey: `${horaInicio}|${horaFin}|60`,
-            start: `${day}T${horaInicio}`,
-            end: `${day}T${horaFin}`,
-            cupoTotal: 1,
-            cupoOcupado: 0,
-            disponibles: 1,
-          });
-        }}
-        select={(info) => {
-          const normalized = normalizeSelection(info.start, info.end);
-          const day = toYmd(normalized.start);
-          const horaInicio = toHm(normalized.start);
-          const horaFin = toHm(normalized.end);
-          onSlotAction({
-            source: 'nuevo',
-            day,
-            slotKey: `${horaInicio}|${horaFin}|60`,
-            start: `${day}T${horaInicio}`,
-            end: `${day}T${horaFin}`,
-            cupoTotal: 1,
-            cupoOcupado: 0,
-            disponibles: 1,
-          });
-        }}
-        eventClick={(info) => {
-          const dia = String(info.event.extendedProps.dia || '');
-          const slotKey = String(info.event.extendedProps.slotKey || '');
-          const start = String(info.event.extendedProps.start || info.event.startStr || '');
-          const end = String(info.event.extendedProps.end || info.event.endStr || '');
-          const cupoTotal = Number(info.event.extendedProps.cupoTotal) || 0;
-          const cupoOcupado = Number(info.event.extendedProps.cupoOcupado) || 0;
-          const disponibles = Math.max(0, cupoTotal - cupoOcupado);
-          if (!dia || !slotKey) return;
-          onSlotAction({
-            source: 'bloque',
-            day: dia,
-            slotKey,
-            start,
-            end,
-            cupoTotal,
-            cupoOcupado,
-            disponibles,
-          });
-        }}
+        selectAllow={selectAllow}
+        dateClick={dateClick}
+        select={select}
+        eventClick={eventClick}
+        dayHeaderClassNames={dayHeaderClassNames}
+        dayCellClassNames={dayCellClassNames}
         height="auto"
-        eventTimeFormat={{ hour: '2-digit', minute: '2-digit', meridiem: false }}
-        slotLabelFormat={{ hour: '2-digit', minute: '2-digit', meridiem: false }}
+        eventTimeFormat={eventTimeFormat}
+        slotLabelFormat={slotLabelFormat}
         eventContent={(arg) => {
+          const selected = Boolean(arg.event.extendedProps?.selected);
           return (
-            <div className="px-1 py-0.5 text-[11px] leading-tight">
+            <div className={`h-full w-full px-1 py-0.5 text-[11px] leading-tight ${selected ? 'opacity-90' : ''}`}>
               <div className="font-medium">{arg.timeText}</div>
             </div>
           );

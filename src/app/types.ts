@@ -222,6 +222,9 @@ export interface ConsultaMedica {
   }>;
   recomendaciones?: string;
   proximaConsulta?: string;
+  requiereSeguimiento?: boolean;
+  notaSeguimiento?: string;
+  eventoSeguimientoId?: string;
   requiereCirugia?: boolean;
 }
 
@@ -283,6 +286,9 @@ export interface Seguimiento {
   };
   diagnostico?: string;
   observaciones?: string;
+  requiereSeguimiento?: boolean;
+  notaSeguimiento?: string;
+  eventoSeguimientoId?: string;
   examenesRequeridos?: string[];
   remisionFarmacia?: string;
   proximoSeguimiento?: string;

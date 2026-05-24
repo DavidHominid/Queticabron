@@ -15,68 +15,78 @@ export function ExpedienteVitalSigns({ triages, calcularIMC }: ExpedienteVitalSi
   
   return (
     <Card>
-      <CardHeader className="bg-gray-50">
-        <CardTitle className="text-lg flex items-center gap-2 text-gray-900">
-          <Activity className="w-5 h-5 text-gray-700" />
-          Últimos Signos Vitales
+      <CardHeader className="border-b gap-2">
+        <CardTitle className="flex items-center gap-2 text-foreground">
+          <Activity className="h-5 w-5 text-[color:var(--brand-secondary-strong)]" />
+          Signos vitales
         </CardTitle>
+        <p className="text-sm text-muted-foreground">Último triage registrado.</p>
       </CardHeader>
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="pt-5 space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 bg-red-50 rounded-lg shadow-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <Thermometer className="w-4 h-4 text-red-600" />
-              <p className="text-xs text-gray-600">Temperatura</p>
+          <div className="rounded-xl border bg-accent p-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Temperatura</p>
+              <Thermometer className="h-4 w-4 text-[color:var(--brand-secondary-strong)]" />
             </div>
-            <p className="font-semibold text-gray-900">
-              {ultimoTriage.signosVitales.temperatura}°C
+            <p className="mt-2 text-sm font-semibold text-foreground">
+              {Number.isFinite(Number(ultimoTriage.signosVitales.temperatura)) ? `${ultimoTriage.signosVitales.temperatura} °C` : 'N/A'}
             </p>
           </div>
-          <div className="p-3 bg-pink-50 rounded-lg shadow-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <Heart className="w-4 h-4 text-pink-600" />
-              <p className="text-xs text-gray-600">Presión</p>
+
+          <div className="rounded-xl border bg-accent p-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Presión arterial</p>
+              <Heart className="h-4 w-4 text-[color:var(--brand-secondary-strong)]" />
             </div>
-            <p className="font-semibold text-gray-900">
-              {ultimoTriage.signosVitales.presionArterial}
+            <p className="mt-2 text-sm font-semibold text-foreground">{String(ultimoTriage.signosVitales.presionArterial || 'N/A')}</p>
+          </div>
+
+          <div className="rounded-xl border bg-accent p-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Ritmo cardíaco</p>
+              <Activity className="h-4 w-4 text-[color:var(--brand-secondary-strong)]" />
+            </div>
+            <p className="mt-2 text-sm font-semibold text-foreground">
+              {Number.isFinite(Number(ultimoTriage.signosVitales.ritmoCardiaco)) ? `${ultimoTriage.signosVitales.ritmoCardiaco} bpm` : 'N/A'}
             </p>
           </div>
-          <div className="p-3 bg-blue-50 rounded-lg shadow-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <Activity className="w-4 h-4 text-blue-600" />
-              <p className="text-xs text-gray-600">Ritmo Cardíaco</p>
+
+          <div className="rounded-xl border bg-accent p-3">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Glucosa</p>
+              <Droplet className="h-4 w-4 text-[color:var(--brand-secondary-strong)]" />
             </div>
-            <p className="font-semibold text-gray-900">
-              {ultimoTriage.signosVitales.ritmoCardiaco} bpm
-            </p>
-          </div>
-          <div className="p-3 bg-purple-50 rounded-lg shadow-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <Droplet className="w-4 h-4 text-purple-600" />
-              <p className="text-xs text-gray-600">Glucosa</p>
-            </div>
-            <p className="font-semibold text-gray-900">
-              {ultimoTriage.signosVitales.azucarEnSangre} mg/dL
+            <p className="mt-2 text-sm font-semibold text-foreground">
+              {Number.isFinite(Number(ultimoTriage.signosVitales.azucarEnSangre))
+                ? `${ultimoTriage.signosVitales.azucarEnSangre} mg/dL`
+                : 'N/A'}
             </p>
           </div>
         </div>
-        <div className="pt-3 border-t">
+
+        <div className="rounded-xl border bg-card p-3">
           <div className="grid grid-cols-3 gap-2 text-sm">
             <div>
-              <p className="text-gray-600">Peso</p>
-              <p className="font-medium text-gray-900">{ultimoTriage.signosVitales.peso} kg</p>
+              <p className="text-xs font-medium text-muted-foreground">Peso</p>
+              <p className="mt-1 font-semibold text-foreground">
+                {Number.isFinite(Number(ultimoTriage.signosVitales.peso)) ? `${ultimoTriage.signosVitales.peso} kg` : 'N/A'}
+              </p>
             </div>
             <div>
-              <p className="text-gray-600">Altura</p>
-              <p className="font-medium text-gray-900">{ultimoTriage.signosVitales.altura} cm</p>
+              <p className="text-xs font-medium text-muted-foreground">Altura</p>
+              <p className="mt-1 font-semibold text-foreground">
+                {Number.isFinite(Number(ultimoTriage.signosVitales.altura)) ? `${ultimoTriage.signosVitales.altura} cm` : 'N/A'}
+              </p>
             </div>
             <div>
-              <p className="text-gray-600">IMC</p>
-              <p className="font-medium text-gray-900">{calcularIMC()}</p>
+              <p className="text-xs font-medium text-muted-foreground">IMC</p>
+              <p className="mt-1 font-semibold text-foreground">{String(calcularIMC() || '').trim() || 'N/A'}</p>
             </div>
           </div>
         </div>
-        <div className="pt-2 text-xs text-gray-500">
+
+        <div className="text-xs text-muted-foreground">
           Actualizado: {new Date(ultimoTriage.fechaHora).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}
         </div>
       </CardContent>

@@ -31,6 +31,7 @@ export function AgendarCitaDialog({
   horario,
   citas,
   pacientes,
+  pacienteInicial,
   tipoCitaIdFijo,
   onAgendar,
 }: {
@@ -41,6 +42,7 @@ export function AgendarCitaDialog({
   horario: HorarioDisponible;
   citas: Cita[];
   pacientes: Paciente[];
+  pacienteInicial?: Paciente | null;
   tipoCitaIdFijo?: string;
   onAgendar: (payload: { paciente: Paciente; hora: string; tipoCita: TipoCitaEvento | null }) => Promise<void> | void;
 }) {
@@ -56,13 +58,13 @@ export function AgendarCitaDialog({
   useEffect(() => {
     if (!open) return;
     setQuery('');
-    setPacienteSeleccionado(null);
+    setPacienteSeleccionado(pacienteInicial || null);
     setHoraSeleccionada('');
     setTipoSeleccionadoId('');
     setError('');
     setGuardando(false);
     setCrearPacienteOpen(false);
-  }, [open]);
+  }, [open, pacienteInicial]);
 
   const cupoTotal = useMemo(() => {
     const direct = Number.isFinite(Number(horario.cupoTotal)) ? Math.max(0, Math.floor(Number(horario.cupoTotal))) : 0;

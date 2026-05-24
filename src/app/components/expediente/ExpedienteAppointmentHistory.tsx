@@ -22,21 +22,23 @@ export function ExpedienteAppointmentHistory({
 }: ExpedienteAppointmentHistoryProps) {
   const estadoCitaBadge = (estado: string) => {
     const colores: { [key: string]: string } = {
-      programada: 'bg-blue-100 text-blue-700 border-blue-200',
-      en_triage: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      en_consulta: 'bg-purple-100 text-purple-700 border-purple-200',
-      completada: 'bg-green-100 text-green-700 border-green-200',
-      cancelada: 'bg-red-100 text-red-700 border-red-200',
+      programada: 'bg-secondary/15 text-[color:var(--brand-secondary-strong)] border-secondary/25',
+      en_triage: 'bg-secondary/10 text-[color:var(--brand-secondary-strong)] border-secondary/25',
+      en_consulta: 'bg-[color:var(--brand-tertiary)] text-primary-foreground border-[color:var(--brand-tertiary)]',
+      completada: 'bg-[color:var(--brand-primary-strong)] text-primary-foreground border-[color:var(--brand-primary-strong)]',
+      cancelada: 'bg-[color:var(--chart-4)] text-primary-foreground border-[color:var(--chart-4)]',
+      cedida: 'bg-[color:var(--chart-5)] text-primary-foreground border-[color:var(--chart-5)]',
+      no_asistio: 'bg-[color:var(--outline)] text-primary-foreground border-[color:var(--outline)]',
     };
-    return colores[estado] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return colores[estado] || 'bg-muted text-muted-foreground border-border';
   };
 
   return (
     <Card>
-      <CardHeader className="bg-gray-50">
-        <CardTitle className="text-lg text-gray-900">Historial de Citas ({citas.length})</CardTitle>
+      <CardHeader className="border-b">
+        <CardTitle className="text-base text-foreground">Historial de citas ({citas.length})</CardTitle>
       </CardHeader>
-      <CardContent className="p-4">
+      <CardContent className="pt-5">
         <div className={`space-y-3 overflow-y-auto pr-2 custom-scrollbar ${maxHeightClassName ?? 'max-h-96'}`}>
           {citas.slice().reverse().map((cita) => {
             const tieneRegistro = obtenerDatosCompletoCita(cita.id) !== null;
@@ -44,15 +46,17 @@ export function ExpedienteAppointmentHistory({
             return (
               <div
                 key={cita.id}
-                className={`p-4 border rounded-lg transition-colors bg-white cursor-pointer ${selected ? 'border-blue-300 bg-blue-50/40' : 'hover:bg-gray-50'}`}
+                className={`cursor-pointer rounded-xl border p-4 transition-colors ${
+                  selected ? 'border-primary/30 bg-primary/10' : 'bg-card hover:bg-accent'
+                }`}
                 onClick={() => onVerConsulta(cita.id)}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
-                    <p className="font-medium text-gray-900 capitalize text-base">
+                    <p className="text-base font-semibold text-foreground capitalize">
                       {cita.especialidad.replace('_', ' ')}
                     </p>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-600">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         <span>{formatDateSafe(cita.fecha)}</span>
@@ -62,13 +66,17 @@ export function ExpedienteAppointmentHistory({
                         <span>{cita.hora}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <DollarSign className="w-4 h-4 text-green-600" />
-                        <span>${cita.costoPagado}</span>
+                        <DollarSign className="w-4 h-4 text-[color:var(--brand-primary-strong)]" />
+                        {Number(cita.costoPagado) > 0 ? (
+                          <span>${Number(cita.costoPagado).toFixed(2)}</span>
+                        ) : (
+                          <span>Pago pendiente</span>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge className={estadoCitaBadge(cita.estado)}>
+                    <Badge className={`border ${estadoCitaBadge(cita.estado)}`}>
                       {cita.estado.replace('_', ' ')}
                     </Badge>
                     <Button
@@ -78,21 +86,22 @@ export function ExpedienteAppointmentHistory({
                         e.stopPropagation();
                         onVerConsulta(cita.id);
                       }}
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200"
                     >
                       <Eye className="w-4 h-4 mr-1" />
-                      {tieneRegistro ? 'Ver Detalle' : 'Ver'}
+                      {tieneRegistro ? 'Ver detalle' : 'Ver'}
                     </Button>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600">Consultorio: {cita.consultorio}</p>
+                <p className="text-sm text-muted-foreground">Consultorio: {cita.consultorio}</p>
               </div>
             );
           })}
           {citas.length === 0 && (
-            <div className="text-center py-12">
-              <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500">No hay citas registradas</p>
+            <div className="py-12 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-[color:var(--brand-secondary-strong)]">
+                <Calendar className="h-7 w-7" />
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground">No hay citas registradas</p>
             </div>
           )}
         </div>

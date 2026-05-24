@@ -1,6 +1,6 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
-import { mapCita, toDBEstado, recordAudit } from '../helpers/utils.js';
+import { mapCita, toDBEstado, recordAudit, normalizeHora } from '../helpers/utils.js';
 
 const router = express.Router();
 
@@ -103,6 +103,25 @@ router.post('/', async (req, res) => {
     if (!especialidad) {
       return res.status(400).json({ error: 'La especialidad es obligatoria.' });
     }
+    const pacienteId = Number.isFinite(Number(c.pacienteId)) ? parseInt(c.pacienteId) : null;
+    const fechaCita = c.fecha || null;
+    const horaCita = normalizeHora(c.hora) || '08:00';
+    if (!pacienteId || !fechaCita) {
+      return res.status(400).json({ error: 'Paciente, fecha y hora son obligatorios.' });
+    }
+    const conflict = await pool.query(
+      `SELECT id_cita
+       FROM "${SCHEMA}".citas
+       WHERE id_paciente = $1
+         AND fecha_cita = $2
+         AND hora = $3
+         AND estado <> 'cancelada'
+       LIMIT 1`,
+      [pacienteId, fechaCita, horaCita],
+    );
+    if (conflict.rows?.length) {
+      return res.status(409).json({ error: 'El paciente ya tiene una cita en esa fecha y hora.' });
+    }
     const tipoIdRaw = c.tipoCitaId;
     const tipoId = Number.isFinite(Number(tipoIdRaw)) ? Number(tipoIdRaw) : null;
     const tipoRef = await detectCitasTipoCitaRef();
@@ -164,10 +183,10 @@ router.post('/', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
-        parseInt(c.pacienteId) || null,
+        pacienteId,
         (c.eventoId === 'general' ? null : c.eventoId) || null,
-        c.fecha || null,
-        c.hora || '08:00',
+        fechaCita,
+        horaCita,
         toDBEstado(c.estado || 'programada'),
         especialidad,
         medicoEncargado,
@@ -218,6 +237,38 @@ router.put('/:id', async (req, res) => {
   const { estado, fecha, hora, pacienteId } = req.body;
 
   try {
+    const current = await pool.query(
+      `SELECT id_paciente, fecha_cita, hora
+       FROM "${SCHEMA}".citas
+       WHERE id_cita = $1
+       LIMIT 1`,
+      [parseInt(id)],
+    );
+    if (!current.rows?.length) {
+      return res.status(404).json({ error: 'Cita no encontrada.' });
+    }
+    const cur = current.rows[0];
+    const nextPacienteId = Number.isFinite(Number(pacienteId)) ? parseInt(pacienteId) : Number(cur.id_paciente);
+    const nextFecha = fecha || cur.fecha_cita || null;
+    const nextHora = normalizeHora(hora) || normalizeHora(cur.hora) || '08:00';
+
+    if (nextPacienteId && nextFecha && nextHora) {
+      const conflict = await pool.query(
+        `SELECT id_cita
+         FROM "${SCHEMA}".citas
+         WHERE id_paciente = $1
+           AND fecha_cita = $2
+           AND hora = $3
+           AND estado <> 'cancelada'
+           AND id_cita <> $4
+         LIMIT 1`,
+        [nextPacienteId, nextFecha, nextHora, parseInt(id)],
+      );
+      if (conflict.rows?.length) {
+        return res.status(409).json({ error: 'El paciente ya tiene una cita en esa fecha y hora.' });
+      }
+    }
+
     const result = await pool.query(
       `
       UPDATE "${SCHEMA}".citas
@@ -232,7 +283,7 @@ router.put('/:id', async (req, res) => {
       [
         estado ? toDBEstado(estado) : null,
         fecha || null,
-        hora || null,
+        normalizeHora(hora) || null,
         Number.isFinite(Number(pacienteId)) ? parseInt(pacienteId) : null,
         parseInt(id)
       ]

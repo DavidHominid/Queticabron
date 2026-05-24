@@ -53,7 +53,7 @@ interface DataContextType {
 
   // Consultas Médicas
   consultasMedicas: ConsultaMedica[];
-  addConsultaMedica: (consulta: ConsultaMedica) => void;
+  addConsultaMedica: (consulta: ConsultaMedica) => Promise<ConsultaMedica | null>;
 
   // Consultas Dentales
   consultasDentales: ConsultaDental[];
@@ -458,11 +458,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const nuevo = await res.json();
-        setConsultasMedicas([...consultasMedicas, nuevo]);
+        setConsultasMedicas((prev) => [...prev, nuevo]);
+        if ((consulta as any)?.requiereSeguimiento) {
+          const segRes = await fetch('/api/seguimientos');
+          if (segRes.ok) {
+            const segData = await segRes.json();
+            if (Array.isArray(segData)) setSeguimientos(segData);
+          }
+        }
+        return nuevo;
       }
     } catch (err) {
       console.error(err);
     }
+    return null;
   };
 
   const addConsultaDental = (consulta: ConsultaDental) => {
@@ -528,7 +537,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const nuevo = await res.json();
-        setSeguimientos([...seguimientos, nuevo]);
+        setSeguimientos((prev) => [...prev, nuevo]);
       }
     } catch (err) {
       console.error(err);
@@ -544,7 +553,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const actualizado = await res.json();
-        setSeguimientos(seguimientos.map((s) => (s.id === id ? actualizado : s)));
+        setSeguimientos((prev) => prev.map((s) => (s.id === id ? actualizado : s)));
       }
     } catch (err) {
       console.error(err);

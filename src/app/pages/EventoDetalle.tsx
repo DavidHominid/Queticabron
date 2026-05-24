@@ -5,6 +5,7 @@ import { DashboardLayout } from '../components/DashboardLayout';
 import { AgendaCalendar } from '../components/eventos/AgendaCalendar';
 import { AgendarCitaDialog } from '../components/eventos/AgendarCitaDialog';
 import { DetalleCitasBloqueDialog } from '../components/eventos/DetalleCitasBloqueDialog';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../components/ui/accordion';
 import { Button } from '../components/ui/button';
 import {
   AlertDialog,
@@ -17,10 +18,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '../components/ui/alert-dialog';
+import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, Usuario } from '../types';
+import { labelCiudad } from '../utils/ciudades';
 import { labelEspecialidad } from '../utils/especialidades';
 import { nowIso, nowMs, todayYmd } from '../utils/clock';
 
@@ -55,6 +58,11 @@ const isEventoFinalizado = (fechaFin?: string | null) => {
   if (Number.isNaN(end.getTime())) return false;
   return nowMs() > end.getTime();
 };
+
+const formatMoney = (value: number) =>
+  new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(
+    Number.isFinite(Number(value)) ? Number(value) : 0,
+  );
 
 const slotKeyForHorario = (h: HorarioDisponible) => {
   const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 60;
@@ -110,7 +118,18 @@ const hasCita = (
 export function EventoDetalle() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { eventos, citas, pacientes, usuarios, especialidadesCatalogo, deleteEvento, addCita, addRegistroAuditoria, isInitialized } = useData();
+  const {
+    eventos,
+    citas,
+    pacientes,
+    usuarios,
+    especialidadesCatalogo,
+    ciudadesCatalogo,
+    deleteEvento,
+    addCita,
+    addRegistroAuditoria,
+    isInitialized,
+  } = useData();
   const { user } = useAuth();
   const modoPruebas = String((import.meta as any).env?.VITE_EVENTOS_MODO_PRUEBAS || '')
     .trim()
@@ -130,6 +149,99 @@ export function EventoDetalle() {
 
   const evento = useMemo(() => eventos.find((e) => e.id === id) || null, [eventos, id]);
   const bloqueado = useMemo(() => isEventoFinalizado(evento?.fechaFin || null), [evento?.fechaFin]);
+  const hoy = useMemo(() => todayYmd(), []);
+
+  const usuariosById = useMemo(() => {
+    const out = new Map<string, Usuario>();
+    for (const u of usuarios || []) {
+      if (u?.id) out.set(String(u.id), u as Usuario);
+    }
+    return out;
+  }, [usuarios]);
+
+  const nombreUsuario = useMemo(() => {
+    return (usuarioId?: string | null) => {
+      const idLocal = String(usuarioId || '').trim();
+      if (!idLocal) return 'Sin asignar';
+      return usuariosById.get(idLocal)?.nombre || idLocal;
+    };
+  }, [usuariosById]);
+
+  const ciudadLabel = useMemo(() => {
+    if (!evento) return '';
+    return labelCiudad(evento.ciudad, ciudadesCatalogo);
+  }, [evento, ciudadesCatalogo]);
+
+  const estadoEvento = useMemo(() => {
+    if (!evento) return '';
+    if (evento.estado === 'cancelado') return 'Cancelado';
+    if (evento.estado === 'finalizado' || bloqueado) return 'Finalizado';
+    return 'Activo';
+  }, [bloqueado, evento]);
+
+  const estadoEventoVariant = useMemo(() => {
+    if (!evento) return 'outline' as const;
+    if (evento.estado === 'cancelado') return 'destructive' as const;
+    if (evento.estado === 'finalizado' || bloqueado) return 'secondary' as const;
+    return 'default' as const;
+  }, [bloqueado, evento]);
+
+  const inscripcionResumen = useMemo(() => {
+    if (!evento) return { rango: 'Sin configurar', estado: 'Sin configurar', variant: 'outline' as const };
+    const start = String(evento.fechaInicioInscripcion || '').trim();
+    const end = String(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion || '').trim();
+    const rango = start || end ? `${formatDate(start)} - ${formatDate(end)}` : 'Sin configurar';
+    if (!start || !end) return { rango, estado: 'Sin configurar', variant: 'outline' as const };
+    if (hoy < start) return { rango, estado: 'Aún no inicia', variant: 'secondary' as const };
+    if (hoy > end) return { rango, estado: 'Cerrada', variant: 'destructive' as const };
+    return { rango, estado: 'Abierta', variant: 'default' as const };
+  }, [evento, hoy]);
+
+  const citasEvento = useMemo(() => {
+    if (!evento) return [] as Cita[];
+    return (citas || []).filter((c) => c.eventoId === evento.id);
+  }, [citas, evento]);
+
+  const resumenCitas = useMemo(() => {
+    const total = citasEvento.length;
+    const noCanceladas = citasEvento.filter((c) => c.estado !== 'cancelada');
+    const porEstado = citasEvento.reduce<Record<string, number>>((acc, c) => {
+      const key = String(c.estado || 'desconocido');
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+    const ingresos = citasEvento.reduce((sum, c) => sum + (Number.isFinite(Number(c.costoPagado)) ? Number(c.costoPagado) : 0), 0);
+    return { total, noCanceladas: noCanceladas.length, porEstado, ingresos };
+  }, [citasEvento]);
+
+  const cupoTotalEvento = useMemo(() => {
+    if (!evento) return 0;
+    let total = 0;
+    for (const esp of evento.especialidades || []) {
+      for (const h of esp.horarios || []) {
+        total += Number.isFinite(Number(h.cupoTotal)) ? Number(h.cupoTotal) : 0;
+      }
+    }
+    return total;
+  }, [evento]);
+
+  const cuposResumen = useMemo(() => {
+    const ocupados = resumenCitas.noCanceladas;
+    const total = cupoTotalEvento;
+    const disponibles = total ? Math.max(0, total - ocupados) : 0;
+    const pct = total ? Math.round((ocupados / total) * 100) : 0;
+    return { total, ocupados, disponibles, pct };
+  }, [cupoTotalEvento, resumenCitas.noCanceladas]);
+
+  const citasPorEspecialidad = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const c of citasEvento) {
+      const key = String(c.especialidad || '');
+      if (!key) continue;
+      out[key] = (out[key] || 0) + 1;
+    }
+    return out;
+  }, [citasEvento]);
 
   useEffect(() => {
     if (!evento) return;
@@ -357,37 +469,90 @@ export function EventoDetalle() {
         ) : (
           <>
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-              <Card className="shadow-sm lg:col-span-1">
-                <CardHeader className="border-b">
-                  <CardTitle className="text-base">Información del evento</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 p-6 text-sm">
-                  <div>
-                    <div className="text-muted-foreground">Ciudad</div>
-                    <div className="font-medium text-foreground">{evento.ciudad}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Inscripciones</div>
-                    <div className="font-medium text-foreground">
-                      {formatDate(evento.fechaInicioInscripcion)} - {formatDate(evento.fechaFinInscripcion || evento.fechaLimiteInscripcion)}
+              <div className="space-y-6 lg:col-span-1">
+                <Card className="shadow-sm">
+                  <CardHeader className="border-b">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <CardTitle className="text-base">Información del evento</CardTitle>
+                      <Badge variant={estadoEventoVariant}>{estadoEvento}</Badge>
                     </div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Evento</div>
-                    <div className="font-medium text-foreground">
-                      {formatDate(evento.fechaInicio)} - {formatDate(evento.fechaFin)}
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-6 text-sm">
+                    <div>
+                      <div className="text-muted-foreground">Ciudad</div>
+                      <div className="font-medium text-foreground">{ciudadLabel || evento.ciudad}</div>
                     </div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Estado</div>
-                    <div className="font-medium capitalize text-foreground">{evento.estado}</div>
-                  </div>
-                  <div>
-                    <div className="text-muted-foreground">Especialidades</div>
-                    <div className="font-medium text-foreground">{evento.especialidades.length}</div>
-                  </div>
-                </CardContent>
-              </Card>
+                    <div>
+                      <div className="text-muted-foreground">Fechas del evento</div>
+                      <div className="font-medium text-foreground">
+                        {formatDate(evento.fechaInicio)} - {formatDate(evento.fechaFin)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-muted-foreground">Inscripciones</div>
+                        <Badge variant={inscripcionResumen.variant}>{inscripcionResumen.estado}</Badge>
+                      </div>
+                      <div className="font-medium text-foreground">{inscripcionResumen.rango}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Especialidades</div>
+                      <div className="font-medium text-foreground">{evento.especialidades.length}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Cupos (aprox.)</div>
+                      <div className="font-medium text-foreground">
+                        {cuposResumen.total ? (
+                          <>
+                            {cuposResumen.ocupados} ocupados · {cuposResumen.disponibles} disponibles · {cuposResumen.pct}%
+                          </>
+                        ) : (
+                          'Sin cupos calculables'
+                        )}
+                      </div>
+                    </div>
+                    {user?.rol === 'administrador' && (
+                      <div>
+                        <div className="text-muted-foreground">ID</div>
+                        <div className="font-medium text-foreground">{evento.id}</div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-sm">
+                  <CardHeader className="border-b">
+                    <CardTitle className="text-base">Resumen de citas</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4 p-6 text-sm">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="text-xs text-muted-foreground">Total</div>
+                        <div className="mt-1 text-lg font-semibold text-foreground">{resumenCitas.total}</div>
+                      </div>
+                      <div className="rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="text-xs text-muted-foreground">No canceladas</div>
+                        <div className="mt-1 text-lg font-semibold text-foreground">{resumenCitas.noCanceladas}</div>
+                      </div>
+                      <div className="rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="text-xs text-muted-foreground">Programadas</div>
+                        <div className="mt-1 text-lg font-semibold text-foreground">{resumenCitas.porEstado.programada || 0}</div>
+                      </div>
+                      <div className="rounded-xl border border-border bg-muted/20 p-3">
+                        <div className="text-xs text-muted-foreground">Completadas</div>
+                        <div className="mt-1 text-lg font-semibold text-foreground">{resumenCitas.porEstado.completada || 0}</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/20 p-3">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Ingresos (sumatoria)</div>
+                        <div className="mt-1 font-semibold text-foreground">{formatMoney(resumenCitas.ingresos)}</div>
+                      </div>
+                      <Badge variant="outline">{hoy}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
 
               <Card className="shadow-sm lg:col-span-3">
                 <CardHeader className="border-b">
@@ -462,6 +627,126 @@ export function EventoDetalle() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card className="shadow-sm">
+              <CardHeader className="border-b">
+                <CardTitle className="text-base">Configuración por especialidad</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <Accordion type="multiple" className="w-full">
+                  {evento.especialidades.map((esp) => {
+                    const tipos = Array.isArray(esp.tiposCita) ? esp.tiposCita : [];
+                    const horariosSorted = [...(esp.horarios || [])].sort((a, b) =>
+                      `${a.dia}T${a.horaInicio}`.localeCompare(`${b.dia}T${b.horaInicio}`),
+                    );
+                    const horariosPreview = horariosSorted.slice(0, 10);
+                    const horariosExtra = Math.max(0, horariosSorted.length - horariosPreview.length);
+                    const cupoTotalEsp = (esp.horarios || []).reduce(
+                      (sum, h) => sum + (Number.isFinite(Number(h.cupoTotal)) ? Number(h.cupoTotal) : 0),
+                      0,
+                    );
+
+                    const tipoLabel = (tipoCitaId?: string) => {
+                      const key = String(tipoCitaId || '').trim();
+                      if (!key) return '';
+                      const found = tipos.find((t) => String(t.id || '') === key);
+                      return found?.nombre ? String(found.nombre) : key;
+                    };
+
+                    return (
+                      <AccordionItem key={esp.especialidad} value={esp.especialidad}>
+                        <AccordionTrigger>
+                          <div className="flex w-full flex-wrap items-center justify-between gap-2 pr-2">
+                            <div className="font-medium text-foreground">
+                              {labelEspecialidad(esp.especialidad, especialidadesCatalogo)}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline">{citasPorEspecialidad[esp.especialidad] || 0} citas</Badge>
+                              <Badge variant="secondary">{(esp.horarios || []).length} bloques</Badge>
+                              <Badge variant="secondary">{cupoTotalEsp} cupos</Badge>
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            <div className="space-y-4 text-sm">
+                              <div>
+                                <div className="text-muted-foreground">Médico encargado</div>
+                                <div className="font-medium text-foreground">{nombreUsuario(esp.medicoEncargado)}</div>
+                              </div>
+                              <div>
+                                <div className="text-muted-foreground">Practicantes</div>
+                                <div className="font-medium text-foreground">
+                                  {(esp.practicantes || []).length
+                                    ? esp.practicantes.map((p) => nombreUsuario(p)).join(', ')
+                                    : 'Sin asignar'}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-muted-foreground">Consultorio</div>
+                                <div className="font-medium text-foreground">{String(esp.consultorio || '').trim() || 'Sin asignar'}</div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-4 text-sm">
+                              <div>
+                                <div className="text-muted-foreground">Costo base</div>
+                                <div className="font-medium text-foreground">{formatMoney(esp.costo || 0)}</div>
+                              </div>
+                              <div>
+                                <div className="text-muted-foreground">Tipos de cita</div>
+                                {tipos.length === 0 ? (
+                                  <div className="font-medium text-foreground">Sin tipos configurados</div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {tipos.map((t) => (
+                                      <div key={String(t.id || t.nombre)} className="rounded-xl border border-border bg-muted/20 p-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <div className="font-medium text-foreground">{t.nombre}</div>
+                                          <Badge variant="outline">{formatMoney(t.precio)}</Badge>
+                                        </div>
+                                        <div className="mt-1 text-xs text-muted-foreground">
+                                          {t.duracionMinutos} min · {nombreUsuario(t.medicoEncargado)}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-6">
+                            <div className="mb-2 text-sm font-medium text-foreground">Horarios</div>
+                            {horariosSorted.length === 0 ? (
+                              <div className="text-sm text-muted-foreground">Sin horarios configurados.</div>
+                            ) : (
+                              <div className="space-y-2">
+                                {horariosPreview.map((h) => (
+                                  <div key={slotKeyForHorario(h) + h.dia} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2 text-sm">
+                                    <div className="font-medium text-foreground">
+                                      {formatDate(h.dia)} · {h.horaInicio}-{h.horaFin}
+                                      {h.tipoCitaId ? ` · ${tipoLabel(h.tipoCitaId)}` : ''}
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                      <span>Cupo: {Number.isFinite(Number(h.cupoTotal)) ? Number(h.cupoTotal) : '—'}</span>
+                                      <span>Intervalo: {Number.isFinite(Number(h.intervalo)) ? Number(h.intervalo) : 60}m</span>
+                                    </div>
+                                  </div>
+                                ))}
+                                {horariosExtra > 0 && (
+                                  <div className="text-sm text-muted-foreground">+{horariosExtra} horarios más</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </CardContent>
+            </Card>
 
             {evento && especialidad && agendarHorario && (
               <AgendarCitaDialog

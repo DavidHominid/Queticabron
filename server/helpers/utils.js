@@ -162,6 +162,9 @@ export const mapConsultaMedica = (n) => {
     requiereCirugia: Boolean(n.requiere_cirugia ?? n.requiereCirugia),
     recomendaciones: String(n.indicaciones ?? n.recomendaciones ?? ''),
     proximaConsulta: n.proxima_cita ?? n.proximaConsulta ?? undefined,
+    requiereSeguimiento: Boolean(n.requiere_seguimiento ?? n.requiereSeguimiento),
+    notaSeguimiento: String(n.nota_seguimiento ?? n.notaSeguimiento ?? ''),
+    eventoSeguimientoId: String(n.evento_seguimiento_id ?? n.eventoSeguimientoId ?? '').trim() || undefined,
   };
 };
 
