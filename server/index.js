@@ -22,6 +22,7 @@ import especialidadesRoutes from './routes/especialidades.js';
 import ciudadesRoutes from './routes/ciudades.js';
 import expedienteCitaRoutes from './routes/expediente-cita.js';
 import expedienteRoutes from './routes/expediente.js';
+import sedesRoutes from './routes/sedes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +78,7 @@ app.use('/api/informacion-medica', informacionMedicaRoutes);
 app.use('/api/expediente-cita', expedienteCitaRoutes);
 app.use('/api/expediente', expedienteRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/sedes', sedesRoutes);
 
 // Caso especial para el login
 app.use('/api', usuariosRoutes);

@@ -16,6 +16,15 @@ export interface CiudadCatalogo {
   activa: boolean;
 }
 
+export interface SedeQuirurgica {
+  id: string;
+  nombre: string;
+  tipo: 'propia' | 'subrogada';
+  costoRentaEstimado?: number;
+  ciudad: string;
+  activa: boolean;
+}
+
 export interface User {
   id: string;
   nombre: string;

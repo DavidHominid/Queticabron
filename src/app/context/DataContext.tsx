@@ -18,6 +18,7 @@ import {
   EstudioSocioeconomico,
   ExpedienteCita,
 } from '../types';
+import { SedeQuirurgica } from '../types';
 
 interface DataContextType {
   // Eventos
@@ -94,6 +95,13 @@ interface DataContextType {
 
   estudios: EstudioSocioeconomico[];
   addEstudioSocioeconomico: (estudio: EstudioSocioeconomico) => void;
+
+  // Sedes Quirúrgicas (catálogo admin)
+  sedesQuirurgicas: SedeQuirurgica[];
+  addSedeQuirurgica: (payload: Omit<SedeQuirurgica, 'id' | 'activa'>) => Promise<SedeQuirurgica>;
+  updateSedeQuirurgica: (id: string, payload: Partial<SedeQuirurgica>) => Promise<SedeQuirurgica>;
+  deleteSedeQuirurgica: (id: string) => Promise<void>;
+
   fetchAllData: () => Promise<void>;
   isInitialized: boolean;
 }
@@ -118,6 +126,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [ciudadesCatalogo, setCiudadesCatalogo] = useState<CiudadCatalogo[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [estudios, setEstudios] = useState<EstudioSocioeconomico[]>([]);
+  const [sedesQuirurgicas, setSedesQuirurgicas] = useState<SedeQuirurgica[]>([]);
 
   useEffect(() => {
     console.log('📊 Estado de pacientes actualizado:', pacientes.length, 'pacientes cargados.');
@@ -126,27 +135,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }, [pacientes]);
 
-  const fetchAllData = async () => {
+  const fetchOperationalData = async () => {
     try {
       const safeFetch = async (path: string, setter: (data: any) => void) => {
         try {
           const res = await fetch(`/api/${path}`);
-          if (!res.ok) {
-            const bodyText = await res.text().catch(() => '');
-            let details: unknown = bodyText;
-            try {
-              details = bodyText ? JSON.parse(bodyText) : bodyText;
-            } catch {
-              details = bodyText;
-            }
-            console.error(`❌ Error HTTP ${res.status} al cargar ${path}`, details);
-            return;
-          }
+          if (!res.ok) return;
+          const data = await res.json();
+          setter(data);
+        } catch (err: any) {
+          console.error(`❌ Error de red al cargar ${path}:`, err.message);
+        }
+      };
+
+      // Cargar solo lo que cambia constantemente en el día a día
+      await Promise.all([
+        safeFetch(`citas?desde=${(() => { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })()}&hasta=${new Date().toISOString().slice(0,10)}`, setCitas),
+        safeFetch('triage', setRegistrosTriage),
+        safeFetch('consultas', setConsultasMedicas),
+        safeFetch('cirugias', setCirugias),
+        safeFetch('seguimientos', setSeguimientos),
+      ]);
+    } catch (err) {
+      console.error('Error cargando datos operativos:', err);
+    }
+  };
+
+  const fetchStaticData = async () => {
+    try {
+      const safeFetch = async (path: string, setter: (data: any) => void) => {
+        try {
+          const res = await fetch(`/api/${path}`);
+          if (!res.ok) return;
           const data = await res.json();
 
-          // Especial care for audit mapping
           if (path === 'auditoria') {
-            console.log('🔍 Auditoría raw from server:', data.length, 'records');
             const mapped = data.map((a: any) => ({
               id: String(a.id || a.id_auditoria || ''),
               usuarioId: String(a.usuarioId || a.usuario_id || ''),
@@ -157,7 +180,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
               fechaHora: a.fechaHora || a.fecha_hora || new Date().toISOString(),
               ciudad: a.ciudad || '---'
             }));
-            console.log('🔍 Auditoría mapped:', mapped.length, 'records');
             setter(mapped);
             return;
           }
@@ -168,24 +190,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
         }
       };
 
+      // Catálogos e históricos (se cargan una vez o muy rara vez)
       await Promise.all([
         safeFetch('pacientes', setPacientes),
-        safeFetch('citas', setCitas),
-        safeFetch('triage', setRegistrosTriage),
-        safeFetch('consultas', setConsultasMedicas),
         safeFetch('expediente', setExpedientesCita),
-        safeFetch('cirugias', setCirugias),
-        safeFetch('seguimientos', setSeguimientos),
         safeFetch('eventos', setEventos),
         safeFetch('especialidades', setEspecialidadesCatalogo),
         safeFetch('ciudades', setCiudadesCatalogo),
+        safeFetch('sedes', setSedesQuirurgicas),
         safeFetch('usuarios', setUsuarios),
         safeFetch('estudios', setEstudios),
         safeFetch('auditoria', setRegistrosAuditoria)
       ]);
     } catch (err) {
-      console.error('Error general cargando datos:', err);
+      console.error('Error cargando catálogos:', err);
     }
+  };
+
+  const fetchAllData = async () => {
+    await Promise.all([fetchOperationalData(), fetchStaticData()]);
   };
 
   // Fetch all data on mount and poll
@@ -198,18 +221,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Recargar datos cuando la pestaña recupera el foco
+    // Recargar todo cuando el usuario regresa a la pestaña (foco)
     const handleFocus = () => fetchAllData();
     window.addEventListener('focus', handleFocus);
 
-    // Bajar la frecuencia de sondeo automático excesivo a 1 minuto
-    const interval = setInterval(() => {
-      fetchAllData();
-    }, 60000);
+    // Polling rápido (15s): Solo para la operación crítica diaria
+    const operationalInterval = setInterval(() => {
+      fetchOperationalData();
+    }, 15000);
+
+    // Polling lento (3 minutos): Para catálogos, auditorías, etc.
+    const staticInterval = setInterval(() => {
+      fetchStaticData();
+    }, 180000);
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      clearInterval(operationalInterval);
+      clearInterval(staticInterval);
       window.removeEventListener('focus', handleFocus);
     };
   }, []);
@@ -677,6 +706,36 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addSedeQuirurgica = async (payload: Omit<SedeQuirurgica, 'id' | 'activa'>): Promise<SedeQuirurgica> => {
+    const res = await fetch('/api/sedes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al crear sede'); }
+    const nueva: SedeQuirurgica = await res.json();
+    setSedesQuirurgicas(prev => [nueva, ...prev]);
+    return nueva;
+  };
+
+  const updateSedeQuirurgica = async (id: string, payload: Partial<SedeQuirurgica>): Promise<SedeQuirurgica> => {
+    const res = await fetch(`/api/sedes/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al actualizar sede'); }
+    const actualizada: SedeQuirurgica = await res.json();
+    setSedesQuirurgicas(prev => prev.map(s => s.id === id ? actualizada : s));
+    return actualizada;
+  };
+
+  const deleteSedeQuirurgica = async (id: string): Promise<void> => {
+    const res = await fetch(`/api/sedes/${id}`, { method: 'DELETE' });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al desactivar sede'); }
+    setSedesQuirurgicas(prev => prev.map(s => s.id === id ? { ...s, activa: false } : s));
+  };
+
   return (
     <DataContext.Provider
       value={{
@@ -725,6 +784,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         deleteUsuario,
         estudios,
         addEstudioSocioeconomico,
+        sedesQuirurgicas,
+        addSedeQuirurgica,
+        updateSedeQuirurgica,
+        deleteSedeQuirurgica,
         fetchAllData,
         isInitialized,
       }}

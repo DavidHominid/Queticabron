@@ -60,6 +60,22 @@ router.get('/', async (req, res) => {
         : `LEFT JOIN "${SCHEMA}".evento_tipo_cita etc ON c.tipo_cita_id = etc.id`;
     const precioCol = tipoRef === 'tipos_cita' ? 'etc.costo' : 'etc.precio';
     const durCol = 'etc.duracion_minutos';
+
+    // Optional date range filters: ?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
+    const { desde, hasta } = req.query;
+    const params = [];
+    let dateFilter = '';
+    if (desde && hasta) {
+      params.push(desde, hasta);
+      dateFilter = `WHERE c.fecha_cita >= $1 AND c.fecha_cita <= $2`;
+    } else if (desde) {
+      params.push(desde);
+      dateFilter = `WHERE c.fecha_cita >= $1`;
+    } else if (hasta) {
+      params.push(hasta);
+      dateFilter = `WHERE c.fecha_cita <= $1`;
+    }
+
     const query = `
       SELECT c.*, t.id_triaje,
              etc.nombre AS tipo_cita_nombre,
@@ -68,15 +84,17 @@ router.get('/', async (req, res) => {
       FROM "${SCHEMA}".citas c
       LEFT JOIN "${SCHEMA}".triaje t ON c.id_cita = t.id_cita
       ${joinTipo}
+      ${dateFilter}
       ORDER BY c.id_cita DESC
     `;
-    const result = await pool.query(query);
+    const result = await pool.query(query, params);
     res.json(result.rows.map(mapCita));
   } catch (err) {
     console.error('❌ Error en GET /api/citas:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 router.post('/', async (req, res) => {
   const c = req.body;

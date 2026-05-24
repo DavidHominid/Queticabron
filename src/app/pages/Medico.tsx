@@ -507,6 +507,27 @@ export function Medico() {
                       </div>
 
                       <div>
+                        {/* ⚠️ Allergy Alert — fires when any medication name is being typed */}
+                        {(() => {
+                          const alergias: string[] = selectedCita?.infoMedica?.alergias || [];
+                          const hayMedicamentos = consultaForm.medicamentos.some(m => m.nombre.trim().length > 0);
+                          if (alergias.length === 0 || !hayMedicamentos) return null;
+                          return (
+                            <div className="mb-3 flex items-start gap-3 rounded-lg border-2 border-red-500 bg-red-50 px-4 py-3 shadow-md animate-pulse" role="alert">
+                              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+                              <div>
+                                <p className="font-bold text-red-800">&#9888;&#65039; ALERTA: Paciente con alergias conocidas</p>
+                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                  {alergias.map((a, i) => (
+                                    <span key={i} className="inline-flex items-center rounded-full bg-red-100 border border-red-400 px-2.5 py-0.5 text-xs font-semibold text-red-800">
+                                      {a}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <div className="mb-2 flex items-center justify-between">
                           <Label>{t('medico.form.medications')}</Label>
                           <Button type="button" variant="outline" size="sm" onClick={agregarMedicamento}>

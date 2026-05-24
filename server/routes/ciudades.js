@@ -13,6 +13,39 @@ const normalizarCodigo = (value) =>
     .replace(/_+/g, '_')
     .replace(/^_+|_+$/g, '');
 
+router.get('/buscar', async (req, res) => {
+  const query = String(req.query.q || '').trim();
+  if (query.length < 3) {
+    return res.json([]);
+  }
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=40&countrycodes=mx,us`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'WordsOfHopeScheduler/1.0 (info@wordsofhope.org)',
+      }
+    });
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `Nominatim error: ${response.statusText}` });
+    }
+    const data = await response.json();
+    const filtered = data
+      .filter((item) => item.class === 'place' || item.class === 'boundary')
+      .map((item) => {
+        const city = item.address.city || item.address.town || item.address.village || item.address.municipality || item.name;
+        const state = item.address.state;
+        return city && state ? `${city}, ${state}` : item.display_name.split(',').slice(0, 2).join(',').trim();
+      })
+      .filter(Boolean);
+    // Deduplicate and limit to 8
+    const results = Array.from(new Set(filtered)).slice(0, 8);
+    res.json(results);
+  } catch (err) {
+    console.error('Error buscando ciudades en Nominatim:', err.message);
+    res.status(500).json({ error: 'Error al buscar ciudades' });
+  }
+});
+
 router.get('/', async (_req, res) => {
   try {
     const result = await pool.query(

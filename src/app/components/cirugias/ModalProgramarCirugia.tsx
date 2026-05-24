@@ -34,14 +34,10 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const { cirugias } = useData();
-  const sedesHistoricas = Array.from(
-    new Set(
-      cirugias
-        .map(c => c.lugarCirugia)
-        .filter(lugar => lugar && lugar.trim() !== '')
-    )
-  ) as string[];
+  const { sedesQuirurgicas } = useData();
+  const sedesActivas = sedesQuirurgicas.filter(s => s.activa);
+  const sedesInactivas = sedesQuirurgicas.filter(s => !s.activa);
+  const todasLasSedes = [...sedesActivas, ...sedesInactivas];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,23 +126,44 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm font-semibold text-slate-800">Lugar (Sede o Quirófano a rentar)</Label>
-            <Input 
-              list="sedes-list"
+            <Label className="text-sm font-semibold text-slate-800">Lugar (Sede o Quirófano)</Label>
+            <select
               value={lugarCirugia}
               onChange={(e) => { setLugarCirugia(e.target.value); setErrorMsg(null); }}
-              placeholder="Ej. Clínica San Lucas o escriba uno nuevo..."
-              className="w-full text-slate-900"
-            />
-            <datalist id="sedes-list">
-              {sedesHistoricas.map((sede, index) => (
-                <option key={index} value={sede} />
-              ))}
-            </datalist>
+              className="w-full px-3 py-2 border border-input bg-background text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
+            >
+              <option value="">-- Sin asignar --</option>
+              {todasLasSedes.length === 0 && (
+                <option disabled>No hay sedes registradas en Variables</option>
+              )}
+              {sedesActivas.length > 0 && (
+                <optgroup label="Activas">
+                  {sedesActivas.map(s => (
+                    <option key={s.id} value={s.nombre}>
+                      {s.nombre}{s.ciudad ? ` — ${s.ciudad}` : ''} ({s.tipo === 'propia' ? 'Propia' : 'Subrogada'})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {sedesInactivas.length > 0 && (
+                <optgroup label="Inactivas" style={{ color: '#9ca3af' }}>
+                  {sedesInactivas.map(s => (
+                    <option key={s.id} value={s.nombre} style={{ color: '#9ca3af' }}>
+                      {s.nombre} (inactiva)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            {lugarCirugia && sedesActivas.find(s => s.nombre === lugarCirugia)?.tipo === 'subrogada' && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                ⚠️ Sede subrogada — recuerda confirmar la renta con el administrador.
+              </p>
+            )}
 
             <div className="flex items-center space-x-2 mt-3 p-2 bg-slate-50 border border-slate-100 rounded-lg">
-              <Checkbox 
-                id="renta" 
+              <Checkbox
+                id="renta"
                 checked={requiereRentaExterna}
                 onCheckedChange={(checked) => setRequiereRentaExterna(checked as boolean)}
               />
