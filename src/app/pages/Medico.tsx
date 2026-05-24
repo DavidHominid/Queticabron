@@ -201,6 +201,10 @@ export function Medico() {
         costoEstimado: 0,
         estado: 'pendiente_estudio',
         fechaRegistro: todayYmd(),
+        estudiosRequeridos: estudiosParaGuardar.map(e => ({
+          tipo: e.tipo,
+          indicaciones: e.indicaciones,
+        })),
       });
     }
 

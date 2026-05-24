@@ -94,18 +94,29 @@ const mapRowToFrontend = (row) => ({
   costoEstimado: row.costo_total || 0,
   estado: row.estado || 'pendiente_estudio',
   notaPostoperatoria: row.nota_postoperatoria || undefined,
+  estudiosRequeridos: (() => {
+    if (!row.estudios_requeridos) return [];
+    if (Array.isArray(row.estudios_requeridos)) return row.estudios_requeridos;
+    try { return JSON.parse(row.estudios_requeridos); } catch { return []; }
+  })(),
   fechaRegistro: row.fecha_cirugia || '',
 });
 
 router.post('/', checkConflict, async (req, res) => {
   const c = req.body;
   try {
+    // Ensure estudios_requeridos column exists
+    await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS estudios_requeridos JSONB`);
+
     const citaIdNum = c.citaId ? parseInt(String(c.citaId).replace('cit', '')) : null;
+    const estudiosJson = c.estudiosRequeridos && Array.isArray(c.estudiosRequeridos) && c.estudiosRequeridos.length
+      ? JSON.stringify(c.estudiosRequeridos)
+      : null;
 
     const result = await pool.query(
       `INSERT INTO "${SCHEMA}".agenda_cirugias 
-       (id_paciente, procedimiento, fecha_cirugia, hora_cirugia, duracion_estimada, consultorio, requiere_renta_externa, estatus_renta_sede, id_cita, estado, costo_total, medico_usuario_id, nota_postoperatoria) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+       (id_paciente, procedimiento, fecha_cirugia, hora_cirugia, duracion_estimada, consultorio, requiere_renta_externa, estatus_renta_sede, id_cita, estado, costo_total, medico_usuario_id, nota_postoperatoria, estudios_requeridos) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [
         parseInt(c.pacienteId),
         c.diagnostico || 'Sin diagnóstico',
@@ -119,7 +130,8 @@ router.post('/', checkConflict, async (req, res) => {
         c.estado || 'pendiente_estudio',
         c.costoEstimado || 0,
         c.medicoACargo || null,
-        c.notaPostoperatoria ? JSON.stringify(c.notaPostoperatoria) : null
+        c.notaPostoperatoria ? JSON.stringify(c.notaPostoperatoria) : null,
+        estudiosJson
       ]
     );
     res.status(201).json(mapRowToFrontend(result.rows[0]));
@@ -139,6 +151,9 @@ router.put('/:id', checkConflict, async (req, res) => {
   }
 
   try {
+    // Ensure estudios_requeridos column exists (for surgeries created before this migration)
+    await pool.query(`ALTER TABLE "${SCHEMA}".agenda_cirugias ADD COLUMN IF NOT EXISTS estudios_requeridos JSONB`);
+
     // 1. Obtener la cirugía existente primero para preservar campos no enviados en la petición parcial
     const existing = await pool.query(`SELECT * FROM "${SCHEMA}".agenda_cirugias WHERE id_agenda = $1`, [idNum]);
     if (existing.rows.length === 0) {
@@ -157,7 +172,17 @@ router.put('/:id', checkConflict, async (req, res) => {
     const estado = c.estado !== undefined ? c.estado : current.estado;
     const costo_total = c.costoEstimado !== undefined ? c.costoEstimado : current.costo_total;
     const medico_usuario_id = c.medicoACargo !== undefined ? c.medicoACargo : current.medico_usuario_id;
-    
+
+    // estudios_requeridos: prefer incoming if explicitly provided, else preserve DB value
+    let estudios_requeridos = current.estudios_requeridos || null;
+    if (c.estudiosRequeridos !== undefined) {
+      estudios_requeridos = c.estudiosRequeridos && c.estudiosRequeridos.length
+        ? JSON.stringify(c.estudiosRequeridos)
+        : null;
+    } else if (estudios_requeridos && typeof estudios_requeridos === 'object') {
+      estudios_requeridos = JSON.stringify(estudios_requeridos);
+    }
+
     // Para notas postoperatorias, manejamos tanto objetos estructurados como JSON string
     let nota_postoperatoria = current.nota_postoperatoria;
     if (c.notaPostoperatoria !== undefined) {
@@ -179,8 +204,9 @@ router.put('/:id', checkConflict, async (req, res) => {
         estado = $8,
         costo_total = $9,
         medico_usuario_id = $10,
-        nota_postoperatoria = $11
-       WHERE id_agenda = $12 RETURNING *`,
+        nota_postoperatoria = $11,
+        estudios_requeridos = $12
+       WHERE id_agenda = $13 RETURNING *`,
       [
         procedimiento,
         fecha_cirugia,
@@ -193,6 +219,7 @@ router.put('/:id', checkConflict, async (req, res) => {
         costo_total,
         medico_usuario_id,
         nota_postoperatoria,
+        estudios_requeridos,
         idNum
       ]
     );

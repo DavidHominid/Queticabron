@@ -451,11 +451,6 @@ export function Cirugias() {
       {showValidarEstudios && selectedCirugia && (
         <ModalValidarEstudios
           cirugia={selectedCirugia}
-          consultaRelacionada={
-            selectedCirugia.citaId 
-              ? consultasMedicas.find(c => c.citaId === selectedCirugia.citaId)
-              : consultasMedicas.slice().reverse().find(c => c.pacienteId === selectedCirugia.pacienteId && c.requiereCirugia) || consultasMedicas.slice().reverse().find(c => c.pacienteId === selectedCirugia.pacienteId)
-          }
           onClose={() => {
             setShowValidarEstudios(false);
             setSelectedCirugia(null);

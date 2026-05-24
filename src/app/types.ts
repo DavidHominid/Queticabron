@@ -311,6 +311,7 @@ export interface Cirugia {
     completados: boolean;
     resultados?: string;
   };
+  estudiosRequeridos?: { tipo: string; indicaciones: string; fecha?: string }[];
   citaInternista?: {
     fecha: string;
     hora: string;

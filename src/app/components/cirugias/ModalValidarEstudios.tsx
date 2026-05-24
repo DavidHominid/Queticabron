@@ -2,35 +2,32 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Checkbox } from '../ui/checkbox';
-import { Cirugia, ConsultaMedica } from '../../types';
+import { Cirugia } from '../../types';
 
 interface ModalValidarEstudiosProps {
   cirugia: Cirugia;
-  consultaRelacionada?: ConsultaMedica; // Recibimos la consulta para ver qué estudios pidió el doctor
+  /** @deprecated No longer needed — studies are read directly from cirugia.estudiosRequeridos */
+  consultaRelacionada?: any;
   onClose: () => void;
   onValidar: () => void;
 }
 
-export function ModalValidarEstudios({ cirugia, consultaRelacionada, onClose, onValidar }: ModalValidarEstudiosProps) {
-  // Extraemos los estudios de la consulta (si existen)
-  const estudiosSolicitados = consultaRelacionada?.estudiosIndicados || [];
+export function ModalValidarEstudios({ cirugia, onClose, onValidar }: ModalValidarEstudiosProps) {
+  // Read studies directly from the surgery object — no consultation lookup needed
+  const estudiosSolicitados = (cirugia.estudiosRequeridos || []).filter(e => e.tipo?.trim());
 
-  // Estado para llevar el control de cuáles ya nos entregó el paciente
   const [estudiosRecibidos, setEstudiosRecibidos] = useState<string[]>([]);
   const [observaciones, setObservaciones] = useState('');
 
-  const handleCheckboxChange = (estudioTipo: string) => {
-    if (estudiosRecibidos.includes(estudioTipo)) {
-      setEstudiosRecibidos(estudiosRecibidos.filter(e => e !== estudioTipo));
-    } else {
-      setEstudiosRecibidos([...estudiosRecibidos, estudioTipo]);
-    }
+  const handleCheckboxChange = (tipo: string) => {
+    setEstudiosRecibidos(prev =>
+      prev.includes(tipo) ? prev.filter(e => e !== tipo) : [...prev, tipo]
+    );
   };
 
-  // Validamos si ya entregó todos los solicitados
   const todosRecibidos = estudiosSolicitados.length > 0
     ? estudiosSolicitados.every(e => estudiosRecibidos.includes(e.tipo))
-    : true; // Si no pidió nada, está listo por defecto
+    : true;
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -74,7 +71,6 @@ export function ModalValidarEstudios({ cirugia, consultaRelacionada, onClose, on
             </div>
           )}
 
-          {/* Opcional: Campo para notas de los resultados */}
           <div className="mt-4 space-y-1.5">
             <label className="text-sm font-semibold text-slate-850">Notas / Resultados (Opcional):</label>
             <textarea
@@ -94,7 +90,7 @@ export function ModalValidarEstudios({ cirugia, consultaRelacionada, onClose, on
           <Button
             onClick={onValidar}
             disabled={!todosRecibidos && estudiosSolicitados.length > 0}
-            className={`bg-blue-600 hover:bg-blue-750 text-white font-medium ${!todosRecibidos && estudiosSolicitados.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`bg-blue-600 hover:bg-blue-700 text-white font-medium ${!todosRecibidos && estudiosSolicitados.length > 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             Aprobar Cirugía
           </Button>
