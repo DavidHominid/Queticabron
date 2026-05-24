@@ -16,6 +16,14 @@ export interface CiudadCatalogo {
   activa: boolean;
 }
 
+export interface PeriodoDisponibilidad {
+  id: string;
+  sedeId: string;
+  fechaInicio: string; // 'YYYY-MM-DD'
+  fechaFin: string;    // 'YYYY-MM-DD'
+  notas?: string;
+}
+
 export interface SedeQuirurgica {
   id: string;
   nombre: string;
@@ -23,6 +31,8 @@ export interface SedeQuirurgica {
   costoRentaEstimado?: number;
   ciudad: string;
   activa: boolean;
+  disponibleHoy: boolean;               // computed by server
+  periodos?: PeriodoDisponibilidad[];   // loaded on demand
 }
 
 export interface User {

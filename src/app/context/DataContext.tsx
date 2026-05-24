@@ -18,7 +18,7 @@ import {
   EstudioSocioeconomico,
   ExpedienteCita,
 } from '../types';
-import { SedeQuirurgica } from '../types';
+import { SedeQuirurgica, PeriodoDisponibilidad } from '../types';
 
 interface DataContextType {
   // Eventos
@@ -98,9 +98,14 @@ interface DataContextType {
 
   // Sedes Quirúrgicas (catálogo admin)
   sedesQuirurgicas: SedeQuirurgica[];
-  addSedeQuirurgica: (payload: Omit<SedeQuirurgica, 'id' | 'activa'>) => Promise<SedeQuirurgica>;
+  addSedeQuirurgica: (payload: Omit<SedeQuirurgica, 'id' | 'activa' | 'disponibleHoy' | 'periodos'>) => Promise<SedeQuirurgica>;
   updateSedeQuirurgica: (id: string, payload: Partial<SedeQuirurgica>) => Promise<SedeQuirurgica>;
   deleteSedeQuirurgica: (id: string) => Promise<void>;
+  // Periodos de disponibilidad de sedes
+  fetchPeriodosSede: (sedeId: string) => Promise<PeriodoDisponibilidad[]>;
+  addPeriodoSede: (sedeId: string, payload: { fechaInicio: string; fechaFin: string; notas?: string }) => Promise<PeriodoDisponibilidad>;
+  deletePeriodoSede: (periodoId: string) => Promise<void>;
+  refreshSedesQuirurgicas: () => Promise<void>;
 
   fetchAllData: () => Promise<void>;
   isInitialized: boolean;
@@ -181,6 +186,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
               ciudad: a.ciudad || '---'
             }));
             setter(mapped);
+            return;
+          }
+
+          if (path === 'sedes') {
+            setter((prev: any) => data.map((s: any) => {
+              const old = (prev || []).find((p: any) => p.id === s.id);
+              return old && old.periodos ? { ...s, periodos: old.periodos } : s;
+            }));
             return;
           }
 
@@ -733,7 +746,49 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const deleteSedeQuirurgica = async (id: string): Promise<void> => {
     const res = await fetch(`/api/sedes/${id}`, { method: 'DELETE' });
     if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al desactivar sede'); }
-    setSedesQuirurgicas(prev => prev.map(s => s.id === id ? { ...s, activa: false } : s));
+    setSedesQuirurgicas(prev => prev.map(s => s.id === id ? { ...s, activa: false, disponibleHoy: false } : s));
+  };
+
+  const refreshSedesQuirurgicas = async (): Promise<void> => {
+    try {
+      const res = await fetch('/api/sedes');
+      if (res.ok) {
+        const fetched: SedeQuirurgica[] = await res.json();
+        setSedesQuirurgicas(prev => fetched.map(s => {
+          const old = prev.find(p => p.id === s.id);
+          return old && old.periodos ? { ...s, periodos: old.periodos } : s;
+        }));
+      }
+    } catch (err) { console.error('Error refreshing sedes:', err); }
+  };
+
+  const fetchPeriodosSede = async (sedeId: string): Promise<PeriodoDisponibilidad[]> => {
+    const res = await fetch(`/api/sedes/${sedeId}/periodos`);
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al cargar periodos'); }
+    const periodos: PeriodoDisponibilidad[] = await res.json();
+    // Merge periodos into the sede in state
+    setSedesQuirurgicas(prev => prev.map(s => s.id === sedeId ? { ...s, periodos } : s));
+    return periodos;
+  };
+
+  const addPeriodoSede = async (sedeId: string, payload: { fechaInicio: string; fechaFin: string; notas?: string }): Promise<PeriodoDisponibilidad> => {
+    const res = await fetch(`/api/sedes/${sedeId}/periodos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al agregar periodo'); }
+    const nuevo: PeriodoDisponibilidad = await res.json();
+    // Refresh sedes so disponibleHoy is recalculated
+    await refreshSedesQuirurgicas();
+    return nuevo;
+  };
+
+  const deletePeriodoSede = async (periodoId: string): Promise<void> => {
+    const res = await fetch(`/api/sedes/periodos/${periodoId}`, { method: 'DELETE' });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Error al eliminar periodo'); }
+    // Refresh to recalculate disponibleHoy
+    await refreshSedesQuirurgicas();
   };
 
   return (
@@ -788,6 +843,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addSedeQuirurgica,
         updateSedeQuirurgica,
         deleteSedeQuirurgica,
+        fetchPeriodosSede,
+        addPeriodoSede,
+        deletePeriodoSede,
+        refreshSedesQuirurgicas,
         fetchAllData,
         isInitialized,
       }}

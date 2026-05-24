@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Checkbox } from '../ui/checkbox';
 import { AlertCircle } from 'lucide-react';
 import { Cirugia } from '../../types';
 import { useData } from '../../context/DataContext';
@@ -27,21 +26,37 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
   const [horaEstimada, setHoraEstimada] = useState(cirugia.horaEstimada || '');
   const [lugarCirugia, setLugarCirugia] = useState(cirugia.lugarCirugia || '');
   const [duracionEstimada, setDuracionEstimada] = useState<string>(cirugia.duracionEstimada ? String(cirugia.duracionEstimada) : '60');
-  const [requiereRentaExterna, setRequiereRentaExterna] = useState<boolean>(cirugia.requiereRentaExterna || false);
-  const [estatusRentaSede, setEstatusRentaSede] = useState<'no_aplica' | 'pendiente_confirmar' | 'confirmada'>(
-    cirugia.estatusRentaSede || 'no_aplica'
-  );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const { sedesQuirurgicas } = useData();
-  const sedesActivas = sedesQuirurgicas.filter(s => s.activa);
-  const sedesInactivas = sedesQuirurgicas.filter(s => !s.activa);
-  const todasLasSedes = [...sedesActivas, ...sedesInactivas];
+  const { sedesQuirurgicas, fetchPeriodosSede } = useData();
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    if (fechaCirugia && fechaCirugia !== today) {
+      sedesQuirurgicas.filter(s => s.activa && !s.periodos).forEach(s => {
+        fetchPeriodosSede(s.id).catch(console.error);
+      });
+    }
+  }, [fechaCirugia, sedesQuirurgicas, fetchPeriodosSede]);
+
+  // Sedes available on the selected surgery date
+  const sedesConDisponibilidad = sedesQuirurgicas.filter(s => {
+    if (!s.activa) return false;
+    if (!fechaCirugia) return s.disponibleHoy;
+    return (s.periodos || []).some(
+      (p: any) => p.fechaInicio <= fechaCirugia && p.fechaFin >= fechaCirugia
+    ) || (fechaCirugia === new Date().toISOString().slice(0, 10) && s.disponibleHoy);
+  });
+
+  const sedesSinDisponibilidad = sedesQuirurgicas.filter(s => {
+    if (!s.activa) return false;
+    return !sedesConDisponibilidad.find(sd => sd.id === s.id);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fechaCirugia || !horaEstimada || !duracionEstimada) return;
+    if (!fechaCirugia || !horaEstimada || !duracionEstimada || !lugarCirugia) return;
 
     setLoading(true);
     setErrorMsg(null);
@@ -51,9 +66,8 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
         horaEstimada, 
         lugarCirugia, 
         duracionEstimada: parseInt(duracionEstimada),
-        requiereRentaExterna,
-        estatusRentaSede: requiereRentaExterna && estatusRentaSede === 'no_aplica' ? 'pendiente_confirmar' : 
-                          !requiereRentaExterna ? 'no_aplica' : estatusRentaSede
+        requiereRentaExterna: cirugia.requiereRentaExterna || false,
+        estatusRentaSede: cirugia.estatusRentaSede || 'no_aplica'
       });
       // onSubmit closes the modal on success — nothing else to do here
     } catch (err: any) {
@@ -133,59 +147,39 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
               className="w-full px-3 py-2 border border-input bg-background text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
             >
               <option value="">-- Sin asignar --</option>
-              {todasLasSedes.length === 0 && (
+              {sedesQuirurgicas.filter(s => s.activa).length === 0 && (
                 <option disabled>No hay sedes registradas en Variables</option>
               )}
-              {sedesActivas.length > 0 && (
-                <optgroup label="Activas">
-                  {sedesActivas.map(s => (
+              {sedesConDisponibilidad.length > 0 && (
+                <optgroup label={fechaCirugia ? `Disponibles el ${fechaCirugia}` : 'Disponibles hoy'}>
+                  {sedesConDisponibilidad.map(s => (
                     <option key={s.id} value={s.nombre}>
                       {s.nombre}{s.ciudad ? ` — ${s.ciudad}` : ''} ({s.tipo === 'propia' ? 'Propia' : 'Subrogada'})
                     </option>
                   ))}
                 </optgroup>
               )}
-              {sedesInactivas.length > 0 && (
-                <optgroup label="Inactivas" style={{ color: '#9ca3af' }}>
-                  {sedesInactivas.map(s => (
+              {sedesSinDisponibilidad.length > 0 && (
+                <optgroup label="Sin disponibilidad en esta fecha" style={{ color: '#9ca3af' }}>
+                  {sedesSinDisponibilidad.map(s => (
                     <option key={s.id} value={s.nombre} style={{ color: '#9ca3af' }}>
-                      {s.nombre} (inactiva)
+                      {s.nombre} — sin periodo activo
                     </option>
                   ))}
                 </optgroup>
               )}
             </select>
-            {lugarCirugia && sedesActivas.find(s => s.nombre === lugarCirugia)?.tipo === 'subrogada' && (
+            {lugarCirugia && sedesConDisponibilidad.find(s => s.nombre === lugarCirugia)?.tipo === 'subrogada' && (
               <p className="text-xs text-amber-600 flex items-center gap-1">
                 ⚠️ Sede subrogada — recuerda confirmar la renta con el administrador.
               </p>
             )}
-
-            <div className="flex items-center space-x-2 mt-3 p-2 bg-slate-50 border border-slate-100 rounded-lg">
-              <Checkbox
-                id="renta"
-                checked={requiereRentaExterna}
-                onCheckedChange={(checked) => setRequiereRentaExterna(checked as boolean)}
-              />
-              <label htmlFor="renta" className="text-sm cursor-pointer text-slate-700 font-medium">
-                Esta sede externa requiere pago/renta por este evento
-              </label>
-            </div>
-
-            {requiereRentaExterna && (
-              <div className="mt-3 ml-6">
-                <Label className="text-sm font-semibold text-slate-800">Estatus de la Renta</Label>
-                <Select value={estatusRentaSede !== 'no_aplica' ? estatusRentaSede : 'pendiente_confirmar'} onValueChange={(v: any) => { setEstatusRentaSede(v); }}>
-                  <SelectTrigger className="w-full text-slate-900 mt-1">
-                    <SelectValue placeholder="Seleccione estatus" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pendiente_confirmar">Pendiente de confirmar</SelectItem>
-                    <SelectItem value="confirmada">Confirmada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {lugarCirugia && sedesSinDisponibilidad.find(s => s.nombre === lugarCirugia) && (
+              <p className="text-xs text-orange-600 flex items-center gap-1">
+                ⚠️ Esta sede no tiene un periodo de disponibilidad activo para la fecha seleccionada. Verifica con el administrador.
+              </p>
             )}
+
           </div>
 
           <DialogFooter className="pt-4 flex gap-2 sm:gap-0">
@@ -194,7 +188,7 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
             </Button>
             <Button
               type="submit"
-              disabled={!fechaCirugia || !horaEstimada || !duracionEstimada || loading}
+              disabled={!fechaCirugia || !horaEstimada || !duracionEstimada || !lugarCirugia || loading}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium disabled:opacity-50"
             >
               {loading ? 'Verificando...' : 'Confirmar Programación'}

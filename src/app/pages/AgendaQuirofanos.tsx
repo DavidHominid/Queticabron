@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -8,31 +8,83 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, Alert
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-const QUIROFANOS_BASE = ['Quirófano 1', 'Quirófano 2', 'Quirófano Ambulatorio'];
-const START_HOUR = 7; // 07:00
-const END_HOUR = 19; // 19:00
+const START_HOUR = 0; // 00:00
+const END_HOUR = 23; // 23:00
 const MINUTE_STEP = 30; // Granularidad de 30 mins para las filas
 
 export function AgendaQuirofanos() {
-  const { cirugias, pacientes } = useData();
+  const { cirugias, pacientes, sedesQuirurgicas } = useData();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
   const handlePrevDay = () => setCurrentDate(prev => subDays(prev, 1));
   const handleNextDay = () => setCurrentDate(prev => addDays(prev, 1));
   const handleToday = () => setCurrentDate(new Date());
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
   const dateStr = format(currentDate, 'yyyy-MM-dd');
 
-  // Obtener sedes dinámicas del día
+  // For non-today dates we need periodos loaded: fetch them lazily
+  const [sedesConPeriodosParaFecha, setSedesConPeriodosParaFecha] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (dateStr === todayStr) {
+      // For today, the server already sends disponibleHoy
+      setSedesConPeriodosParaFecha({});
+      return;
+    }
+    // Fetch periodos for all active sedes to evaluate availability on dateStr
+    let cancelled = false;
+    Promise.all(
+      sedesQuirurgicas
+        .filter(s => s.activa && !s.periodos)
+        .map(async (s) => {
+          try {
+            const res = await fetch(`/api/sedes/${s.id}/periodos`);
+            if (!res.ok) return { id: s.id, disponible: false };
+            const periodos: Array<{ fechaInicio: string; fechaFin: string }> = await res.json();
+            const disponible = periodos.some(p => p.fechaInicio <= dateStr && p.fechaFin >= dateStr);
+            return { id: s.id, disponible };
+          } catch { return { id: s.id, disponible: false }; }
+        })
+    ).then(results => {
+      if (cancelled) return;
+      const map: Record<string, boolean> = {};
+      results.forEach(r => { map[r.id] = r.disponible; });
+      // Also check already-loaded periodos
+      sedesQuirurgicas.filter(s => s.activa && s.periodos).forEach(s => {
+        map[s.id] = (s.periodos || []).some(
+          (p: any) => p.fechaInicio <= dateStr && p.fechaFin >= dateStr
+        );
+      });
+      setSedesConPeriodosParaFecha(map);
+    });
+    return () => { cancelled = true; };
+  }, [dateStr, todayStr, sedesQuirurgicas]);
+
+  // Sedes disponibles para la fecha seleccionada
   const columnasSedes = useMemo(() => {
-    const sedesDia = cirugias
+    const sedesDisponibles = sedesQuirurgicas.filter(s => {
+      if (!s.activa) return false;
+      if (dateStr === todayStr) {
+        // Use server-computed flag for today
+        return s.disponibleHoy;
+      }
+      // For other dates: check loaded periodos or the lazy-fetched map
+      const fromPeriodos = (s.periodos || []).some(
+        (p: any) => p.fechaInicio <= dateStr && p.fechaFin >= dateStr
+      );
+      return fromPeriodos || !!sedesConPeriodosParaFecha[s.id];
+    });
+
+    // Also include sedes referenced in surgeries that may not be in the catalog (historical)
+    const sedesDeCirugiasSueltas = cirugias
       .filter(c => c.fechaCirugia === dateStr && ['programada', 'en_procedimiento'].includes(c.estado))
       .map(c => c.lugarCirugia)
-      .filter((sede): sede is string => !!sede && sede.trim() !== '');
-      
-    // Combinar bases con las del día (asegurar que las base siempre estén al principio)
-    return Array.from(new Set([...QUIROFANOS_BASE, ...sedesDia]));
-  }, [cirugias, dateStr]);
+      .filter((nombre): nombre is string => !!nombre && !sedesDisponibles.find(s => s.nombre === nombre));
+
+    const nombresDisponibles = sedesDisponibles.map(s => s.nombre);
+    return Array.from(new Set([...nombresDisponibles, ...sedesDeCirugiasSueltas]));
+  }, [sedesQuirurgicas, cirugias, dateStr, todayStr, sedesConPeriodosParaFecha]);
 
   // Filtrar cirugías del día actual que estén programadas o en procedimiento
   const cirugiasDelDia = useMemo(() => {
@@ -96,11 +148,11 @@ export function AgendaQuirofanos() {
         </div>
 
         {/* Tablero Kanban / Grilla de Calendario */}
-        <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col relative">
+        <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-x-auto flex flex-col relative">
           
           {/* Cabecera de Columnas (Quirófanos) */}
-          <div className="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-20">
-            <div className="w-24 shrink-0 border-r border-slate-200 flex items-center justify-center font-medium text-xs text-slate-500 bg-slate-100/50">
+          <div className="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-20 min-w-max">
+            <div className="w-24 shrink-0 border-r border-slate-200 flex items-center justify-center font-medium text-xs text-slate-500 bg-slate-100/50 sticky left-0 z-30">
               Hora
             </div>
             {columnasSedes.map((quirofano, idx) => (
@@ -112,7 +164,7 @@ export function AgendaQuirofanos() {
 
           {/* Grilla de Horarios */}
           <div className="flex-1 overflow-y-auto relative bg-slate-50/30">
-            <div className="flex relative">
+            <div className="flex relative min-w-max">
               {/* Columna de Horas */}
               <div className="w-24 shrink-0 border-r border-slate-200 bg-white sticky left-0 z-10">
                 {timeSlots.map((time, idx) => (
@@ -142,7 +194,7 @@ export function AgendaQuirofanos() {
                   const cirugiasQ = cirugiasDelDia.filter(c => c.lugarCirugia === quirofano);
                   
                   return (
-                    <div key={qIdx} className="flex-1 relative">
+                    <div key={qIdx} className="flex-1 relative min-w-[200px]">
                       {cirugiasQ.map((cirugia) => {
                         const [h, m] = (cirugia.horaEstimada || '00:00').split(':').map(Number);
                         
