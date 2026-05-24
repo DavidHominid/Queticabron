@@ -416,27 +416,6 @@ export function Medico() {
     handleCerrarModal();
   };
 
-  const handleSubmitConsulta = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCita) return;
-
-    // If surgery is checked, look for existing active surgery for this patient
-    if (consultaForm.requiereCirugia) {
-      const ESTADOS_VIVOS: string[] = ['pendiente_estudio', 'lista_programar', 'programada'];
-      const cirugiaViva = cirugias.find(
-        (c) => c.pacienteId === selectedCita.pacienteId && ESTADOS_VIVOS.includes(c.estado)
-      );
-
-      if (cirugiaViva) {
-        // Save the action for later in case the doctor confirms override
-        pendingSubmitRef.current = () => ejecutarGuardadoConsulta(true);
-        setShowDuplicateSurgeryDialog(true);
-        return;
-      }
-    }
-
-    ejecutarGuardadoConsulta(true);
-  };
 
   const handleCerrarModal = () => {
     setShowExitModal(false);
