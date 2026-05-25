@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import type { User as AppUser } from '../types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -30,6 +31,7 @@ const isAppUser = (v: unknown): v is AppUser => {
 export function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { t } = useLanguage();
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,22 +70,27 @@ export function Login() {
 
       if (res.ok) {
         if (!isAppUser(data)) {
-          setError('Respuesta inválida del servidor');
+          setError(t('login.error.invalid_response'));
           return;
         }
         login(data);
         navigate('/dashboard');
       } else {
-        const message =
+        const backendError =
           typeof data === 'object' && data && 'error' in data && typeof (data as any).error === 'string'
             ? (data as any).error
-            : res.status === 401
-              ? 'Usuario o contraseña incorrectos'
-              : 'No se pudo iniciar sesión. Intenta de nuevo.';
-        setError(message);
+            : '';
+        
+        if (backendError === 'Usuario no activo') {
+          setError(t('login.error.inactive_user'));
+        } else if (backendError === 'Credenciales inválidas' || res.status === 401) {
+          setError(t('login.error.incorrect_credentials'));
+        } else {
+          setError(t('login.error.generic'));
+        }
       }
     } catch (err) {
-      setError('Error al conectar con el servidor');
+      setError(t('login.error.connection'));
     } finally {
       setLoading(false);
     }
@@ -136,19 +143,17 @@ export function Login() {
                   <AppLogo className="h-7 w-7" inverted alt="Logo" />
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-foreground">Nueva Esperanza</div>
-                  <div className="truncate text-xs text-muted-foreground">Centro Comunitario de Salud</div>
+                  <div className="truncate text-sm font-semibold text-foreground">{t('login.brand_title')}</div>
+                  <div className="truncate text-xs text-muted-foreground">{t('login.brand_subtitle')}</div>
                 </div>
               </div>
 
               <div className="mt-10">
                 <h2 className="mt-4 text-balance text-3xl font-semibold leading-tight text-foreground">
-                  Jornadas clínicas
-                  <br />
-                  con ritmo y calma.
+                  {t('login.side_title')}
                 </h2>
                 <p className="mt-3 text-pretty text-sm text-muted-foreground">
-                  Acciones explícitas, estados consistentes y trazabilidad en cada paso, para operar con confianza.
+                  {t('login.side_desc')}
                 </p>
               </div>
 
@@ -159,8 +164,8 @@ export function Login() {
                       <CalendarCheck aria-hidden="true" className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground">Agenda</div>
-                      <div className="mt-1 text-sm text-muted-foreground">Cupos claros, cambios trazables, menos fricción.</div>
+                      <div className="text-sm font-semibold text-foreground">{t('login.side_agenda_title')}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">{t('login.side_agenda_desc')}</div>
                     </div>
                   </div>
                 </div>
@@ -170,8 +175,8 @@ export function Login() {
                       <Stethoscope aria-hidden="true" className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground">Triage</div>
-                      <div className="mt-1 text-sm text-muted-foreground">Ingreso ordenado, estado visible.</div>
+                      <div className="text-sm font-semibold text-foreground">{t('login.side_triage_title')}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">{t('login.side_triage_desc')}</div>
                     </div>
                   </div>
                 </div>
@@ -181,8 +186,8 @@ export function Login() {
                       <ShieldCheck aria-hidden="true" className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground">Consulta</div>
-                      <div className="mt-1 text-sm text-muted-foreground">Continuidad clínica por cita.</div>
+                      <div className="text-sm font-semibold text-foreground">{t('login.side_consultation_title')}</div>
+                      <div className="mt-1 text-sm text-muted-foreground">{t('login.side_consultation_desc')}</div>
                     </div>
                   </div>
                 </div>
@@ -233,13 +238,13 @@ export function Login() {
                     <AppLogo className="h-6 w-6" inverted alt="Logo" />
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-foreground">Nueva Esperanza</div>
-                    <div className="truncate text-xs text-muted-foreground">Centro Comunitario de Salud</div>
+                    <div className="truncate text-sm font-semibold text-foreground">{t('login.brand_title')}</div>
+                    <div className="truncate text-xs text-muted-foreground">{t('login.brand_subtitle')}</div>
                   </div>
                 </div>
-                <h1 className="text-balance text-3xl font-semibold leading-tight sm:text-4xl">Bienvenido</h1>
+                <h1 className="text-balance text-3xl font-semibold leading-tight sm:text-4xl">{t('login.welcome')}</h1>
                 <p className="mt-2 text-pretty text-sm text-muted-foreground sm:text-base">
-                  Inicia sesión para continuar con tu jornada.
+                  {t('login.subtitle')}
                 </p>
               </div>
             </div>
@@ -255,7 +260,7 @@ export function Login() {
               >
                 <AlertCircle aria-hidden="true" className="mt-0.5 h-5 w-5 flex-shrink-0" />
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold">Revisa tus datos</div>
+                  <div className="text-sm font-semibold">{t('login.review_data')}</div>
                   <div className="mt-1 break-words text-sm leading-relaxed">{error}</div>
                 </div>
               </div>
@@ -263,7 +268,7 @@ export function Login() {
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5" aria-busy={loading}>
               <div className="space-y-2">
-                <Label htmlFor="usuario">Usuario</Label>
+                <Label htmlFor="usuario">{t('login.user')}</Label>
                 <div className="relative">
                   <User aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                   <Input
@@ -284,7 +289,7 @@ export function Login() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
+                <Label htmlFor="password">{t('login.password')}</Label>
                 <div className="relative">
                   <Lock aria-hidden="true" className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                   <Input
@@ -312,27 +317,27 @@ export function Login() {
                   aria-busy={loading}
                 >
                   {loading && <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />}
-                  <span>{loading ? 'Entrando…' : 'Entrar'}</span>
+                  <span>{loading ? t('login.loading') : t('login.submit')}</span>
                 </Button>
 
                 <Button type="button" variant="outline" className="min-h-11 w-full gap-2" onClick={openClock}>
                   <CalendarRange aria-hidden="true" />
-                  Simular fecha/hora
+                  {t('login.simulate_clock')}
                 </Button>
               </div>
 
               {clockPreview && (
                 <div className="flex flex-col gap-3 rounded-xl border bg-accent px-4 py-3 text-sm text-accent-foreground sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0 truncate">Simulación activa: {clockPreview}</div>
+                  <div className="min-w-0 truncate">{t('login.clock_preview').replace('{0}', clockPreview)}</div>
                   <Button type="button" variant="outline" size="sm" className="min-h-11 px-3" onClick={clearClock}>
-                    Quitar
+                    {t('login.clear_clock')}
                   </Button>
                 </div>
               )}
 
               {showTestHints && (
                 <div className="rounded-xl border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
-                  <div className="font-semibold text-foreground">Credenciales de prueba</div>
+                  <div className="font-semibold text-foreground">{t('login.test_hints')}</div>
                   <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1">
                     <div>recepcion / 123</div>
                     <div>triage / 123</div>
@@ -349,29 +354,29 @@ export function Login() {
       <Dialog open={clockOpen} onOpenChange={setClockOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Simular fecha/hora</DialogTitle>
+            <DialogTitle>{t('login.dialog.title')}</DialogTitle>
             <DialogDescription>
-              Ajusta la fecha/hora que la aplicación usa como “ahora” para pruebas. Para volver al tiempo real, quita la simulación.
+              {t('login.dialog.desc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="clockDate">Fecha</Label>
+              <Label htmlFor="clockDate">{t('login.dialog.date')}</Label>
               <Input id="clockDate" type="date" value={clockDate} onChange={(e) => setClockDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="clockTime">Hora</Label>
+              <Label htmlFor="clockTime">{t('login.dialog.time')}</Label>
               <Input id="clockTime" type="time" value={clockTime} onChange={(e) => setClockTime(e.target.value)} />
             </div>
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={clearClock}>
-              Quitar simulación
+              {t('login.dialog.remove')}
             </Button>
             <Button type="button" onClick={saveClock}>
-              Guardar
+              {t('login.dialog.save')}
             </Button>
           </DialogFooter>
         </DialogContent>

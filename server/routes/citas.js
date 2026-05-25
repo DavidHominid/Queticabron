@@ -109,18 +109,20 @@ router.post('/', async (req, res) => {
     if (!pacienteId || !fechaCita) {
       return res.status(400).json({ error: 'Paciente, fecha y hora son obligatorios.' });
     }
+    const eventoIdVal = c.eventoId && c.eventoId !== 'general' ? c.eventoId : null;
     const conflict = await pool.query(
       `SELECT id_cita
        FROM "${SCHEMA}".citas
        WHERE id_paciente = $1
          AND fecha_cita = $2
-         AND hora = $3
+         AND LEFT(hora::text, 5) = $3
          AND estado <> 'cancelada'
+         AND ($4::text IS NULL OR evento_id = $4)
        LIMIT 1`,
-      [pacienteId, fechaCita, horaCita],
+      [pacienteId, fechaCita, horaCita, eventoIdVal],
     );
     if (conflict.rows?.length) {
-      return res.status(409).json({ error: 'El paciente ya tiene una cita en esa fecha y hora.' });
+      return res.status(409).json({ error: 'El paciente ya tiene una cita en esa fecha y hora en este evento.' });
     }
     const tipoIdRaw = c.tipoCitaId;
     const tipoId = Number.isFinite(Number(tipoIdRaw)) ? Number(tipoIdRaw) : null;
@@ -258,7 +260,7 @@ router.put('/:id', async (req, res) => {
          FROM "${SCHEMA}".citas
          WHERE id_paciente = $1
            AND fecha_cita = $2
-           AND hora = $3
+           AND LEFT(hora::text, 5) = $3
            AND estado <> 'cancelada'
            AND id_cita <> $4
          LIMIT 1`,

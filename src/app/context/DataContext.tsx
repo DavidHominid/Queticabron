@@ -155,7 +155,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       // Cargar solo lo que cambia constantemente en el día a día
       await Promise.all([
-        safeFetch(`citas?desde=${(() => { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); })()}&hasta=${new Date().toISOString().slice(0,10)}`, setCitas),
+        safeFetch(`citas?desde=${(() => { const d = new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10); })()}&hasta=${(() => { const d = new Date(); d.setDate(d.getDate()+120); return d.toISOString().slice(0,10); })()}`, setCitas),
         safeFetch('triage', setRegistrosTriage),
         safeFetch('consultas', setConsultasMedicas),
         safeFetch('cirugias', setCirugias),
@@ -359,7 +359,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const msg = payload?.error || 'No se pudo crear la cita.';
         throw new Error(msg);
       }
-      setCitas([...citas, payload]);
+      setCitas((prev) => [...prev, payload]);
       return payload;
     } catch (err) {
       console.error(err);
@@ -376,7 +376,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const actualizado = await res.json();
-        setCitas(citas.map((c) => (c.id === id ? actualizado : c)));
+        setCitas((prev) => prev.map((c) => (c.id === id ? actualizado : c)));
       }
     } catch (err) {
       console.error(err);

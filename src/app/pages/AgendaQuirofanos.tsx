@@ -6,13 +6,15 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User, AlertTriangle } from 'lucide-react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { es, enUS } from 'date-fns/locale';
+import { useLanguage } from '../context/LanguageContext';
 
 const START_HOUR = 0; // 00:00
 const END_HOUR = 23; // 23:00
 const MINUTE_STEP = 30; // Granularidad de 30 mins para las filas
 
 export function AgendaQuirofanos() {
+  const { t, language } = useLanguage();
   const { cirugias, pacientes, sedesQuirurgicas } = useData();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
@@ -121,9 +123,9 @@ export function AgendaQuirofanos() {
         {/* Header */}
         <div className="flex items-center justify-between shrink-0 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Agenda de Quirófanos</h1>
+            <h1 className="text-2xl font-bold text-slate-800">{t('quirofanos.title')}</h1>
             <p className="text-sm text-slate-500 mt-1">
-              Visualización y asignación de espacios quirúrgicos.
+              {t('quirofanos.subtitle')}
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -132,7 +134,7 @@ export function AgendaQuirofanos() {
                 <ChevronLeft className="w-4 h-4" />
               </Button>
               <Button variant="ghost" onClick={handleToday} className="h-8 hover:bg-white rounded-md text-sm font-medium px-4">
-                Hoy
+                {t('quirofanos.today')}
               </Button>
               <Button variant="ghost" size="icon" onClick={handleNextDay} className="h-8 w-8 hover:bg-white rounded-md">
                 <ChevronRight className="w-4 h-4" />
@@ -141,7 +143,9 @@ export function AgendaQuirofanos() {
             <div className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-lg border border-slate-200">
               <CalendarIcon className="w-5 h-5 text-indigo-600" />
               <span className="font-semibold text-slate-700 capitalize">
-                {format(currentDate, "EEEE, d 'de' MMMM yyyy", { locale: es })}
+                {format(currentDate, language === 'es' ? "EEEE, d 'de' MMMM yyyy" : "EEEE, MMMM d, yyyy", { 
+                  locale: language === 'es' ? es : enUS 
+                })}
               </span>
             </div>
           </div>
@@ -153,7 +157,7 @@ export function AgendaQuirofanos() {
           {/* Cabecera de Columnas (Quirófanos) */}
           <div className="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-20 min-w-max">
             <div className="w-24 shrink-0 border-r border-slate-200 flex items-center justify-center font-medium text-xs text-slate-500 bg-slate-100/50 sticky left-0 z-30">
-              Hora
+              {t('quirofanos.hour')}
             </div>
             {columnasSedes.map((quirofano, idx) => (
               <div key={idx} className="flex-1 py-3 px-4 border-r border-slate-200 last:border-r-0 text-center font-bold text-slate-700 bg-white shadow-sm min-w-[200px]">
@@ -225,7 +229,7 @@ export function AgendaQuirofanos() {
                                 {cirugia.diagnostico}
                               </div>
                               {isPendienteSede && (
-                                <div className="absolute top-0 right-0 text-orange-500" title="Alerta: Sede sin confirmar">
+                                <div className="absolute top-0 right-0 text-orange-500" title={t('quirofanos.unconfirmed_warning')}>
                                   <AlertTriangle className="w-3 h-3" />
                                 </div>
                               )}

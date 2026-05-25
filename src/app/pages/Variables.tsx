@@ -79,8 +79,8 @@ export function Variables() {
 
   const handleAddPeriodo = async (sedeId: string) => {
     setPeriodoError(null);
-    if (!periodoFechaInicio || !periodoFechaFin) { setPeriodoError('Fechas requeridas.'); return; }
-    if (periodoFechaFin < periodoFechaInicio) { setPeriodoError('La fecha fin debe ser igual o posterior al inicio.'); return; }
+    if (!periodoFechaInicio || !periodoFechaFin) { setPeriodoError(t('var.sedes.dates_required')); return; }
+    if (periodoFechaFin < periodoFechaInicio) { setPeriodoError(t('var.sedes.date_order_error')); return; }
     setAddingPeriodo(true);
     try {
       await addPeriodoSede(sedeId, { fechaInicio: periodoFechaInicio, fechaFin: periodoFechaFin, notas: periodoNotas || undefined });
@@ -93,15 +93,15 @@ export function Variables() {
 
   const getDisponibilidadBadge = (sede: any) => {
     if (sede.disponibleHoy) {
-      return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Disponible hoy</span>;
+      return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">{t('var.sedes.available_today')}</span>;
     }
     // Check if there's an upcoming period
     const now = todayStr;
     const upcoming = (sede.periodos || []).find((p: any) => p.fechaInicio > now);
     if (upcoming) {
-      return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">Desde {upcoming.fechaInicio}</span>;
+      return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">{t('var.sedes.available_from').replace('{0}', upcoming.fechaInicio)}</span>;
     }
-    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">Sin disponibilidad</span>;
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">{t('var.sedes.no_availability')}</span>;
   };
 
   const especialidadesOrdenadas = useMemo(() => {
@@ -284,7 +284,7 @@ export function Variables() {
             <TabsTrigger value="ciudades">{t('var.tabs_cities')}</TabsTrigger>
             <TabsTrigger value="sedes" className="flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5" />
-              Sedes Quirúrgicas
+              {t('var.tabs_sedes')}
             </TabsTrigger>
           </TabsList>
 
@@ -413,12 +413,12 @@ export function Variables() {
               <CardHeader className="border-b">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
-                  Nueva Sede Quirúrgica
+                  {t('var.sedes.new_sede')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <p className="text-xs text-muted-foreground mb-4">
-                  Las sedes se registran <strong>sin disponibilidad</strong> hasta que se les asigne un periodo de fechas.
+                  {t('var.sedes.dispo_info')}
                 </p>
                 <form
                   onSubmit={async (e) => {
@@ -437,29 +437,29 @@ export function Variables() {
                   className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4"
                 >
                   <div className="space-y-2">
-                    <Label htmlFor="sedeName">Nombre de la Sede *</Label>
+                    <Label htmlFor="sedeName">{t('var.sedes.sede_name')}</Label>
                     <Input id="sedeName" value={sedeName} onChange={(e) => setSedeName(e.target.value)} placeholder="Ej. Clínica San José" required />
                   </div>
                   <div className="space-y-2">
-                    <Label>Tipo</Label>
+                    <Label>{t('var.sedes.type')}</Label>
                     <Select value={sedeTipo} onValueChange={(v: any) => setSedeTipo(v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="propia">Propia</SelectItem>
-                        <SelectItem value="subrogada">Subrogada / Renta</SelectItem>
+                        <SelectItem value="propia">{t('var.sedes.type_own')}</SelectItem>
+                        <SelectItem value="subrogada">{t('var.sedes.type_subrogated')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sedeCosto">Costo estimado ($)</Label>
+                    <Label htmlFor="sedeCosto">{t('var.sedes.est_cost')}</Label>
                     <Input id="sedeCosto" type="number" min="0" step="0.01" value={sedeCosto} onChange={(e) => setSedeCosto(e.target.value)} placeholder="0.00" />
                   </div>
                   <div className="space-y-2 flex flex-col">
-                    <Label htmlFor="sedeCiudad">Ciudad</Label>
+                    <Label htmlFor="sedeCiudad">{t('var.sedes.city')}</Label>
                     <div className="flex gap-2 items-end w-full">
                       <CiudadAutocomplete id="sedeCiudad" value={sedeCiudad} onChange={setSedeCiudad} placeholder="Sonoyta" />
                       <Button type="submit" disabled={loadingSede}>
-                        <Plus className="mr-1 h-4 w-4" /> Agregar
+                        <Plus className="mr-1 h-4 w-4" /> {t('var.sedes.add')}
                       </Button>
                     </div>
                   </div>
@@ -470,19 +470,19 @@ export function Variables() {
             {/* ── Catálogo de sedes con periodos ── */}
             <Card className="shadow-sm">
               <CardHeader className="border-b">
-                <CardTitle className="text-base">Catálogo de Sedes</CardTitle>
+                <CardTitle className="text-base">{t('var.sedes.catalog')}</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-muted/30 border-b border-border">
                       <tr>
-                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">Nombre</th>
-                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">Tipo</th>
-                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">Costo Est.</th>
-                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">Ciudad</th>
-                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">Disponibilidad</th>
-                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">Acciones</th>
+                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.sedes.col_name')}</th>
+                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.sedes.col_type')}</th>
+                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.sedes.col_cost')}</th>
+                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.sedes.col_city')}</th>
+                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.sedes.col_availability')}</th>
+                        <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.sedes.col_actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -503,7 +503,7 @@ export function Variables() {
                             </td>
                             <td className="p-4 text-sm">
                               <Badge variant={sede.tipo === 'propia' ? 'default' : 'outline'}>
-                                {sede.tipo === 'propia' ? 'Propia' : 'Subrogada'}
+                                {sede.tipo === 'propia' ? t('var.sedes.type_own') : t('var.sedes.type_subrogated_short')}
                               </Badge>
                             </td>
                             <td className="p-4 text-sm text-muted-foreground">
@@ -518,7 +518,7 @@ export function Variables() {
                                   variant="outline" size="sm"
                                   className="gap-1"
                                   onClick={() => handleExpandSede(sede.id)}
-                                  title="Gestionar periodos de disponibilidad"
+                                  title={t('var.sedes.manage_periods')}
                                 >
                                   <CalendarRange className="h-3.5 w-3.5" />
                                   {expandedSedeId === sede.id
@@ -544,7 +544,7 @@ export function Variables() {
                                 )}
                                 {/* Remove from catalog */}
                                 <Button variant="destructive" size="sm" onClick={async () => {
-                                  if (!confirm(`¿Eliminar "${sede.nombre}" del catálogo? Esta acción no se puede deshacer.`)) return;
+                                  if (!confirm(t('var.sedes.delete_confirm').replace('{0}', sede.nombre))) return;
                                   await deleteSedeQuirurgica(sede.id);
                                 }}><Trash2 className="h-4 w-4" /></Button>
                               </div>
@@ -557,24 +557,24 @@ export function Variables() {
                               <td colSpan={6} className="p-4">
                                 <div className="flex items-center gap-2 mb-3">
                                   <CalendarRange className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm font-semibold text-foreground">Periodos de Disponibilidad — {sede.nombre}</span>
+                                  <span className="text-sm font-semibold text-foreground">{t('var.sedes.availability_periods').replace('{0}', sede.nombre)}</span>
                                 </div>
 
                                 {loadingPeriodos[sede.id] ? (
-                                  <p className="text-xs text-muted-foreground animate-pulse">Cargando periodos...</p>
+                                  <p className="text-xs text-muted-foreground animate-pulse">{t('var.sedes.loading_periods')}</p>
                                 ) : (
                                   <>
                                     {/* Lista de periodos */}
                                     {(sede.periodos || []).length === 0 ? (
-                                      <p className="text-xs text-muted-foreground mb-3">Sin periodos registrados. Agrega uno para habilitar esta sede.</p>
+                                      <p className="text-xs text-muted-foreground mb-3">{t('var.sedes.no_periods')}</p>
                                     ) : (
                                       <table className="w-full mb-3 text-sm">
                                         <thead>
                                           <tr className="border-b border-border">
-                                            <th className="text-left p-2 text-xs font-medium text-muted-foreground">Inicio</th>
-                                            <th className="text-left p-2 text-xs font-medium text-muted-foreground">Fin</th>
-                                            <th className="text-left p-2 text-xs font-medium text-muted-foreground">Notas</th>
-                                            <th className="text-left p-2 text-xs font-medium text-muted-foreground">Estatus</th>
+                                            <th className="text-left p-2 text-xs font-medium text-muted-foreground">{t('var.sedes.period_start')}</th>
+                                            <th className="text-left p-2 text-xs font-medium text-muted-foreground">{t('var.sedes.period_end')}</th>
+                                            <th className="text-left p-2 text-xs font-medium text-muted-foreground">{t('var.sedes.period_notes')}</th>
+                                            <th className="text-left p-2 text-xs font-medium text-muted-foreground">{t('var.sedes.period_status')}</th>
                                             <th className="p-2"></th>
                                           </tr>
                                         </thead>
@@ -590,15 +590,15 @@ export function Variables() {
                                                 <td className="p-2 font-mono text-xs">{p.fechaFin}</td>
                                                 <td className="p-2 text-xs text-muted-foreground">{p.notas || '—'}</td>
                                                 <td className="p-2">
-                                                  {vigente && <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">Vigente</span>}
-                                                  {futuro  && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Futuro</span>}
-                                                  {pasado  && <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">Vencido</span>}
+                                                  {vigente && <span className="text-xs px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">{t('var.sedes.status_active')}</span>}
+                                                  {futuro  && <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{t('var.sedes.status_future')}</span>}
+                                                  {pasado  && <span className="text-xs px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">{t('var.sedes.status_expired')}</span>}
                                                 </td>
                                                 <td className="p-2">
                                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={async () => {
-                                                    if (!confirm('Eliminar este periodo?')) return;
+                                                    if (!confirm(t('var.sedes.delete_period_confirm'))) return;
                                                     await deletePeriodoSede(p.id);
-                                                    await fetchPeriodosSede(sede.id);
+                                                    await fetchPeriodoSede(sede.id);
                                                   }}>
                                                     <X className="h-3.5 w-3.5" />
                                                   </Button>
@@ -612,23 +612,23 @@ export function Variables() {
 
                                     {/* Formulario nuevo periodo */}
                                     <div className="bg-card border border-border rounded-lg p-3">
-                                      <p className="text-xs font-semibold text-foreground mb-2">Agregar periodo de disponibilidad</p>
+                                      <p className="text-xs font-semibold text-foreground mb-2">{t('var.sedes.add_period_title')}</p>
                                       {periodoError && <p className="text-xs text-destructive mb-2">{periodoError}</p>}
                                       <div className="flex flex-wrap gap-3 items-end">
                                         <div className="space-y-1">
-                                          <Label className="text-xs">Fecha inicio *</Label>
+                                          <Label className="text-xs">{t('var.sedes.period_start_label')}</Label>
                                           <Input type="date" value={periodoFechaInicio} onChange={e => setPeriodoFechaInicio(e.target.value)} className="h-8 text-xs w-36" />
                                         </div>
                                         <div className="space-y-1">
-                                          <Label className="text-xs">Fecha fin *</Label>
+                                          <Label className="text-xs">{t('var.sedes.period_end_label')}</Label>
                                           <Input type="date" value={periodoFechaFin} onChange={e => setPeriodoFechaFin(e.target.value)} min={periodoFechaInicio} className="h-8 text-xs w-36" />
                                         </div>
                                         <div className="space-y-1 flex-1 min-w-[140px]">
-                                          <Label className="text-xs">Notas (opcional)</Label>
-                                          <Input value={periodoNotas} onChange={e => setPeriodoNotas(e.target.value)} placeholder="Ej. Convenio junio" className="h-8 text-xs" />
+                                          <Label className="text-xs">{t('var.sedes.period_notes_label')}</Label>
+                                          <Input value={periodoNotas} onChange={e => setPeriodoNotas(e.target.value)} placeholder={t('var.sedes.period_notes_placeholder')} className="h-8 text-xs" />
                                         </div>
                                         <Button size="sm" className="h-8" disabled={addingPeriodo} onClick={() => handleAddPeriodo(sede.id)}>
-                                          <Plus className="h-3.5 w-3.5 mr-1" /> Agregar periodo
+                                          <Plus className="h-3.5 w-3.5 mr-1" /> {t('var.sedes.add_period_btn')}
                                         </Button>
                                       </div>
                                     </div>
@@ -643,7 +643,7 @@ export function Variables() {
                   </table>
                   {sedesQuirurgicas.length === 0 && (
                     <div className="p-12 text-center text-muted-foreground">
-                      No hay sedes registradas. Agrega la primera sede quirúrgica.
+                      {t('var.sedes.no_sedes')}
                     </div>
                   )}
                 </div>

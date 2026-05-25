@@ -209,9 +209,6 @@ export function DashboardAdmin() {
         <CardHeader className="border-b border-border bg-muted/30">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">{t('dash.admin.recent_activity')}</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => navigate('/auditoria')}>
-              {t('dash.admin.view_all')}
-            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">

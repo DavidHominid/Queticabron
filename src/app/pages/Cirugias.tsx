@@ -54,7 +54,7 @@ export function Cirugias() {
     consultasMedicas
   } = useData();
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
   const [showModal, setShowModal] = useState(false);
   const [showDetallesModal, setShowDetallesModal] = useState(false);
@@ -148,16 +148,16 @@ export function Cirugias() {
       if (isToday) {
         setConfirmDialog({
           open: true,
-          title: 'Ingresar a Quirófano',
-          description: '¿Estás seguro de ingresar a este paciente a Quirófano?',
+          title: t('cirugias.confirm.enter_or_title'),
+          description: t('cirugias.confirm.enter_or_desc'),
           isWarning: false,
           onConfirm: doIngresar,
         });
       } else {
         setConfirmDialog({
           open: true,
-          title: '⚠️ Fecha diferente a hoy',
-          description: `La fecha programada para esta cirugía (${cirugia.fechaCirugia || 'ninguna'}) NO coincide con el día de hoy. ¿Estás absolutamente seguro de continuar?`,
+          title: t('cirugias.confirm.wrong_date_title'),
+          description: t('cirugias.confirm.wrong_date_desc').replace('{0}', cirugia.fechaCirugia || (language === 'es' ? 'ninguna' : 'none')),
           isWarning: true,
           onConfirm: doIngresar,
         });
@@ -239,11 +239,11 @@ export function Cirugias() {
   };
 
   const fases = [
-    { id: 'pendiente_estudio', titulo: 'Pendiente Estudios', color: 'bg-slate-100', next: 'lista_programar', nextText: 'Aprobar' },
-    { id: 'lista_programar', titulo: 'Lista Programar', color: 'bg-blue-50', next: 'programada', nextText: 'Programar' },
-    { id: 'programada', titulo: 'Programadas', color: 'bg-indigo-50', next: 'en_procedimiento', nextText: 'Ingresar a Qx' },
-    { id: 'en_procedimiento', titulo: 'En Quirófano', color: 'bg-orange-50', next: 'postoperatorio', nextText: 'Pasar a Recup.' },
-    { id: 'postoperatorio', titulo: 'Recuperación', color: 'bg-green-50', next: 'realizada', nextText: 'Dar de Alta' }
+    { id: 'pendiente_estudio', titulo: t('cirugias.fase.pendiente_estudio'), color: 'bg-slate-100', next: 'lista_programar', nextText: t('cirugias.action.approve') },
+    { id: 'lista_programar', titulo: t('cirugias.fase.lista_programar'), color: 'bg-blue-50', next: 'programada', nextText: t('cirugias.action.schedule') },
+    { id: 'programada', titulo: t('cirugias.fase.programada'), color: 'bg-indigo-50', next: 'en_procedimiento', nextText: t('cirugias.action.enter_or') },
+    { id: 'en_procedimiento', titulo: t('cirugias.fase.en_procedimiento'), color: 'bg-orange-50', next: 'postoperatorio', nextText: t('cirugias.action.pass_recovery') },
+    { id: 'postoperatorio', titulo: t('cirugias.fase.postoperatorio'), color: 'bg-green-50', next: 'realizada', nextText: t('cirugias.action.discharge') }
   ];
 
   const renderCirugiaCard = (cirugia: Cirugia, fase: any) => {
@@ -267,7 +267,7 @@ export function Cirugias() {
           <div className="flex justify-between items-start mb-2">
             <h4 className="font-semibold text-sm line-clamp-2">{cirugia.diagnostico}</h4>
             {isPendienteSede && (
-              <span className="text-orange-500 flex items-center shrink-0 ml-2" title="Alerta: Quirófano sin confirmar">
+              <span className="text-orange-500 flex items-center shrink-0 ml-2" title={t('cirugias.warning.unconfirmed_or')}>
                 <AlertTriangle className="w-4 h-4" />
               </span>
             )}
@@ -294,7 +294,7 @@ export function Cirugias() {
               {estudiosSolicitados.length > 0 ? (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                    <ClipboardList className="w-3 h-3" /> Estudios solicitados
+                    <ClipboardList className="w-3 h-3" /> {t('cirugias.warning.requested_studies')}
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {estudiosSolicitados.map((est, i) => (
@@ -310,7 +310,7 @@ export function Cirugias() {
                 </div>
               ) : (
                 <p className="text-[10px] italic text-muted-foreground/70 flex items-center gap-1">
-                  <ClipboardList className="w-3 h-3" /> Sin estudios registrados
+                  <ClipboardList className="w-3 h-3" /> {t('cirugias.warning.no_studies')}
                 </p>
               )}
             </div>
@@ -342,21 +342,21 @@ export function Cirugias() {
           <div className="space-y-6 h-[calc(100vh-100px)] flex flex-col">
             <div className="flex items-center justify-between shrink-0">
               <div>
-                <h1 className="text-2xl font-semibold text-foreground">Tablero Quirúrgico</h1>
+                <h1 className="text-2xl font-semibold text-foreground">{t('cirugias.board_title')}</h1>
                 <p className="text-muted-foreground mt-1">
-                  Control de flujo de pacientes desde consulta hasta recuperación.
+                  {t('cirugias.board_subtitle')}
                 </p>
               </div>
               <div className="flex gap-3">
                 <Input
-                  placeholder="Buscar paciente..."
+                  placeholder={t('cirugias.board_search_placeholder')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-64"
                 />
                 <Button onClick={() => setShowModal(true)}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Nueva Cirugía
+                  {t('cirugias.new_surgery')}
                 </Button>
               </div>
             </div>
@@ -381,7 +381,7 @@ export function Cirugias() {
                       {cirugiasFase.map(c => renderCirugiaCard(c, fase))}
                       {cirugiasFase.length === 0 && (
                         <div className="text-center p-4 text-sm text-muted-foreground border-2 border-dashed rounded-lg border-muted">
-                          Sin pacientes
+                          {t('cirugias.fase.no_patients')}
                         </div>
                       )}
                     </div>
@@ -500,7 +500,7 @@ export function Cirugias() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t('eventos.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className={confirmDialog.isWarning
                 ? 'bg-amber-500 hover:bg-amber-600 text-white'
@@ -510,7 +510,7 @@ export function Cirugias() {
                 setConfirmDialog((prev) => ({ ...prev, open: false }));
               }}
             >
-              Confirmar
+              {t('common.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

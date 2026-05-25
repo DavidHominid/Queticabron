@@ -461,7 +461,7 @@ export function Citas() {
                                 {eventoNombre && <div className="mt-1 text-xs text-muted-foreground">{eventoNombre}</div>}
                                 {(eventoUltimoNombre || tipoUltimo) && (
                                   <div className="mt-1 text-xs text-muted-foreground">
-                                    Último seguimiento: {eventoUltimoNombre || 'Evento N/A'}
+                                    {t('citas.last_followup').replace('{0}', eventoUltimoNombre || t('citas.event_na'))}
                                     {tipoUltimo ? ` · ${tipoUltimo}` : ''}
                                   </div>
                                 )}
@@ -511,12 +511,12 @@ export function Citas() {
       <Dialog open={elegirPacienteOpen} onOpenChange={setElegirPacienteOpen}>
         <DialogContent className="flex max-h-[75vh] w-[calc(100vw-2rem)] flex-col overflow-hidden p-0 sm:max-w-lg">
           <DialogHeader className="border-b px-6 py-5">
-            <DialogTitle>Seleccionar Paciente</DialogTitle>
-            <DialogDescription>¿Para quién es la cita del {agendarGeneralFecha} a las {agendarGeneralHora}?</DialogDescription>
+            <DialogTitle>{t('citas.select_patient')}</DialogTitle>
+            <DialogDescription>{t('citas.for_whom').replace('{0}', agendarGeneralFecha).replace('{1}', agendarGeneralHora)}</DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-auto px-6 py-4 space-y-3">
             <Input
-              placeholder="Buscar por nombre, expediente o teléfono…"
+              placeholder={t('pac.search')}
               value={elegirPacienteQuery}
               onChange={(e) => setElegirPacienteQuery(e.target.value)}
             />
@@ -545,7 +545,7 @@ export function Citas() {
             </div>
           </div>
           <DialogFooter className="border-t px-6 py-4">
-            <Button variant="outline" onClick={() => setElegirPacienteOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setElegirPacienteOpen(false)}>{t('eventos.cancel')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -81,14 +81,14 @@ export function DashboardRecepcion() {
           value={citasHoy.length.toString()}
           icon={Calendar}
           tone="primary"
-          trend="+12% vs ayer"
+          trend={t('dash.recep.trend_yesterday')}
         />
         <StatCard
           title={t('dash.recep.registered_patients')}
           value={pacientes.length.toString()}
           icon={Users}
           tone="secondary"
-          trend="+5 esta semana"
+          trend={t('dash.recep.trend_week')}
         />
         <StatCard title={t('dash.recep.completed_appts')} value={citasCompletadas.length.toString()} icon={CheckCircle2} tone="accent" />
         <StatCard title={t('dash.recep.active_events')} value={eventos.length.toString()} icon={Activity} tone="muted" />

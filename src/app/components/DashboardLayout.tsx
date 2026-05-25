@@ -86,7 +86,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
           { icon: Calendar, label: t('nav.citas'), path: '/citas' },
           { icon: Activity, label: t('nav.cirugias'), path: '/cirugias' },
-          { icon: Calendar, label: 'Agenda Quirófanos', path: '/agenda-quirofanos' },
+          { icon: Calendar, label: t('nav.agenda_quirofanos'), path: '/agenda-quirofanos' },
           { icon: UserPlus, label: t('nav.seguimientos'), path: '/seguimientos' },
         ];
       case 'triage':
@@ -100,7 +100,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Stethoscope, label: t('nav.consultas'), path: '/medico' },
           { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
           { icon: Heart, label: t('nav.cirugias'), path: '/cirugias' },
-          { icon: Calendar, label: 'Agenda Quirófanos', path: '/agenda-quirofanos' },
+          { icon: Calendar, label: t('nav.agenda_quirofanos'), path: '/agenda-quirofanos' },
           { icon: UserPlus, label: t('nav.seguimientos'), path: '/seguimientos' },
         ];
       case 'administrador':
@@ -111,7 +111,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           { icon: Users, label: t('nav.pacientes'), path: '/pacientes' },
           { icon: Users, label: t('nav.usuarios'), path: '/usuarios' },
           { icon: Activity, label: t('nav.cirugias'), path: '/cirugias' },
-          { icon: Calendar, label: 'Agenda Quirófanos', path: '/agenda-quirofanos' },
+          { icon: Calendar, label: t('nav.agenda_quirofanos'), path: '/agenda-quirofanos' },
           { icon: SlidersHorizontal, label: t('nav.variables'), path: '/variables' },
           { icon: ClipboardList, label: t('nav.auditoria'), path: '/auditoria' },
         ];
@@ -332,18 +332,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </button>
 
                 {notifOpen && (
-                  <div className="absolute right-0 top-12 w-96 bg-card rounded-2xl shadow-[0_8px_24px_rgba(1,106,103,0.08)] border border-border z-50">
-                    <div className="p-4 border-b border-border flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold text-foreground">{t('notif.recent')}</h3>
-                        <p className="text-xs text-muted-foreground">{t('notif.last_actions')}</p>
-                      </div>
-                      <button
-                        onClick={() => { navigate('/auditoria'); setNotifOpen(false); }}
-                        className="text-xs text-secondary hover:underline font-medium"
-                      >
-                        {t('notif.view_all')}
-                      </button>
+                  <div className="absolute right-0 top-12 w-96 bg-card rounded-2xl shadow-[0_8px_24px_rgba(1,106,103,0.08)] border border-border z-50 overflow-hidden">
+                    <div className="p-4 border-b border-border">
+                      <h3 className="font-semibold text-foreground">{t('notif.recent')}</h3>
+                      <p className="text-xs text-muted-foreground">{t('notif.last_actions')}</p>
                     </div>
                     <div className="max-h-96 overflow-y-auto divide-y divide-border">
                       {recientes.length === 0 ? (
