@@ -142,10 +142,9 @@ export function Seguimientos() {
   }, [citas]);
 
   const eventosAgendables = useMemo(() => {
-    const list = [...(eventos || [])]
+    return [...(eventos || [])]
       .filter((ev) => String(ev?.fechaFin || '') >= hoy)
       .sort((a, b) => String(a.fechaInicio || '').localeCompare(String(b.fechaInicio || '')));
-    return list.slice(0, 3);
   }, [eventos, hoy]);
 
   const eventoAgendar = useMemo(() => {
