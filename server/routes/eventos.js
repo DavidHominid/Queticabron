@@ -244,7 +244,7 @@ const persistEspecialidades = async (client, eventId, especialidades) => {
   const ids = Array.from(allIds);
   const existingUserIds = new Set();
   if (ids.length > 0) {
-    const usersResult = await client.query(`SELECT id FROM "${SCHEMA}".usuarios WHERE id = ANY($1::text[])`, [ids]);
+    const usersResult = await client.query(`SELECT id_usuario AS id FROM public.usuarios WHERE id_usuario::text = ANY($1::text[])`, [ids]);
     for (const row of usersResult.rows) {
       existingUserIds.add(String(row.id));
     }
@@ -253,17 +253,19 @@ const persistEspecialidades = async (client, eventId, especialidades) => {
   const medicoEspecialidades = new Set();
   if (ids.length > 0) {
     try {
+      await client.query('SAVEPOINT sp_especialidades');
       const relRes = await client.query(
         `SELECT usuario_id::text AS usuario_id, especialidad_codigo::text AS especialidad_codigo
          FROM "${SCHEMA}".usuario_especialidades
          WHERE usuario_id = ANY($1::text[])`,
         [ids],
       );
+      await client.query('RELEASE SAVEPOINT sp_especialidades');
       for (const row of relRes.rows || []) {
         medicoEspecialidades.add(`${String(row.usuario_id)}|${String(row.especialidad_codigo)}`);
       }
     } catch {
-      
+      try { await client.query('ROLLBACK TO SAVEPOINT sp_especialidades'); } catch { /* ignorar */ }
     }
   }
 
