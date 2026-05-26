@@ -320,7 +320,8 @@ export function AgendaCitasDiaCalendar({
             }
           }}
           editable={false}
-          eventOverlap={true}
+          eventOverlap={false}
+          slotEventOverlap={false}
           events={events}
           eventClick={(info) => {
             const kind = String((info.event.extendedProps as any)?.kind || '');
