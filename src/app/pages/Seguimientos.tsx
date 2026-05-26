@@ -120,6 +120,27 @@ export function Seguimientos() {
 
   const hoy = useMemo(() => todayYmd(), []);
 
+  // Resuelve el ID numérico real de una cita desde el seguimiento.
+  // Si el citaId guardado es un placeholder temporal ("cit..."), busca por paciente+fecha+hora.
+  const resolverCitaIdReal = useCallback((seg: Seguimiento): string => {
+    const rawId = String(seg.citaId || '').trim();
+    // Si es numérico puro, es el ID real de la BD
+    if (rawId && /^\d+$/.test(rawId)) return rawId;
+    // Si no, buscar la cita activa por paciente + fecha + hora
+    const pid = String(seg.pacienteId || '').trim();
+    const fecha = String(seg.fechaCita || '').trim().substring(0, 10);
+    const hora = String(seg.horaCita || '').trim();
+    if (!pid || !fecha) return '';
+    const match = (citas || []).find((c) => {
+      if (c.estado === 'cancelada') return false;
+      if (String(c.pacienteId || '') !== pid) return false;
+      if (String(c.fecha || '').substring(0, 10) !== fecha) return false;
+      if (hora && String(c.hora || '').trim() !== hora) return false;
+      return true;
+    });
+    return String(match?.id || '').trim();
+  }, [citas]);
+
   const eventosAgendables = useMemo(() => {
     const list = [...(eventos || [])]
       .filter((ev) => String(ev?.fechaFin || '') >= hoy)
@@ -219,10 +240,18 @@ export function Seguimientos() {
   );
 
   const onPickSlot = useCallback(
-    (payload: { day: string; slotKey: string }) => {
+    (payload: { day: string; slotKey: string; disponibles?: number }) => {
+      // Bloquear si no hay cupo disponible
+      if (typeof payload.disponibles === 'number' && payload.disponibles <= 0) {
+        setAgendarMensaje('Este horario ya está lleno. Selecciona otro bloque.');
+        setAgendarHorario(null);
+        setAgendarSelectedEventId('');
+        return;
+      }
       const match =
         horariosAgendar.find((h: any) => String(h.dia) === String(payload.day) && slotKeyForHorario(h) === String(payload.slotKey)) ||
         null;
+      setAgendarMensaje('');
       setAgendarHorario(match);
       setAgendarSelectedEventId(match ? `${payload.day}|${payload.slotKey}` : '');
     },
@@ -249,7 +278,6 @@ export function Seguimientos() {
         null;
 
       const nueva = {
-        id: `cit${Date.now()}`,
         eventoId: eventoAgendar.id,
         pacienteId: agendarSeguimiento.pacienteId,
         especialidad: agendarEspecialidad,
@@ -269,10 +297,14 @@ export function Seguimientos() {
         fechaCreacion: hoy,
       };
 
-      await addCita(nueva as any);
+      // addCita devuelve la cita con el ID real de la BD (numérico), NO el id temporal
+      const citaCreada = await addCita(nueva as any);
+      const citaIdReal = String(citaCreada?.id || '').trim();
+      if (!citaIdReal) throw new Error('El servidor no devolvió un ID de cita válido.');
+
       await updateSeguimiento(String(agendarSeguimiento.id), {
         ...agendarSeguimiento,
-        citaId: nueva.id,
+        citaId: citaIdReal,
         estado: 'agendada',
         fechaCita: agendarHorario.dia,
         horaCita: agendarHorario.horaInicio,
@@ -563,7 +595,7 @@ export function Seguimientos() {
                     citas={citas}
                     readOnly
                     allowPick
-                    onSlotAction={(p) => onPickSlot({ day: p.day, slotKey: p.slotKey })}
+                    onSlotAction={(p) => onPickSlot({ day: p.day, slotKey: p.slotKey, disponibles: p.disponibles })}
                     selectedEventId={agendarSelectedEventId}
                     minDay={hoy}
                   />
@@ -1290,7 +1322,18 @@ export function Seguimientos() {
                       disabled={llamadaGuardando}
                       onClick={async () => {
                         if (!updateSeguimiento) return;
-                        await updateSeguimiento(llamadaModal.seg.id, { ...llamadaModal.seg, estado: 'cancelado_por_paciente' });
+                        // Cancelar la cita en la BD usando el ID real (numérico)
+                        const citaIdReal = resolverCitaIdReal(llamadaModal.seg);
+                        if (citaIdReal && updateCita) {
+                          await updateCita(citaIdReal, { estado: 'cancelada' } as any);
+                        }
+                        await updateSeguimiento(llamadaModal.seg.id, {
+                          ...llamadaModal.seg,
+                          estado: 'cancelado_por_paciente',
+                          fechaCita: undefined,
+                          horaCita: undefined,
+                          citaId: undefined,
+                        });
                         setLlamadaModal(null);
                       }}
                     >
@@ -1303,7 +1346,18 @@ export function Seguimientos() {
                       disabled={llamadaGuardando}
                       onClick={async () => {
                         if (!updateSeguimiento) return;
-                        await updateSeguimiento(llamadaModal.seg.id, { ...llamadaModal.seg, estado: 'incontactable' });
+                        // Cancelar la cita en la BD usando el ID real (numérico)
+                        const citaIdReal = resolverCitaIdReal(llamadaModal.seg);
+                        if (citaIdReal && updateCita) {
+                          await updateCita(citaIdReal, { estado: 'cancelada' } as any);
+                        }
+                        await updateSeguimiento(llamadaModal.seg.id, {
+                          ...llamadaModal.seg,
+                          estado: 'incontactable',
+                          fechaCita: undefined,
+                          horaCita: undefined,
+                          citaId: undefined,
+                        });
                         setLlamadaModal(null);
                       }}
                     >
