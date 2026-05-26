@@ -413,6 +413,43 @@ export function Medico() {
       ciudad: user?.ciudad || 'sonoyta',
     });
 
+    // Si el médico seleccionó un bloque del calendario, crear la cita de seguimiento directamente
+    if (intentaraAgendar && seguimientoHorario) {
+      const intervalo = Number.isFinite(Number(seguimientoHorario.intervalo))
+        ? Math.max(1, Math.floor(Number(seguimientoHorario.intervalo)))
+        : 60;
+      const fechaSeg = String(seguimientoHorario.dia || '').trim();
+      const horaSeg = String(seguimientoHorario.horaInicio || '').trim().slice(0, 5);
+      if (fechaSeg && horaSeg) {
+        try {
+          const nuevaCita = await addCita({
+            id: `seg${Date.now()}`,
+            pacienteId: selectedCita.pacienteId,
+            eventoId: String(consultaForm.eventoSeguimientoId).trim(),
+            fecha: fechaSeg,
+            hora: horaSeg,
+            especialidad: especialidadSeguimiento,
+            tipoCitaId: seguimientoHorario.tipoCitaId,
+            duracionMinutos: intervalo,
+            medicoEncargado: user?.id || user?.nombre || '',
+            estado: 'programada',
+          } as any);
+
+          // Actualizar el seguimiento (nota_medica) para marcarlo como agendado
+          if (saved?.id) {
+            await updateSeguimiento(String(saved.id), {
+              estado: 'agendada',
+              fechaCita: fechaSeg,
+              horaCita: horaSeg,
+              citaId: nuevaCita?.id ? String(nuevaCita.id) : undefined,
+            } as any);
+          }
+        } catch (err: any) {
+          console.error('Error al agendar cita de seguimiento:', err?.message);
+        }
+      }
+    }
+
     handleCerrarModal();
   };
 

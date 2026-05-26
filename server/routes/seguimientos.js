@@ -10,7 +10,10 @@ const ensureNotaMedicaSeguimientoColumns = async () => {
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS evento_seguimiento_id TEXT`);
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS proxima_cita_hora VARCHAR(5)`);
   await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS cita_id TEXT`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS intentos_contacto JSONB DEFAULT '[]'::jsonb`);
+  await pool.query(`ALTER TABLE "${SCHEMA}".nota_medica ADD COLUMN IF NOT EXISTS fecha_programada DATE`);
   await pool.query(`UPDATE "${SCHEMA}".nota_medica SET requiere_seguimiento = FALSE WHERE requiere_seguimiento IS NULL`);
+  await pool.query(`UPDATE "${SCHEMA}".nota_medica SET intentos_contacto = '[]'::jsonb WHERE intentos_contacto IS NULL`);
 };
 
 ensureNotaMedicaSeguimientoColumns().catch(() => {});
@@ -32,7 +35,16 @@ const mapSeguimiento = (row) => ({
   plan_tratamiento: row.plan_tratamiento || '',
   medicamentos: row.medicamentos || '[]',
   indicaciones: row.indicaciones || '',
-  
+  intentosContacto: (() => {
+    try {
+      if (!row.intentos_contacto) return [];
+      if (Array.isArray(row.intentos_contacto)) return row.intentos_contacto;
+      return JSON.parse(row.intentos_contacto);
+    } catch { return []; }
+  })(),
+  fechaProgramada: row.fecha_programada
+    ? new Date(row.fecha_programada).toISOString().split('T')[0]
+    : null,
   fechaCita: row.proxima_cita
     ? new Date(row.proxima_cita).toISOString().split('T')[0]
     : null,
@@ -122,8 +134,9 @@ router.put('/:id', async (req, res) => {
            estado_seguimiento = $6,
            requiere_seguimiento = $7,
            nota_seguimiento = $8,
-           evento_seguimiento_id = $9
-       WHERE id_nota = $10
+           evento_seguimiento_id = $9,
+           fecha_programada = $10
+       WHERE id_nota = $11
        RETURNING *`,
       [
         s.diagnostico || '',
@@ -135,6 +148,7 @@ router.put('/:id', async (req, res) => {
         requiereSeguimiento,
         s.notaSeguimiento || '',
         s.eventoSeguimientoId || null,
+        s.fechaProgramada || null,
         parseInt(id),
       ]
     );
@@ -145,6 +159,51 @@ router.put('/:id', async (req, res) => {
     res.json(mapSeguimiento(result.rows[0]));
   } catch (err) {
     console.error('❌ Error en PUT /api/seguimientos/:id:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /:id/contacto — Registrar un intento de contacto (bitácora)
+router.post('/:id/contacto', async (req, res) => {
+  const { id } = req.params;
+  const { resultado, notas, usuario } = req.body;
+  const RESULTADOS_VALIDOS = ['no_contesto', 'buzon', 'prometio_devolver', 'contactado', 'otro'];
+
+  if (!resultado || !RESULTADOS_VALIDOS.includes(resultado)) {
+    return res.status(400).json({ error: `resultado inválido. Opciones: ${RESULTADOS_VALIDOS.join(', ')}` });
+  }
+
+  const intento = {
+    fecha: new Date().toISOString(),
+    resultado,
+    notas: notas || '',
+    usuario: usuario || 'Sistema',
+  };
+
+  try {
+    // Append the new attempt to the existing JSONB array
+    const result = await pool.query(
+      `UPDATE "${SCHEMA}".nota_medica
+       SET intentos_contacto = COALESCE(intentos_contacto, '[]'::jsonb) || $1::jsonb
+       WHERE id_nota = $2
+       RETURNING *`,
+      [JSON.stringify([intento]), parseInt(id)]
+    );
+
+    if (!result.rows.length)
+      return res.status(404).json({ error: 'Seguimiento no encontrado' });
+
+    // Si hay 3+ intentos fallidos, sugerir estado incontactable (pero no forzarlo)
+    const row = result.rows[0];
+    const intentos = (() => {
+      try { return Array.isArray(row.intentos_contacto) ? row.intentos_contacto : JSON.parse(row.intentos_contacto || '[]'); }
+      catch { return []; }
+    })();
+    const fallidosCount = intentos.filter(i => ['no_contesto', 'buzon'].includes(i.resultado)).length;
+
+    res.json({ ...mapSeguimiento(row), _sugerirIncontactable: fallidosCount >= 3 });
+  } catch (err) {
+    console.error('❌ Error en POST /api/seguimientos/:id/contacto:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

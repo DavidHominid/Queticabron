@@ -25,7 +25,9 @@ const isAppUser = (v: unknown): v is AppUser => {
   const obj = v as Record<string, unknown>;
   const rol = obj.rol;
   const rolOk = rol === 'recepcion' || rol === 'triage' || rol === 'medico' || rol === 'administrador';
-  return typeof obj.id === 'string' && typeof obj.nombre === 'string' && rolOk && typeof obj.ciudad === 'string';
+  // ciudad puede ser '' si el usuario no tiene sede asignada aún
+  const ciudadOk = typeof obj.ciudad === 'string' || obj.ciudad === null || obj.ciudad === undefined;
+  return typeof obj.id === 'string' && typeof obj.nombre === 'string' && rolOk && ciudadOk;
 };
 
 export function Login() {

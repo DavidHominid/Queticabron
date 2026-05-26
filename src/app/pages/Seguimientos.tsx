@@ -23,11 +23,38 @@ import {
   CheckCircle2,
   CalendarClock,
   ChevronLeft,
+  Phone,
+  PhoneMissed,
+  PhoneOff,
+  XCircle,
+  Ban,
 } from 'lucide-react';
 import { AgendaCalendar } from '../components/eventos/AgendaCalendar';
 import { labelEspecialidad } from '../utils/especialidades';
-import { Especialidad, HorarioDisponible, Seguimiento } from '../types';
+import { Especialidad, HorarioDisponible, IntentoContacto, Seguimiento } from '../types';
 import { todayYmd, formatDateYmd } from '../utils/clock';
+
+// Semáforo de riesgo: clasifica urgencia según fechaProgramada vs hoy
+const riesgoSemaforo = (seg: Seguimiento, hoy: string): 'rojo' | 'ambar' | 'verde' | null => {
+  const estadosCerrados = ['completada', 'cancelado_por_paciente', 'incontactable', 'agendada'];
+  if (estadosCerrados.includes(seg.estado)) return null;
+  const fecha = seg.fechaProgramada || seg.fechaCita || '';
+  if (!fecha) return 'verde';
+  if (fecha < hoy) return 'rojo';
+  // Esta semana = dentro de 7 días
+  const limite = new Date(hoy);
+  limite.setDate(limite.getDate() + 7);
+  const limitStr = limite.toISOString().slice(0, 10);
+  if (fecha <= limitStr) return 'ambar';
+  return 'verde';
+};
+
+const semaforoBorderClass = (nivel: 'rojo' | 'ambar' | 'verde' | null): string => {
+  if (nivel === 'rojo') return 'border-l-4 border-l-red-500';
+  if (nivel === 'ambar') return 'border-l-4 border-l-amber-400';
+  if (nivel === 'verde') return 'border-l-4 border-l-emerald-500';
+  return '';
+};
 
 const listDaysInclusive = (start: string, end: string) => {
   if (!start || !end) return [] as string[];
@@ -82,6 +109,14 @@ export function Seguimientos() {
   const [agendarMensaje, setAgendarMensaje] = useState('');
   const [agendarPrevCitaId, setAgendarPrevCitaId] = useState('');
   const [detalleMensaje, setDetalleMensaje] = useState('');
+  // Estado para el mini-modal de "Registrar Llamada"
+  const [llamadaModal, setLlamadaModal] = useState<{ seg: Seguimiento } | null>(null);
+  const [llamadaResultado, setLlamadaResultado] = useState<IntentoContacto['resultado'] | ''>('');
+  const [llamadaNotas, setLlamadaNotas] = useState('');
+  const [llamadaGuardando, setLlamadaGuardando] = useState(false);
+  const [llamadaMensaje, setLlamadaMensaje] = useState('');
+  // Agendar rápido desde tarjeta (sin ir al detalle)
+  const [agendarRapido, setAgendarRapido] = useState<Seguimiento | null>(null);
 
   const hoy = useMemo(() => todayYmd(), []);
 
@@ -349,9 +384,11 @@ export function Seguimientos() {
       paciente?.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       paciente?.numeroExpediente.toLowerCase().includes(searchTerm.toLowerCase()) ||
       diag.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchEstado = estadoFilter === 'todos' || 
-                        (estadoFilter === 'pendiente' && ((seg.estado || 'pendiente') === 'pendiente' || seg.estado === 'pendiente_de_agendar')) ||
-                        seg.estado === estadoFilter;
+    const matchEstado =
+      estadoFilter === 'todos' ||
+      (estadoFilter === 'pendiente' && ((seg.estado || 'pendiente') === 'pendiente' || seg.estado === 'pendiente_de_agendar')) ||
+      (estadoFilter === 'cerrado' && (seg.estado === 'cancelado_por_paciente' || seg.estado === 'incontactable')) ||
+      seg.estado === estadoFilter;
     return matchSearch && matchEstado;
   });
 
@@ -359,54 +396,75 @@ export function Seguimientos() {
   const seguimientosPendientes = seguimientosFiltrados.filter((s) => (s.estado || 'pendiente') === 'pendiente' || s.estado === 'pendiente_de_agendar');
   const seguimientosAgendados = seguimientosFiltrados.filter((s) => s.estado === 'agendada');
   const seguimientosCompletados = seguimientosFiltrados.filter((s) => s.estado === 'completada');
+  const seguimientosCerrados = seguimientosFiltrados.filter((s) => s.estado === 'cancelado_por_paciente' || s.estado === 'incontactable');
+
+  // Handler: registrar intento de llamada
+  const handleRegistrarLlamada = useCallback(async () => {
+    if (!llamadaModal || !llamadaResultado) return;
+    setLlamadaGuardando(true);
+    setLlamadaMensaje('');
+    try {
+      const res = await fetch(`/api/seguimientos/${llamadaModal.seg.id}/contacto`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resultado: llamadaResultado,
+          notas: llamadaNotas,
+          usuario: user?.nombre || 'Sistema',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Error al registrar llamada');
+      
+      // Refresh seguimientos preservando los datos actuales
+      if (updateSeguimiento) {
+        await updateSeguimiento(llamadaModal.seg.id, { ...llamadaModal.seg, intentosContacto: data.intentosContacto });
+      }
+
+      // Si backend sugiere marcar incontactable, mostramos la advertencia fija sin cerrar
+      if (data._sugerirIncontactable) {
+        setLlamadaMensaje('3+ intentos fallidos. Considera marcar como Incontactable (usa los botones inferiores).');
+      } else {
+        setLlamadaModal(null);
+        setLlamadaResultado('');
+        setLlamadaNotas('');
+        setLlamadaMensaje('');
+      }
+    } catch (err: any) {
+      setLlamadaMensaje(err?.message || 'Error al registrar.');
+    } finally {
+      setLlamadaGuardando(false);
+    }
+  }, [llamadaModal, llamadaNotas, llamadaResultado, updateSeguimiento, user?.nombre]);
 
   const estadoLabel = (estado: string) => {
     switch (estado) {
-      case 'pendiente':
-        return t('seg.status.pending');
-      case 'pendiente_de_agendar':
-        return 'Pendiente de Agendar';
-      case 'agendada':
-        return t('seg.status.scheduled');
-      case 'completada':
-        return t('seg.status.completed');
-      default:
-        return estado;
+      case 'pendiente': return t('seg.status.pending');
+      case 'pendiente_de_agendar': return 'Pendiente de Agendar';
+      case 'agendada': return t('seg.status.scheduled');
+      case 'completada': return t('seg.status.completed');
+      case 'cancelado_por_paciente': return 'Cancelado por Paciente';
+      case 'incontactable': return 'Incontactable';
+      default: return estado;
     }
   };
 
   const estadoMeta = (estado: string) => {
     switch (estado) {
       case 'pendiente':
-        return {
-          label: estadoLabel(estado),
-          icon: AlertCircle,
-          className: 'bg-muted text-foreground border-[color:var(--outline)]',
-        };
+        return { label: estadoLabel(estado), icon: AlertCircle, className: 'bg-muted text-foreground border-[color:var(--outline)]' };
       case 'pendiente_de_agendar':
-        return {
-          label: estadoLabel(estado),
-          icon: CalendarClock,
-          className: 'bg-[color:var(--brand-secondary-strong)] text-secondary-foreground border-[color:var(--brand-secondary-strong)]',
-        };
+        return { label: estadoLabel(estado), icon: CalendarClock, className: 'bg-[color:var(--brand-secondary-strong)] text-secondary-foreground border-[color:var(--brand-secondary-strong)]' };
       case 'agendada':
-        return {
-          label: estadoLabel(estado),
-          icon: CalendarClock,
-          className: 'bg-secondary/15 text-[color:var(--brand-secondary-strong)] border-secondary/25',
-        };
+        return { label: estadoLabel(estado), icon: CalendarClock, className: 'bg-secondary/15 text-[color:var(--brand-secondary-strong)] border-secondary/25' };
       case 'completada':
-        return {
-          label: estadoLabel(estado),
-          icon: CheckCircle2,
-          className: 'bg-[color:var(--brand-primary-strong)] text-primary-foreground border-[color:var(--brand-primary-strong)]',
-        };
+        return { label: estadoLabel(estado), icon: CheckCircle2, className: 'bg-[color:var(--brand-primary-strong)] text-primary-foreground border-[color:var(--brand-primary-strong)]' };
+      case 'cancelado_por_paciente':
+        return { label: estadoLabel(estado), icon: XCircle, className: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/20 dark:text-orange-400 dark:border-orange-700' };
+      case 'incontactable':
+        return { label: estadoLabel(estado), icon: Ban, className: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700' };
       default:
-        return {
-          label: estadoLabel(estado),
-          icon: AlertCircle,
-          className: 'bg-muted text-muted-foreground border-border',
-        };
+        return { label: estadoLabel(estado), icon: AlertCircle, className: 'bg-muted text-muted-foreground border-border' };
     }
   };
 
@@ -714,6 +772,18 @@ export function Seguimientos() {
                         </p>
                       </div>
 
+                      {String(selectedSeguimiento.observaciones || '').trim() ? (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-4">
+                          <div className="flex items-start gap-2">
+                            <Pill className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Indicaciones del Médico</p>
+                              <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{selectedSeguimiento.observaciones}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
+
                       {nota ? (
                         <div className="rounded-xl border bg-accent p-4">
                           <p className="text-xs font-medium text-muted-foreground">{t('seg.followup_note')}</p>
@@ -821,6 +891,19 @@ export function Seguimientos() {
                 </div>
                 <p className="mt-3 text-xl font-semibold text-foreground">{seguimientosCompletados.length}</p>
               </div>
+
+              <div className="rounded-xl border bg-accent p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Cerrados</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Incontactables y cancelados</p>
+                  </div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-100 text-red-600 dark:bg-red-900/20">
+                    <Ban className="h-5 w-5" />
+                  </div>
+                </div>
+                <p className="mt-3 text-xl font-semibold text-foreground">{seguimientos.filter(s => s.estado === 'cancelado_por_paciente' || s.estado === 'incontactable').length}</p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -840,26 +923,17 @@ export function Seguimientos() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant={estadoFilter === 'todos' ? 'default' : 'outline'}
-                  onClick={() => setEstadoFilter('todos')}
-                >
+                <Button size="sm" variant={estadoFilter === 'todos' ? 'default' : 'outline'} onClick={() => setEstadoFilter('todos')}>
                   {t('seg.all')} ({seguimientos.length})
                 </Button>
-                <Button
-                  size="sm"
-                  variant={estadoFilter === 'pendiente' || estadoFilter === 'pendiente_de_agendar' ? 'default' : 'outline'}
-                  onClick={() => setEstadoFilter('pendiente')}
-                >
+                <Button size="sm" variant={estadoFilter === 'pendiente' || estadoFilter === 'pendiente_de_agendar' ? 'default' : 'outline'} onClick={() => setEstadoFilter('pendiente')}>
                   {t('seg.pending')} ({seguimientosPendientes.length})
                 </Button>
-                <Button
-                  size="sm"
-                  variant={estadoFilter === 'agendada' ? 'default' : 'outline'}
-                  onClick={() => setEstadoFilter('agendada')}
-                >
+                <Button size="sm" variant={estadoFilter === 'agendada' ? 'default' : 'outline'} onClick={() => setEstadoFilter('agendada')}>
                   {t('seg.scheduled')} ({seguimientosAgendados.length})
+                </Button>
+                <Button size="sm" variant={estadoFilter === 'cerrado' ? 'default' : 'outline'} onClick={() => setEstadoFilter('cerrado')}>
+                  Cerrados ({seguimientosCerrados.length})
                 </Button>
               </div>
             </div>
@@ -873,9 +947,22 @@ export function Seguimientos() {
             const notaSeguimiento = String(seguimiento.notaSeguimiento || '').trim();
             const meta = estadoMeta(seguimiento.estado || 'pendiente');
             const EstadoIcon = meta.icon;
+            const semaforo = riesgoSemaforo(seguimiento, hoy);
+            const esPendiente = seguimiento.estado === 'pendiente' || seguimiento.estado === 'pendiente_de_agendar';
+            const esCerrado = seguimiento.estado === 'cancelado_por_paciente' || seguimiento.estado === 'incontactable';
+            const intentos = seguimiento.intentosContacto || [];
+            const ultimoIntento = intentos.length > 0 ? intentos[intentos.length - 1] : null;
+            const iconoIntento = {
+              no_contesto: PhoneMissed,
+              buzon: PhoneOff,
+              prometio_devolver: Phone,
+              contactado: Phone,
+              otro: Phone,
+            };
             return (
               <Card
                 key={seguimiento.id}
+                className={`cursor-pointer transition-shadow hover:shadow-[0_8px_22px_rgba(1,106,103,0.08)] overflow-hidden ${semaforoBorderClass(semaforo)}`}
                 role="button"
                 tabIndex={0}
                 onClick={() => {
@@ -891,7 +978,6 @@ export function Seguimientos() {
                     setDetalleMensaje('');
                   }
                 }}
-                className="cursor-pointer transition-shadow hover:shadow-[0_8px_22px_rgba(1,106,103,0.08)]"
               >
                 <CardHeader className="border-b gap-3">
                   <div className="flex items-start justify-between gap-4">
@@ -910,94 +996,101 @@ export function Seguimientos() {
                         </div>
                       </div>
                     </div>
-                    <Badge className={`border px-3 py-1.5 text-sm flex items-center gap-1.5 ${meta.className}`}>
-                      <EstadoIcon className="h-4 w-4" />
-                      {meta.label}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <Badge className={`border px-3 py-1.5 text-sm flex items-center gap-1.5 ${meta.className}`}>
+                        <EstadoIcon className="h-4 w-4" />
+                        {meta.label}
+                      </Badge>
+                      {semaforo === 'rojo' && <span className="text-xs font-semibold text-red-600">🔴 VENCIDO</span>}
+                      {semaforo === 'ambar' && <span className="text-xs font-semibold text-amber-600">🟡 Esta semana</span>}
+                    </div>
                   </div>
                 </CardHeader>
 
-                <CardContent className="pt-5 space-y-4">
+                <CardContent className="pt-4 space-y-3">
                   <div className="rounded-xl border border-primary/30 bg-primary/10 p-4">
                     <div className="flex items-start gap-2">
                       <FileText className="mt-0.5 h-5 w-5 text-[color:var(--brand-primary-strong)]" />
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-muted-foreground">{t('seg.diagnosis')}</p>
-                        <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-foreground">
-                          {seguimiento.diagnostico}
-                        </p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm font-semibold text-foreground">{seguimiento.diagnostico}</p>
                       </div>
                     </div>
                   </div>
 
-                  {notaSeguimiento && (
-                    <div className="rounded-xl border bg-accent p-4">
+                  {/* Indicaciones del médico (recomendaciones de la consulta) */}
+                  {String(seguimiento.observaciones || '').trim() && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-3">
                       <div className="flex items-start gap-2">
-                        <FileText className="mt-0.5 h-4 w-4 text-[color:var(--brand-secondary-strong)] flex-shrink-0" />
+                        <Pill className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                         <div className="min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground">{t('seg.followup_note')}</p>
-                          <p className="text-sm text-foreground whitespace-pre-wrap">{notaSeguimiento}</p>
+                          <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Indicaciones del Médico</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm text-foreground line-clamp-3">{seguimiento.observaciones}</p>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {(seguimiento.examenesRequeridos || []).length > 0 && (
-                    <div className="rounded-xl border bg-card p-4">
-                      <div className="flex items-center gap-2">
-                        <ClipboardList className="h-4 w-4 text-[color:var(--brand-tertiary)]" />
-                        <p className="text-sm font-semibold text-foreground">{t('seg.required_exams')}</p>
-                      </div>
-                      <div className="mt-3 space-y-1.5">
-                        {(seguimiento.examenesRequeridos || []).slice(0, 2).map((examen, idx) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <div className="h-1.5 w-1.5 rounded-full bg-[color:var(--brand-tertiary)]" />
-                            <p className="text-sm text-muted-foreground">{examen}</p>
-                          </div>
-                        ))}
-                        {(seguimiento.examenesRequeridos || []).length > 2 && (
-                          <p className="text-xs text-muted-foreground">
-                            +{(seguimiento.examenesRequeridos || []).length - 2} más
-                          </p>
-                        )}
-                      </div>
+                  {notaSeguimiento && (
+                    <div className="rounded-xl border bg-accent p-3">
+                      <p className="text-xs font-medium text-muted-foreground">{t('seg.followup_note')}</p>
+                      <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-2">{notaSeguimiento}</p>
                     </div>
                   )}
+
+                  {/* Última llamada registrada */}
+                  {ultimoIntento && (() => {
+                    const IcoLlamada = iconoIntento[ultimoIntento.resultado as keyof typeof iconoIntento] || Phone;
+                    const resultadoLabel: Record<string, string> = {
+                      no_contesto: 'No contestó', buzon: 'Buzón', prometio_devolver: 'Prometió devolver', contactado: 'Contactado', otro: 'Otro'
+                    };
+                    return (
+                      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
+                        <IcoLlamada className="h-3.5 w-3.5 shrink-0" />
+                        <span className="font-medium">{resultadoLabel[ultimoIntento.resultado] ?? ultimoIntento.resultado}</span>
+                        <span className="ml-auto">Intento {intentos.length} · {new Date(ultimoIntento.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</span>
+                      </div>
+                    );
+                  })()}
 
                   {seguimiento.fechaCita && (
-                    <div className="rounded-xl border border-secondary/20 bg-secondary/10 p-4">
-                      <div className="flex items-start gap-3">
-                        <Calendar className="mt-0.5 h-5 w-5 text-[color:var(--brand-secondary-strong)]" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground">{t('seg.next_appt')}</p>
-                          <p className="mt-1 text-sm text-foreground">
-                            {formatDateYmd(seguimiento.fechaCita)} · {String(seguimiento.horaCita || '').trim() || 'Hora N/A'}
-                          </p>
-                        </div>
+                    <div className="rounded-xl border border-secondary/20 bg-secondary/10 p-3">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-[color:var(--brand-secondary-strong)]" />
+                        <p className="text-sm font-semibold text-foreground">{t('seg.next_appt')}</p>
+                        <p className="ml-auto text-sm text-foreground">{formatDateYmd(seguimiento.fechaCita)} · {String(seguimiento.horaCita || '').trim() || 'Hora N/A'}</p>
                       </div>
                     </div>
                   )}
 
-                  {seguimiento.estado === 'pendiente_de_agendar' && String(seguimiento.eventoSeguimientoId || '').trim() && (
-                    <div className="rounded-xl border bg-card p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-medium text-muted-foreground">{t('seg.followup_event')}</div>
-                        <Badge variant="outline" className="bg-accent">
-                          {eventos.find((e) => String(e.id) === String(seguimiento.eventoSeguimientoId))?.nombre || seguimiento.eventoSeguimientoId}
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-
-                  {seguimiento.remisionFarmacia && (
-                    <div className="rounded-xl border bg-accent p-4">
-                      <div className="flex items-start gap-2">
-                        <Pill className="mt-0.5 h-4 w-4 text-[color:var(--brand-tertiary)]" />
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium text-muted-foreground">{t('seg.pharmacy')}</p>
-                          <p className="mt-1 text-sm text-foreground">{seguimiento.remisionFarmacia}</p>
-                        </div>
-                      </div>
+                  {/* Botones de acción rápida */}
+                  {!esCerrado && (
+                    <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                      {esPendiente && (
+                        <Button
+                          size="sm"
+                          className="flex-1 gap-1.5"
+                          onClick={(e) => { e.stopPropagation(); setAgendarRapido(seguimiento); onOpenAgendar(seguimiento); }}
+                        >
+                          <Calendar className="h-4 w-4" />
+                          Agendar Cita
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-1.5"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLlamadaModal({ seg: seguimiento });
+                          setLlamadaResultado('');
+                          setLlamadaNotas('');
+                          setLlamadaMensaje('');
+                        }}
+                      >
+                        <Phone className="h-4 w-4" />
+                        Registrar Llamada
+                      </Button>
                     </div>
                   )}
                 </CardContent>
@@ -1144,6 +1237,88 @@ export function Seguimientos() {
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal: Registrar Llamada */}
+        <Dialog open={!!llamadaModal} onOpenChange={(open) => { if (!open) { setLlamadaModal(null); setLlamadaResultado(''); setLlamadaNotas(''); setLlamadaMensaje(''); } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Registrar Llamada</DialogTitle>
+            </DialogHeader>
+            {llamadaModal && (() => {
+              const pac = pacientes.find(p => String(p.id) === String(llamadaModal.seg.pacienteId));
+              return (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">Paciente: <span className="font-semibold text-foreground">{pac?.nombre || 'Desconocido'}</span></p>
+                  <div className="space-y-2">
+                    <Label>¿Qué pasó con la llamada?</Label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {([
+                        { value: 'no_contesto', label: 'No contestó' },
+                        { value: 'buzon', label: 'Buzón de voz' },
+                        { value: 'prometio_devolver', label: 'Prometió devolver la llamada' },
+                        { value: 'contactado', label: 'Contactado exitosamente' },
+                        { value: 'otro', label: 'Otro resultado' },
+                      ] as const).map(op => (
+                        <button
+                          key={op.value}
+                          type="button"
+                          onClick={() => setLlamadaResultado(op.value)}
+                          className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm text-left transition-colors ${
+                            llamadaResultado === op.value
+                              ? 'border-ring bg-primary/10 font-semibold text-foreground'
+                              : 'border-border bg-card text-muted-foreground hover:bg-accent'
+                          }`}
+                        >
+                          {op.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="llamada-notas">Notas adicionales (opcional)</Label>
+                    <Textarea id="llamada-notas" value={llamadaNotas} onChange={e => setLlamadaNotas(e.target.value)} rows={2} placeholder="Ej: llamé al número del expediente, dice que cambió de médico..." />
+                  </div>
+                  {llamadaMensaje && <p className="text-sm text-amber-600 font-medium">{llamadaMensaje}</p>}
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t">
+                    <span className="text-xs text-muted-foreground font-medium mr-1">Cierre administrativo:</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-orange-600 border-orange-300 hover:bg-orange-50 gap-1.5"
+                      disabled={llamadaGuardando}
+                      onClick={async () => {
+                        if (!updateSeguimiento) return;
+                        await updateSeguimiento(llamadaModal.seg.id, { ...llamadaModal.seg, estado: 'cancelado_por_paciente' });
+                        setLlamadaModal(null);
+                      }}
+                    >
+                      <XCircle className="h-4 w-4" /> Canceló
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 border-red-300 hover:bg-red-50 gap-1.5"
+                      disabled={llamadaGuardando}
+                      onClick={async () => {
+                        if (!updateSeguimiento) return;
+                        await updateSeguimiento(llamadaModal.seg.id, { ...llamadaModal.seg, estado: 'incontactable' });
+                        setLlamadaModal(null);
+                      }}
+                    >
+                      <Ban className="h-4 w-4" /> Incontactable
+                    </Button>
+                    <div className="ml-auto flex gap-2">
+                      <Button variant="outline" onClick={() => setLlamadaModal(null)}>Cancelar</Button>
+                      <Button onClick={handleRegistrarLlamada} disabled={llamadaGuardando || !llamadaResultado || llamadaMensaje.includes('3+ intentos')}>
+                        {llamadaGuardando ? 'Guardando...' : 'Guardar'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </DialogContent>
         </Dialog>
 

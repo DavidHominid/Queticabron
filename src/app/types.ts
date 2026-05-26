@@ -267,6 +267,14 @@ export interface ExpedienteDental {
   };
 }
 
+// Intento de contacto (bitácora de llamadas)
+export interface IntentoContacto {
+  fecha: string; // ISO datetime
+  resultado: 'no_contesto' | 'buzon' | 'prometio_devolver' | 'contactado' | 'otro';
+  notas?: string;
+  usuario?: string;
+}
+
 // Seguimiento
 export interface Seguimiento {
   id: string;
@@ -279,6 +287,7 @@ export interface Seguimiento {
   fechaCreacion: string;
   fechaCita?: string;
   horaCita?: string;
+  fechaProgramada?: string | null; // Fecha límite que puso el médico (semáforo de riesgo)
   medicoEncargado?: string;
   estadoPaciente?: string;
   datosVitales?: {
@@ -292,7 +301,8 @@ export interface Seguimiento {
   examenesRequeridos?: string[];
   remisionFarmacia?: string;
   proximoSeguimiento?: string;
-  estado: 'pendiente' | 'agendada' | 'completada' | 'pendiente_de_agendar';
+  intentosContacto?: IntentoContacto[];
+  estado: 'pendiente' | 'agendada' | 'completada' | 'pendiente_de_agendar' | 'cancelado_por_paciente' | 'incontactable';
 }
 
 // Cirugía
