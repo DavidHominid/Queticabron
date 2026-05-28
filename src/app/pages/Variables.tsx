@@ -158,7 +158,7 @@ export function Variables() {
     return (
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-muted/30 border-b border-border">
+          <thead className="bg-muted border-b border-border">
             <tr>
               <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.col_name')}</th>
               <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.col_code')}</th>
@@ -475,7 +475,7 @@ export function Variables() {
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-muted/30 border-b border-border">
+                    <thead className="bg-muted border-b border-border">
                       <tr>
                         <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.sedes.col_name')}</th>
                         <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('var.sedes.col_type')}</th>

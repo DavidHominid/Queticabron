@@ -424,7 +424,7 @@ export function Usuarios() {
           <CardContent className="p-0">
             <div className="relative max-h-[70vh] overflow-auto">
               <table className="w-full">
-                <thead className="sticky top-0 z-10 bg-muted/30 border-b border-border">
+                <thead className="sticky top-0 z-10 bg-muted border-b border-border">
                   <tr>
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_user')}</th>
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground">{t('usuarios.col_email')}</th>

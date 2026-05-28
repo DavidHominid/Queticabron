@@ -1,6 +1,7 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
 import { recordAudit } from '../helpers/utils.js';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -195,6 +196,10 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   const u = req.body;
+  let hashedPassword = u.password;
+  if (hashedPassword) {
+    hashedPassword = await bcrypt.hash(hashedPassword, 10);
+  }
   const rawEspecialidades = Array.isArray(u?.especialidades)
     ? u.especialidades : u?.especialidad ? [u.especialidad] : [];
   const especialidades = Array.from(new Set(rawEspecialidades.map((x) => String(x || '').trim()).filter(Boolean)));
@@ -223,7 +228,7 @@ router.post('/', async (req, res) => {
         [
           u.nombre,
           u.email || u.usuario || u.correo,
-          u.password,
+          hashedPassword,
           rolDB,
           u.activo ?? true,
           u.activoDesde || u.activo_desde || null,
@@ -308,10 +313,16 @@ router.put('/:id', async (req, res) => {
       const sets = [];
       const values = [];
       let i = 1;
+
+      let passwordToUpdate = u.password;
+      if (passwordToUpdate && passwordToUpdate !== '') {
+        passwordToUpdate = await bcrypt.hash(passwordToUpdate, 10);
+      }
+
       const mapped = {
         nombre_usuario: u.nombre,
         correo: u.email || u.usuario || u.correo,
-        password: u.password,
+        password: passwordToUpdate,
         rol: rolDB,
         activo: u.activo,
         activo_desde: u.activoDesde || u.activo_desde,

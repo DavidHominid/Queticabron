@@ -637,16 +637,7 @@ export function Pacientes() {
                     <FileText className="w-4 h-4 mr-2" />
                     {t('pac.full_record')}
                   </Button>
-                  {(user?.rol === 'medico' || user?.rol === 'administrador') && (
-                    <Button
-                      variant="secondary"
-                      className="w-full h-11"
-                      onClick={() => setShowCirugiaModal(true)}
-                    >
-                      <Heart className="w-4 h-4 mr-2" />
-                      {t('pac.start_surgery')}
-                    </Button>
-                  )}
+
                   {(user?.rol === 'recepcion' || user?.rol === 'administrador') && (
                     <div className="flex flex-col gap-2 w-full mt-2">
                       <Button

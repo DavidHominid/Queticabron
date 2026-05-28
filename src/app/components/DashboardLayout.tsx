@@ -158,7 +158,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen overflow-hidden bg-background">
       {/* Sidebar */}
       <aside
         id="app-sidebar"
@@ -277,9 +277,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
+      <div className={`transition-all duration-300 flex flex-col h-screen ${sidebarOpen ? 'ml-64' : 'ml-20'}`}>
         {/* Top Header */}
-        <header className="h-20 bg-card border-b border-border sticky top-0 z-20">
+        <header className="h-20 flex-none bg-card border-b border-border z-20">
           <div className="h-full px-8 flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold text-foreground">
@@ -375,7 +375,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Content */}
-        <main className="p-8 relative min-h-[calc(100vh-80px)]">
+        <main className="flex-1 overflow-y-auto p-8 relative">
           {!isInitialized ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-12 bg-background/70 backdrop-blur-sm z-50">
               <div className="relative w-24 h-24 flex items-center justify-center">

@@ -354,10 +354,7 @@ export function Cirugias() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-64"
                 />
-                <Button onClick={() => setShowModal(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t('cirugias.new_surgery')}
-                </Button>
+
               </div>
             </div>
 
@@ -372,7 +369,7 @@ export function Cirugias() {
                 );
                 
                 return (
-                  <div key={fase.id} className={`flex-1 min-w-[280px] flex flex-col rounded-xl border ${fase.color}`}>
+                  <div key={fase.id} className={`shrink-0 w-[280px] lg:w-[320px] flex flex-col rounded-xl border ${fase.color}`}>
                     <div className="p-3 border-b bg-white/50 rounded-t-xl font-semibold flex justify-between items-center shrink-0">
                       <span>{fase.titulo}</span>
                       <Badge variant="secondary">{cirugiasFase.length}</Badge>

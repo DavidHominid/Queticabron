@@ -874,7 +874,7 @@ export function Medico() {
                         </div>
                         <div className="overflow-hidden rounded-lg border border-border">
                           <table className="w-full">
-                            <thead className="border-b border-border bg-muted/20">
+                            <thead className="border-b border-border bg-muted">
                               <tr>
                                 <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.medication_name')}</th>
                                 <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.medication_dose')}</th>
@@ -948,7 +948,7 @@ export function Medico() {
                         </div>
                         <div className="overflow-hidden rounded-lg border border-border">
                           <table className="w-full">
-                            <thead className="border-b border-border bg-muted/20">
+                            <thead className="border-b border-border bg-muted">
                               <tr>
                                 <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.study_type')}</th>
                                 <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">{t('medico.form.study_indications')}</th>
