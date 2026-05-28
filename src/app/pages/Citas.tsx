@@ -376,8 +376,8 @@ export function Citas() {
         )}
 
         {isInitialized && eventosVisibles.length > 0 && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-            <Card className="shadow-sm lg:col-span-3">
+          <div className="grid grid-cols-1 gap-6">
+            <Card className="shadow-sm">
               <CardHeader className="border-b">
                 <CardTitle className="text-base">{t('citas.agenda')}</CardTitle>
               </CardHeader>
@@ -397,95 +397,6 @@ export function Citas() {
                 />
               </CardContent>
             </Card>
-
-            {(user?.rol === 'recepcion' || user?.rol === 'administrador') && (
-              <Card className="shadow-sm lg:col-span-1">
-                <CardHeader className="border-b">
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-base">{t('citas.followups_pending')}</CardTitle>
-                    <Badge variant="secondary">{seguimientosPendientesAgendar.length}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 p-4">
-                  {seguimientoParaAgendar && (
-                    <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="text-xs text-muted-foreground">{t('citas.followups_selected')}</div>
-                          <div className="truncate font-medium text-foreground">
-                            {pacientesById.get(String(seguimientoParaAgendar.pacienteId))?.nombre || seguimientoParaAgendar.pacienteId}
-                          </div>
-                          {String(seguimientoParaAgendar.notaSeguimiento || '').trim() && (
-                            <div className="mt-1 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">
-                              {String(seguimientoParaAgendar.notaSeguimiento || '').trim()}
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSeguimientoParaAgendar(null)}
-                        >
-                          {t('citas.followups_clear')}
-                        </Button>
-                      </div>
-                      <div className="mt-2 text-xs text-muted-foreground">{t('citas.followups_pick_slot')}</div>
-                    </div>
-                  )}
-
-                  {seguimientosPendientesAgendar.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-                      {t('citas.followups_empty')}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {seguimientosPendientesAgendar.slice(0, 20).map((s) => {
-                        const paciente = pacientesById.get(String(s.pacienteId));
-                        const nota = String(s.notaSeguimiento || '').trim();
-                        const eventoTarget = String(s.eventoSeguimientoId || '').trim();
-                        const eventoNombre = eventoTarget ? (eventosVisibles.find((e) => String(e.id) === eventoTarget)?.nombre || eventoTarget) : '';
-                        const ultimaCita = ultimaCitaByPacienteId.get(String(s.pacienteId));
-                        const eventoUltimoNombre = ultimaCita
-                          ? eventoById.get(String(ultimaCita.eventoId))?.nombre ||
-                            eventos.find((e) => String(e.id) === String(ultimaCita.eventoId))?.nombre ||
-                            String(ultimaCita.eventoId || '')
-                          : '';
-                        const tipoUltimo = ultimaCita?.tipoCitaNombre ? String(ultimaCita.tipoCitaNombre) : '';
-                        return (
-                          <div key={s.id} className="rounded-lg border border-border bg-background p-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <div className="truncate text-sm font-medium text-foreground">{paciente?.nombre || s.pacienteId}</div>
-                                <div className="text-xs text-muted-foreground">{paciente?.numeroExpediente || ''}</div>
-                                {eventoNombre && <div className="mt-1 text-xs text-muted-foreground">{eventoNombre}</div>}
-                                {(eventoUltimoNombre || tipoUltimo) && (
-                                  <div className="mt-1 text-xs text-muted-foreground">
-                                    {t('citas.last_followup').replace('{0}', eventoUltimoNombre || t('citas.event_na'))}
-                                    {tipoUltimo ? ` · ${tipoUltimo}` : ''}
-                                  </div>
-                                )}
-                              </div>
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => {
-                                  setSeguimientoParaAgendar(s);
-                                  setAgendaMensaje(t('citas.followups_msg_selected'));
-                                }}
-                              >
-                                {t('citas.followups_action')}
-                              </Button>
-                            </div>
-                            {nota && <div className="mt-2 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">{nota}</div>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
         )}
       </div>
