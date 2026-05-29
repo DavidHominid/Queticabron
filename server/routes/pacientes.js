@@ -115,19 +115,23 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    await pool.query(
-      `UPDATE "${SCHEMA}".paciente SET nombre = $1, apellido = $2, fecha_de_nacimiento = $3, sexo = $4, telefono = $5, ciudad = $6, imagen = $7, nacionalidad = $8, identificacion = $9 WHERE id_paciente = $10`,
+    const result = await pool.query(
+      `UPDATE "${SCHEMA}".paciente SET nombre = $1, apellido = $2, fecha_de_nacimiento = $3, sexo = $4, telefono = $5, ciudad = $6, imagen = $7, nacionalidad = $8, identificacion = $9 WHERE id_paciente = $10 RETURNING *`,
       [nombre, apellido, p.fechaNacimiento, p.sexo, p.telefono, p.ciudad, p.imagen || null, nacionalidad, identificacion, parseInt(id)]
     );
 
-    await recordAudit({
-      accion: 'Actualización de Paciente',
-      detalles: `Se actualizó la información de: ${nombre} ${apellido}`,
-      rol: p.rol_solicitante || 'admin',
-      nombre_usuario: p.usuario_solicitante || 'Administrador'
-    });
+    try {
+      await recordAudit({
+        accion: 'Actualización de Paciente',
+        detalles: `Se actualizó la información de: ${nombre} ${apellido}`,
+        rol: p.rol_solicitante || 'admin',
+        nombre_usuario: p.usuario_solicitante || 'Administrador'
+      });
+    } catch (auditErr) {
+      console.error('⚠️ Error no crítico en auditoría:', auditErr.message);
+    }
 
-    res.json({ success: true });
+    res.json(mapPaciente(result.rows[0]));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

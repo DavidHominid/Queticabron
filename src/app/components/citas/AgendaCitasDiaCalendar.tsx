@@ -207,7 +207,7 @@ export function AgendaCitasDiaCalendar({
         for (const h of esp.horarios || []) {
           const day = String(h?.dia || '').trim();
           if (!day) continue;
-          if (day <= hoy) continue;
+          if (day < hoy) continue;
           if (!h.horaInicio || !h.horaFin) continue;
           const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 60;
           const inicio = timeToMinutes(h.horaInicio);

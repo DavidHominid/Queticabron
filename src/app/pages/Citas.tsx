@@ -151,7 +151,7 @@ export function Citas() {
       return;
     }
     const dia = String(payload.horario.dia || '').substring(0, 10);
-    if (dia && dia <= hoy) {
+    if (dia && dia < hoy) {
       setAgendaMensaje(t('citas.day_of_only'));
       return;
     }
@@ -191,7 +191,7 @@ export function Citas() {
       throw new Error(t('citas.not_active'));
     }
     const dia = String(agendarHorario.dia || '').substring(0, 10);
-    if (dia && dia <= hoy) {
+    if (dia && dia < hoy) {
       throw new Error(t('citas.day_of_only'));
     }
 

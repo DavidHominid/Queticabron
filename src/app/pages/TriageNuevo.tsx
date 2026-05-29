@@ -53,14 +53,14 @@ export function TriageNuevo() {
 
 
   const [signosForm, setSignosForm] = useState<SignosVitales>({
-    temperatura: 36.5,
-    presionArterial: '120/80',
-    ritmoCardiaco: 70,
-    frecuenciaRespiratoria: 16,
-    saturacionOxigeno: 98,
-    peso: 70,
-    altura: 170,
-    azucarEnSangre: 100,
+    temperatura: undefined as any,
+    presionArterial: '',
+    ritmoCardiaco: undefined as any,
+    frecuenciaRespiratoria: undefined as any,
+    saturacionOxigeno: undefined as any,
+    peso: undefined as any,
+    altura: undefined as any,
+    azucarEnSangre: undefined as any,
   });
 
   const [observaciones, setObservaciones] = useState('');
@@ -137,14 +137,14 @@ export function TriageNuevo() {
     if (triageEnProceso[paciente.cita.id]) {
       const datosEnProceso = triageEnProceso[paciente.cita.id];
       setSignosForm({
-        temperatura: datosEnProceso.temperatura || 36.5,
-        presionArterial: datosEnProceso.presionArterial || '120/80',
-        ritmoCardiaco: datosEnProceso.ritmoCardiaco || 70,
-        frecuenciaRespiratoria: datosEnProceso.frecuenciaRespiratoria || 16,
-        saturacionOxigeno: datosEnProceso.saturacionOxigeno || 98,
-        peso: datosEnProceso.peso || 70,
-        altura: datosEnProceso.altura || 170,
-        azucarEnSangre: datosEnProceso.azucarEnSangre || 100,
+        temperatura: datosEnProceso.temperatura,
+        presionArterial: datosEnProceso.presionArterial || '',
+        ritmoCardiaco: datosEnProceso.ritmoCardiaco,
+        frecuenciaRespiratoria: datosEnProceso.frecuenciaRespiratoria,
+        saturacionOxigeno: datosEnProceso.saturacionOxigeno,
+        peso: datosEnProceso.peso,
+        altura: datosEnProceso.altura,
+        azucarEnSangre: datosEnProceso.azucarEnSangre,
       });
     } else if (paciente.triageCompletado) {
       // Si ya está completado, mostrar los datos
@@ -214,14 +214,14 @@ export function TriageNuevo() {
 
   const resetForm = () => {
     setSignosForm({
-      temperatura: 36.5,
-      presionArterial: '120/80',
-      ritmoCardiaco: 70,
-      frecuenciaRespiratoria: 16,
-      saturacionOxigeno: 98,
-      peso: 70,
-      altura: 170,
-      azucarEnSangre: 100,
+      temperatura: undefined as any,
+      presionArterial: '',
+      ritmoCardiaco: undefined as any,
+      frecuenciaRespiratoria: undefined as any,
+      saturacionOxigeno: undefined as any,
+      peso: undefined as any,
+      altura: undefined as any,
+      azucarEnSangre: undefined as any,
     });
     setObservaciones('');
   };
@@ -547,10 +547,11 @@ export function TriageNuevo() {
                         id="temperatura"
                         type="number"
                         step="0.1"
-                        value={signosForm.temperatura}
+                        value={signosForm.temperatura ?? ''}
                         onChange={(e) =>
-                          setSignosForm({ ...signosForm, temperatura: Number(e.target.value) })
+                          setSignosForm({ ...signosForm, temperatura: e.target.value === '' ? undefined as any : Number(e.target.value) })
                         }
+                        placeholder="Ej: 36.8"
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
@@ -587,10 +588,11 @@ export function TriageNuevo() {
                       <Input
                         id="ritmo"
                         type="number"
-                        value={signosForm.ritmoCardiaco}
+                        value={signosForm.ritmoCardiaco ?? ''}
                         onChange={(e) =>
-                          setSignosForm({ ...signosForm, ritmoCardiaco: Number(e.target.value) })
+                          setSignosForm({ ...signosForm, ritmoCardiaco: e.target.value === '' ? undefined as any : Number(e.target.value) })
                         }
+                        placeholder="Ej: 75"
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
@@ -602,13 +604,14 @@ export function TriageNuevo() {
                       <Input
                         id="respiracion"
                         type="number"
-                        value={signosForm.frecuenciaRespiratoria}
+                        value={signosForm.frecuenciaRespiratoria ?? ''}
                         onChange={(e) =>
                           setSignosForm({
                             ...signosForm,
-                            frecuenciaRespiratoria: Number(e.target.value),
+                            frecuenciaRespiratoria: e.target.value === '' ? undefined as any : Number(e.target.value),
                           })
                         }
+                        placeholder="Ej: 16"
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
@@ -620,13 +623,14 @@ export function TriageNuevo() {
                       <Input
                         id="oxigeno"
                         type="number"
-                        value={signosForm.saturacionOxigeno}
+                        value={signosForm.saturacionOxigeno ?? ''}
                         onChange={(e) =>
                           setSignosForm({
                             ...signosForm,
-                            saturacionOxigeno: Number(e.target.value),
+                            saturacionOxigeno: e.target.value === '' ? undefined as any : Number(e.target.value),
                           })
                         }
+                        placeholder="Ej: 98"
                         disabled={selectedPaciente.estado === 'completado'}
                       />
                       <p className="text-xs text-muted-foreground mt-1">{t('triage.normal')} &gt;95%</p>
@@ -637,13 +641,14 @@ export function TriageNuevo() {
                       <Input
                         id="glucosa"
                         type="number"
-                        value={signosForm.azucarEnSangre}
+                        value={signosForm.azucarEnSangre ?? ''}
                         onChange={(e) =>
                           setSignosForm({
                             ...signosForm,
-                            azucarEnSangre: Number(e.target.value),
+                            azucarEnSangre: e.target.value === '' ? undefined as any : Number(e.target.value),
                           })
                         }
+                        placeholder="Ej: 95"
                         disabled={selectedPaciente.estado === 'completado'}
                       />
                       <p className="text-xs text-muted-foreground mt-1">{t('triage.normal')} 70 - 140</p>
@@ -662,10 +667,11 @@ export function TriageNuevo() {
                         id="peso"
                         type="number"
                         step="0.1"
-                        value={signosForm.peso}
+                        value={signosForm.peso ?? ''}
                         onChange={(e) =>
-                          setSignosForm({ ...signosForm, peso: Number(e.target.value) })
+                          setSignosForm({ ...signosForm, peso: e.target.value === '' ? undefined as any : Number(e.target.value) })
                         }
+                        placeholder="Ej: 65"
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
@@ -676,10 +682,11 @@ export function TriageNuevo() {
                       <Input
                         id="altura"
                         type="number"
-                        value={signosForm.altura}
+                        value={signosForm.altura ?? ''}
                         onChange={(e) =>
-                          setSignosForm({ ...signosForm, altura: Number(e.target.value) })
+                          setSignosForm({ ...signosForm, altura: e.target.value === '' ? undefined as any : Number(e.target.value) })
                         }
+                        placeholder="Ej: 165"
                         required
                         disabled={selectedPaciente.estado === 'completado'}
                       />
@@ -687,20 +694,26 @@ export function TriageNuevo() {
 
                     <div>
                       <Label>{t('triage.imc_calc')}</Label>
-                      <div className="h-11 px-3 border border-border rounded-lg bg-accent flex items-center">
-                        <span className="font-semibold text-foreground">
-                          {calcularIMC(signosForm.peso, signosForm.altura)}
-                        </span>
-                        <span
-                          className={`ml-2 text-sm ${
-                            getIMCCategoria(
-                              Number(calcularIMC(signosForm.peso, signosForm.altura))
-                            ).color
-                          }`}
-                        >
-                          · {getIMCCategoria(Number(calcularIMC(signosForm.peso, signosForm.altura))).texto}
-                        </span>
-                      </div>
+                      {signosForm.peso && signosForm.altura ? (
+                        <div className="h-11 px-3 border border-border rounded-lg bg-accent flex items-center">
+                          <span className="font-semibold text-foreground">
+                            {calcularIMC(signosForm.peso, signosForm.altura)}
+                          </span>
+                          <span
+                            className={`ml-2 text-sm ${
+                              getIMCCategoria(
+                                Number(calcularIMC(signosForm.peso, signosForm.altura))
+                              ).color
+                            }`}
+                          >
+                            · {getIMCCategoria(Number(calcularIMC(signosForm.peso, signosForm.altura))).texto}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="h-11 px-3 border border-border rounded-lg bg-muted/30 flex items-center text-sm text-muted-foreground">
+                          Ingresa peso y altura
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

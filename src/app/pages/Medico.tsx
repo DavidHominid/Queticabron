@@ -771,7 +771,7 @@ export function Medico() {
                           id="motivo"
                           value={consultaForm.motivoConsulta}
                           onChange={(e) => setConsultaForm({ ...consultaForm, motivoConsulta: e.target.value })}
-                          placeholder="Ej: Dolor abdominal, fiebre, etc."
+                          placeholder="Ej: Dolor de cabeza persistente, tos con flema, control de diabetes..."
                           required
                         />
                       </div>
@@ -782,7 +782,7 @@ export function Medico() {
                           rows={3}
                           value={consultaForm.padecimientoActual}
                           onChange={(e) => setConsultaForm({ ...consultaForm, padecimientoActual: e.target.value })}
-                          placeholder="Describe el padecimiento actual del paciente..."
+                          placeholder="Inicio: hace 3 días. Características: sordo, 7/10 de intensidad, empeora con movimiento. Asociado a náuseas. Sin fiebre."
                           required
                         />
                       </div>
@@ -801,7 +801,7 @@ export function Medico() {
                           rows={3}
                           value={consultaForm.exploracionFisica}
                           onChange={(e) => setConsultaForm({ ...consultaForm, exploracionFisica: e.target.value })}
-                          placeholder="Hallazgos relevantes de la exploración física..."
+                          placeholder="Tórax: simétrico, sin tiraje. Abdomen: blando, depresible, doloroso en FID. FC 82bpm, FR 18rpm, Temp 36.8°C..."
                           required
                         />
                       </div>
@@ -819,7 +819,7 @@ export function Medico() {
                           id="diagnostico"
                           value={consultaForm.diagnostico}
                           onChange={(e) => setConsultaForm({ ...consultaForm, diagnostico: e.target.value })}
-                          placeholder="Diagnóstico principal"
+                          placeholder="Ej: J18.9 Neumonía, E11 Diabetes Mellitus tipo 2, K29.7 Gastritis..."
                           required
                         />
                       </div>
@@ -838,7 +838,7 @@ export function Medico() {
                           rows={2}
                           value={consultaForm.tratamiento}
                           onChange={(e) => setConsultaForm({ ...consultaForm, tratamiento: e.target.value })}
-                          placeholder="Plan de tratamiento general..."
+                          placeholder="Ej: Reposo relativo 3 días, hidratación abundante, dieta blanda, control en 7 días..."
                           required
                         />
                       </div>
@@ -890,7 +890,7 @@ export function Medico() {
                                     <Input
                                       value={med.nombre}
                                       onChange={(e) => actualizarMedicamento(idx, 'nombre', e.target.value)}
-                                      placeholder="Ej: Paracetamol"
+                                      placeholder="Ej: Amoxicilina, Ibuprofeno, Metformina"
                                       className="h-9"
                                     />
                                   </td>
@@ -898,7 +898,7 @@ export function Medico() {
                                     <Input
                                       value={med.dosis}
                                       onChange={(e) => actualizarMedicamento(idx, 'dosis', e.target.value)}
-                                      placeholder="Ej: 500mg"
+                                      placeholder="Ej: 500mg, 10ml, 1 tableta"
                                       className="h-9"
                                     />
                                   </td>
@@ -906,7 +906,7 @@ export function Medico() {
                                     <Input
                                       value={med.frecuencia}
                                       onChange={(e) => actualizarMedicamento(idx, 'frecuencia', e.target.value)}
-                                      placeholder="Ej: Cada 8h"
+                                      placeholder="Ej: Cada 8h, 2 veces al día"
                                       className="h-9"
                                     />
                                   </td>
@@ -914,7 +914,7 @@ export function Medico() {
                                     <Input
                                       value={med.duracion}
                                       onChange={(e) => actualizarMedicamento(idx, 'duracion', e.target.value)}
-                                      placeholder="Ej: 7 días"
+                                      placeholder="Ej: 5 días, 2 semanas, 1 mes"
                                       className="h-9"
                                     />
                                   </td>
@@ -962,7 +962,7 @@ export function Medico() {
                                     <Input
                                       value={est.tipo}
                                       onChange={(e) => actualizarEstudio(idx, 'tipo', e.target.value)}
-                                      placeholder="Ej: Radiografía de tórax"
+                                      placeholder="Ej: BH completa, QS, Radiografía PA de tórax, USG abdominal"
                                       className="h-9"
                                     />
                                   </td>
@@ -970,7 +970,7 @@ export function Medico() {
                                     <Input
                                       value={est.indicaciones}
                                       onChange={(e) => actualizarEstudio(idx, 'indicaciones', e.target.value)}
-                                      placeholder="Ej: Para descartar neumonía"
+                                      placeholder="Ej: PA y lateral, ayuno de 8h, con medio de contraste"
                                       className="h-9"
                                     />
                                   </td>
@@ -1001,7 +1001,7 @@ export function Medico() {
                           rows={2}
                           value={consultaForm.recomendaciones}
                           onChange={(e) => setConsultaForm({ ...consultaForm, recomendaciones: e.target.value })}
-                          placeholder="Recomendaciones y cuidados para el paciente..."
+                          placeholder="Ej: Reposo, tomar mucha agua, evitar sol, no combinar con alcohol, regresar si hay fiebre >38.5°C o no mejora en 72h..."
                         />
                       </div>
 

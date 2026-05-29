@@ -238,10 +238,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const handleFocus = () => fetchAllData();
     window.addEventListener('focus', handleFocus);
 
-    // Polling rápido (15s): Solo para la operación crítica diaria
+    // Polling moderado (60s): Solo para la operación crítica diaria
     const operationalInterval = setInterval(() => {
       fetchOperationalData();
-    }, 15000);
+    }, 60000);
 
     // Polling lento (3 minutos): Para catálogos, auditorías, etc.
     const staticInterval = setInterval(() => {
@@ -328,8 +328,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const text = await res.text();
-        const actualizado = text ? JSON.parse(text) : { success: true };
-        setPacientes(pacientes.map((p) => (p.id === id ? actualizado : p)));
+        const actualizado = text ? JSON.parse(text) : null;
+        // Si el servidor devuelve el paciente actualizado completo, usarlo.
+        // Si no (ej. {success:true}), hacer merge local con los datos enviados.
+        if (actualizado && actualizado.id) {
+          setPacientes((prev) => prev.map((p) => (p.id === id ? actualizado : p)));
+        } else {
+          setPacientes((prev) => prev.map((p) => (p.id === id ? { ...p, ...pacienteUpdate } : p)));
+        }
         return { success: true };
       } else {
         const text = await res.text();
