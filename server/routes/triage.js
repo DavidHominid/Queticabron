@@ -1,6 +1,7 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
 import { mapTriage, recordAudit } from '../helpers/utils.js';
+import { broadcast } from '../helpers/sse.js';
 
 const router = express.Router();
 
@@ -106,6 +107,7 @@ router.post('/', async (req, res) => {
     }
 
     res.status(201).json(triageMapped);
+    broadcast('operacional'); // ⚡ el médico ve al paciente listo instantáneamente
 
     await recordAudit({
       accion: 'Triage Completado',

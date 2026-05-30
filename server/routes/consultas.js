@@ -1,6 +1,7 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
 import { mapConsultaMedica, recordAudit } from '../helpers/utils.js';
+import { broadcast } from '../helpers/sse.js';
 
 const router = express.Router();
 
@@ -189,6 +190,7 @@ router.post('/', async (req, res) => {
     });
 
     res.status(201).json(consultaMapped);
+    broadcast('operacional'); // ⚡ recepción ve la cita completada instantáneamente
   } catch (err) {
     console.error('❌ Error en POST /api/consultas:', err.message);
     res.status(500).json({ error: err.message });

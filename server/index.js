@@ -23,6 +23,7 @@ import ciudadesRoutes from './routes/ciudades.js';
 import expedienteCitaRoutes from './routes/expediente-cita.js';
 import expedienteRoutes from './routes/expediente.js';
 import sedesRoutes from './routes/sedes.js';
+import { sseMiddleware } from './helpers/sse.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,6 +61,11 @@ migrateExpedienteCitaToExpediente().catch((err) => {
 migrateAgendaCirugiasEstados().catch((err) => {
   console.error('❌ Error migrando estados cirugia:', err.message);
 });
+
+// ── Tiempo real: Server-Sent Events ────────────────────────────────────────
+// Los clientes se conectan aquí y reciben notificaciones push instantáneas
+// cuando el servidor muta datos (citas, triage, consultas, etc.)
+app.get('/api/sse', sseMiddleware);
 
 // Montaje de rutas
 app.use('/api/pacientes', pacientesRoutes);

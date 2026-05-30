@@ -1,6 +1,7 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
 import { mapCita, toDBEstado, recordAudit, normalizeHora } from '../helpers/utils.js';
+import { broadcast } from '../helpers/sse.js';
 
 const router = express.Router();
 
@@ -228,6 +229,7 @@ router.post('/', async (req, res) => {
       [row.id_cita],
     );
     res.status(201).json(mapCita(enriched.rows[0] || row));
+    broadcast('operacional'); // ⚡ notifica a todos los clientes
   } catch (err) {
     console.error('❌ Error en POST /api/citas:', err.message);
     res.status(500).json({ error: err.message });
@@ -315,6 +317,7 @@ router.put('/:id', async (req, res) => {
       [row.id_cita],
     );
     res.json(mapCita(enriched.rows[0] || row));
+    broadcast('operacional'); // ⚡ notifica a todos los clientes
   } catch (err) {
     console.error('❌ Error en PUT /api/citas/:id:', err.message);
     res.status(500).json({ error: err.message });

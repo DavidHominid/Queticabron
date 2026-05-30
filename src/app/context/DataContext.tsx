@@ -224,33 +224,71 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await Promise.all([fetchOperationalData(), fetchStaticData()]);
   };
 
-  // Fetch all data on mount and poll
+  // ── Tiempo real: SSE + fallback polling ──────────────────────────────────
   useEffect(() => {
     let isMounted = true;
+    let es: EventSource | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let reconnectDelay = 1000; // ms, crece exponencialmente hasta 30s
 
+    // Carga inicial
     fetchAllData().finally(() => {
-      if (isMounted) {
-        setIsInitialized(true);
-      }
+      if (isMounted) setIsInitialized(true);
     });
 
-    // Recargar todo cuando el usuario regresa a la pestaña (foco)
+    // Recargar todo cuando el usuario regresa a la pestaña
     const handleFocus = () => fetchAllData();
     window.addEventListener('focus', handleFocus);
 
-    // Polling moderado (60s): Solo para la operación crítica diaria
-    const operationalInterval = setInterval(() => {
-      fetchOperationalData();
-    }, 60000);
+    // ── Conectar al stream SSE ──────────────────────────────────────────────
+    const connect = () => {
+      if (!isMounted) return;
+      es = new EventSource('/api/sse');
 
-    // Polling lento (3 minutos): Para catálogos, auditorías, etc.
+      // Confirmación de conexión exitosa
+      es.addEventListener('connected', () => {
+        console.log('📡 SSE conectado — actualizaciones en tiempo real activas.');
+        reconnectDelay = 1000; // resetear delay al reconectar exitosamente
+      });
+
+      // ⚡ Evento principal: el servidor avisa que hay datos nuevos
+      es.addEventListener('operacional', () => {
+        if (isMounted) {
+          console.log('📡 SSE: cambio operacional detectado → recargando datos...');
+          fetchOperationalData();
+        }
+      });
+
+      // Reconexión automática si la conexión se pierde
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        if (!isMounted) return;
+        console.warn(`📡 SSE desconectado. Reconectando en ${reconnectDelay / 1000}s...`);
+        reconnectTimeout = setTimeout(() => {
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+          connect();
+        }, reconnectDelay);
+      };
+    };
+
+    connect();
+
+    // Fallback polling de seguridad (5 min) — por si se pierde algún evento SSE
+    const fallbackInterval = setInterval(() => {
+      if (isMounted) fetchOperationalData();
+    }, 300000);
+
+    // Polling lento (3 min): catálogos, auditorías, usuarios, etc.
     const staticInterval = setInterval(() => {
-      fetchStaticData();
+      if (isMounted) fetchStaticData();
     }, 180000);
 
     return () => {
       isMounted = false;
-      clearInterval(operationalInterval);
+      es?.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(fallbackInterval);
       clearInterval(staticInterval);
       window.removeEventListener('focus', handleFocus);
     };

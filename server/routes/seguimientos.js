@@ -1,5 +1,6 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
+import { broadcast } from '../helpers/sse.js';
 
 const router = express.Router();
 
@@ -157,6 +158,7 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Seguimiento no encontrado' });
 
     res.json(mapSeguimiento(result.rows[0]));
+    broadcast('operacional'); // ⚡ notifica cambio de seguimiento
   } catch (err) {
     console.error('❌ Error en PUT /api/seguimientos/:id:', err.message);
     res.status(500).json({ error: err.message });
