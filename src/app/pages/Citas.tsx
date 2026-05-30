@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useLocation } from 'react-router';
 import { CalendarDays } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { AgendaCitasDiaCalendar } from '../components/citas/AgendaCitasDiaCalendar';
@@ -59,6 +60,8 @@ export function Citas() {
   } = useData();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const location = useLocation();
+  const preselectPacienteId = location.state?.preselectPacienteId;
 
   const [agendaMensaje, setAgendaMensaje] = useState('');
   const [seguimientoParaAgendar, setSeguimientoParaAgendar] = useState<Seguimiento | null>(null);
@@ -411,7 +414,9 @@ export function Citas() {
           citas={citasVisibles}
           pacientes={pacientes}
           pacienteInicial={
-            seguimientoParaAgendar ? pacientesById.get(String(seguimientoParaAgendar.pacienteId)) || null : null
+            seguimientoParaAgendar 
+              ? pacientesById.get(String(seguimientoParaAgendar.pacienteId)) || null 
+              : (preselectPacienteId ? pacientesById.get(String(preselectPacienteId)) || null : null)
           }
           tipoCitaIdFijo={agendarHorario.tipoCitaId}
           onAgendar={onAgendar}

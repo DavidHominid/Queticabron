@@ -57,7 +57,7 @@ export function AgendarCitaDialog({
 
   useEffect(() => {
     if (!open) return;
-    setQuery('');
+    setQuery(pacienteInicial?.nombre || '');
     setPacienteSeleccionado(pacienteInicial || null);
     setHoraSeleccionada('');
     setTipoSeleccionadoId('');

@@ -33,7 +33,7 @@ export function AgendaGrid({
             <TableHead className="sticky left-0 z-10 bg-card min-w-[180px]">Horario</TableHead>
             {days.map((d) => (
               <TableHead key={d} className="min-w-[160px]">
-                {new Date(d).toLocaleDateString('es-MX', {
+                {new Date(d + 'T12:00:00').toLocaleDateString('es-MX', {
                   weekday: 'short',
                   day: '2-digit',
                   month: '2-digit',

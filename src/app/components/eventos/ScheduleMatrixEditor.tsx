@@ -75,7 +75,7 @@ export function ScheduleMatrixEditor({
               <TableHead className="min-w-[120px]">Intervalo</TableHead>
               {days.map((d) => (
                 <TableHead key={d} className="min-w-[110px]">
-                  {new Date(d).toLocaleDateString('es-MX', { weekday: 'short', day: '2-digit' })}
+                  {new Date(d + 'T12:00:00').toLocaleDateString('es-MX', { weekday: 'short', day: '2-digit' })}
                 </TableHead>
               ))}
               <TableHead className="w-[52px]" />

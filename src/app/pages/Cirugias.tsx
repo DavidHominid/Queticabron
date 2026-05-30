@@ -250,12 +250,8 @@ export function Cirugias() {
     const paciente = pacientes.find((p) => p.id === cirugia.pacienteId);
     const isPendienteSede = cirugia.requiereRentaExterna && cirugia.estatusRentaSede === 'pendiente_confirmar';
 
-    // Find associated consultation to show ordered studies on the card
-    const consultaAsociada = cirugia.citaId
-      ? consultasMedicas.find(c => c.citaId === cirugia.citaId)
-      : consultasMedicas.slice().reverse().find(c => c.pacienteId === cirugia.pacienteId && c.requiereCirugia) ||
-        consultasMedicas.slice().reverse().find(c => c.pacienteId === cirugia.pacienteId);
-    const estudiosSolicitados = consultaAsociada?.estudiosIndicados?.filter(e => e.tipo?.trim()) || [];
+    // Use the required studies directly attached to the surgery object
+    const estudiosSolicitados = (cirugia.estudiosRequeridos || []).filter(e => e.tipo?.trim());
 
     return (
       <Card 
@@ -272,7 +268,10 @@ export function Cirugias() {
               </span>
             )}
           </div>
-          <div className="text-xs text-muted-foreground space-y-1 mb-3">
+
+          <hr className="my-2 border-border/40" />
+
+          <div className="text-xs text-muted-foreground space-y-1.5 mb-3">
             <div className="flex items-center gap-1">
               <User className="w-3 h-3" /> {paciente?.nombre} {paciente?.apellido}
             </div>
@@ -290,10 +289,12 @@ export function Cirugias() {
 
           {/* Studies chip — only visible in pendiente_estudio phase */}
           {fase.id === 'pendiente_estudio' && (
-            <div className="mb-3">
-              {estudiosSolicitados.length > 0 ? (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+            <>
+              <hr className="my-2 border-border/40" />
+              <div className="mb-3">
+                {estudiosSolicitados.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                     <ClipboardList className="w-3 h-3" /> {t('cirugias.warning.requested_studies')}
                   </p>
                   <div className="flex flex-wrap gap-1">
@@ -314,15 +315,10 @@ export function Cirugias() {
                 </p>
               )}
             </div>
+            </>
           )}
 
-          <div className="flex gap-2 justify-between mt-3 pt-3 border-t">
-            <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => {
-              setSelectedCirugia(cirugia);
-              setShowDetallesModal(true);
-            }}>
-              <Eye className="w-4 h-4" />
-            </Button>
+          <div className="flex gap-2 justify-end mt-3 pt-3 border-t">
             
             {fase.next && (
               <Button size="sm" className="h-8 text-xs" onClick={() => handleStatusChange(cirugia, fase.next)}>

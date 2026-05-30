@@ -464,7 +464,7 @@ export function TriageNuevo() {
                         <div className="flex flex-col gap-1 mt-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-3 h-3 text-[color:var(--brand-secondary-strong)]" />
-                            <span>{t('triage.scheduled_for')} {new Date(paciente.cita.fecha).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+                            <span>{t('triage.scheduled_for')} {new Date(paciente.cita.fecha + 'T12:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="w-3 h-3 text-[color:var(--brand-secondary-strong)]" />

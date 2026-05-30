@@ -643,7 +643,7 @@ export function Pacientes() {
                       <Button
                         variant="secondary"
                         className="w-full h-11"
-                        onClick={() => navigate('/citas')}
+                        onClick={() => navigate('/citas', { state: { preselectPacienteId: selectedPaciente.id } })}
                       >
                         <Calendar className="w-4 h-4 mr-2" />
                         Ver Calendario y Eventos
