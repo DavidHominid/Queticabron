@@ -10,7 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Ciudad, Especialidad, EspecialidadEvento, Evento } from '../types';
 import { labelEspecialidad } from '../utils/especialidades';
-import { nowIso, nowMs } from '../utils/clock';
+import { nowIso } from '../utils/clock';
+import { isEventoSoloLectura } from '../utils/eventoEstado';
 
 const listDaysInclusive = (start: string, end: string) => {
   if (!start || !end) return [] as string[];
@@ -108,13 +109,6 @@ const createEspecialidad = (especialidad: Especialidad): EspecialidadEvento => (
   tiposCita: [],
 });
 
-const isEventoFinalizado = (fechaFin?: string | null) => {
-  if (!fechaFin) return false;
-  const end = new Date(`${fechaFin}T23:59:59`);
-  if (Number.isNaN(end.getTime())) return false;
-  return nowMs() > end.getTime();
-};
-
 export function EventoEditor() {
   const { id } = useParams();
   const isEdit = Boolean(id);
@@ -124,7 +118,7 @@ export function EventoEditor() {
   const { eventos, usuarios, citas, especialidadesCatalogo, ciudadesCatalogo, addEvento, updateEvento, addRegistroAuditoria } = useData();
 
   const eventoOriginal = useMemo(() => (isEdit && id ? eventos.find((e) => e.id === id) || null : null), [eventos, id, isEdit]);
-  const bloqueado = useMemo(() => isEventoFinalizado(eventoOriginal?.fechaFin || null), [eventoOriginal?.fechaFin]);
+  const bloqueado = useMemo(() => isEventoSoloLectura(eventoOriginal), [eventoOriginal]);
 
   const ciudadDefault =
     (user?.rol === 'recepcion' ? (user?.ciudad || '') : '') ||

@@ -110,6 +110,7 @@ router.post('/', async (req, res) => {
     broadcast('operacional'); // ⚡ el médico ve al paciente listo instantáneamente
 
     await recordAudit({
+      paciente_id: t.pacienteId,
       accion: 'Triage Completado',
       detalles: `Triage realizado para cita ID: ${t.citaId}. Paciente ID: ${t.pacienteId}`,
       rol: t.rol_solicitante || 'triage',

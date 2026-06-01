@@ -1,7 +1,7 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
 import { recordAudit } from '../helpers/utils.js';
-import bcrypt from 'bcryptjs';
+import bcrypt from 'bcrypt';
 
 const router = express.Router();
 
@@ -34,13 +34,16 @@ const mapearRol = (rolDB) => {
 const isUsuarioActivoEfectivo = (u) => {
   if (u?.activo === false) return false;
   const hoy = new Date();
+  const hoyYmd = hoy.toISOString().slice(0, 10);
   if (u?.activo_desde) {
     const desde = new Date(u.activo_desde);
-    if (!Number.isNaN(desde.getTime()) && desde > hoy) return false;
+    const desdeYmd = !Number.isNaN(desde.getTime()) ? desde.toISOString().slice(0, 10) : null;
+    if (desdeYmd && desdeYmd > hoyYmd) return false;
   }
   if (u?.activo_hasta) {
     const hasta = new Date(u.activo_hasta);
-    if (!Number.isNaN(hasta.getTime()) && hasta < hoy) return false;
+    const hastaYmd = !Number.isNaN(hasta.getTime()) ? hasta.toISOString().slice(0, 10) : null;
+    if (hastaYmd && hastaYmd < hoyYmd) return false;
   }
   return true;
 };
@@ -87,20 +90,21 @@ const getSedes = async (userId) => {
 const buildUsuarioResponse = async (row) => {
   const rol = mapearRol(row.rol);
   const especialidades = await getEspecialidades(row.id_usuario);
-  let ciudades = await getSedes(row.id_usuario);
-  // Recepcion sólo opera en una sede
-  if (rol === 'recepcion' && ciudades.length > 1) ciudades = [ciudades[0]];
+  let sedes = await getSedes(row.id_usuario);
+  if (rol === 'recepcion' && sedes.length > 1) sedes = [sedes[0]];
   return {
     id: String(row.id_usuario),
     nombre: String(row.nombre_usuario || ''),
-    usuario: String(row.correo || ''),  // campo legacy que espera el frontend
+    usuario: String(row.correo || ''),
     correo: String(row.correo || ''),
     rol,
-    rolDB: String(row.rol || ''),       // rol original de la BD
+    rolDB: String(row.rol || ''),
     especialidades,
     especialidad: especialidades[0] || null,
-    ciudades,
-    ciudad: ciudades[0] || '',
+    sedes,
+    sede: sedes[0] || '',
+    ciudades: sedes,
+    ciudad: sedes[0] || '',
     activo: Boolean(row.activo),
     activoDesde: row.activo_desde ? new Date(row.activo_desde).toISOString().slice(0, 10) : null,
     activoHasta: row.activo_hasta ? new Date(row.activo_hasta).toISOString().slice(0, 10) : null,
@@ -109,15 +113,20 @@ const buildUsuarioResponse = async (row) => {
 
 router.post('/login', async (req, res) => {
   // Acepta tanto { usuario, password } (legacy) como { correo, password }
-  const correo = req.body.correo || req.body.usuario;
+  const correo = String(req.body.correo || req.body.usuario || '').trim();
   const { password } = req.body;
   try {
     await aplicarAutoDesactivacion();
 
+    if (!correo || !String(password || '').length) {
+      return res.status(400).json({ error: 'Credenciales inválidas' });
+    }
+
     const result = await pool.query(
       `SELECT id_usuario, nombre_usuario, correo, rol, activo, activo_desde, activo_hasta, password
        FROM public.usuarios
-       WHERE correo = $1`,
+       WHERE lower(correo) = lower($1) OR lower(nombre_usuario) = lower($1)
+       LIMIT 1`,
       [correo]
     );
 
@@ -127,30 +136,25 @@ router.post('/login', async (req, res) => {
 
     const row = result.rows[0];
 
-    // Comparación híbrida: soporta bcrypt ($2b$/$2a$) y texto plano (legacy)
+    const plain = String(password ?? '');
     let passwordOk = false;
     const storedPwd = String(row.password || '');
-    if (storedPwd.startsWith('$2b$') || storedPwd.startsWith('$2a$')) {
-      // Hash bcrypt — intentar con bcryptjs si está disponible
-      try {
-        const { default: bcrypt } = await import('bcryptjs');
-        passwordOk = await bcrypt.compare(password, storedPwd);
-      } catch {
-        try {
-          const { default: bcrypt } = await import('bcrypt');
-          passwordOk = await bcrypt.compare(password, storedPwd);
-        } catch {
-          // bcrypt no disponible, comparación directa como fallback de emergencia
-          passwordOk = (password === storedPwd);
-        }
-      }
-    } else {
-      // Texto plano (usuarios legacy del sistema)
-      passwordOk = (password === storedPwd);
-    }
+    const isBcryptHash =
+      storedPwd.startsWith('$2b$') || storedPwd.startsWith('$2a$') || storedPwd.startsWith('$2y$');
+
+    if (isBcryptHash) passwordOk = await bcrypt.compare(plain, storedPwd);
+    else passwordOk = (plain === storedPwd);
 
     if (!passwordOk) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+
+    if (!isBcryptHash || storedPwd.startsWith('$2a$')) {
+      const upgradedHash = await bcrypt.hash(plain, 10);
+      await pool.query(
+        `UPDATE public.usuarios SET password = $1 WHERE id_usuario = $2`,
+        [upgradedHash, row.id_usuario],
+      );
     }
 
     if (!isUsuarioActivoEfectivo(row)) {

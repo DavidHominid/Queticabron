@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { ClipboardList } from 'lucide-react';
 import { Badge } from '../../components/ui/badge';
@@ -14,9 +14,11 @@ import { DetalleCitaCompleta } from '../../components/expediente/DetalleCitaComp
 
 export function ExpedienteResumen() {
   const { paciente } = useOutletContext<{ paciente: Paciente }>();
-  const { registrosTriage, informacionMedica, cirugias, seguimientos, estudios, registrosAuditoria, citas, consultasMedicas, especialidadesCatalogo, expedientesCita } = useData();
+  const { registrosTriage, informacionMedica, cirugias, seguimientos, estudios, citas, consultasMedicas, especialidadesCatalogo, expedientesCita } = useData();
   const [cirugiaSeleccionadaId, setCirugiaSeleccionadaId] = useState<string | null>(null);
   const [modalCitaId, setModalCitaId] = useState<string | null>(null);
+  const [auditoriaPaciente, setAuditoriaPaciente] = useState<any[]>([]);
+  const [cargandoAuditoria, setCargandoAuditoria] = useState(false);
 
   const triagesPaciente = useMemo(
     () => registrosTriage.filter((t) => String(t.pacienteId) === String(paciente.id)),
@@ -58,16 +60,32 @@ export function ExpedienteResumen() {
     return 'N/A';
   };
 
-  const auditoriaPaciente = useMemo(() => {
-    return registrosAuditoria
-      .filter(
-        (a) =>
-          a.detalles.includes(paciente.nombre) ||
-          a.detalles.includes(paciente.numeroExpediente) ||
-          (a.detalles.includes('Paciente ID') && a.detalles.includes(paciente.id)),
-      )
-      .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime());
-  }, [registrosAuditoria, paciente.id, paciente.nombre, paciente.numeroExpediente]);
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setCargandoAuditoria(true);
+      try {
+        const res = await fetch(`/api/auditoria?pacienteId=${encodeURIComponent(String(paciente.id))}`);
+        if (!res.ok) {
+          if (!cancelled) setAuditoriaPaciente([]);
+          return;
+        }
+        const data = await res.json();
+        const next = Array.isArray(data) ? data : [];
+        if (!cancelled) {
+          setAuditoriaPaciente(next.sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime()));
+        }
+      } catch {
+        if (!cancelled) setAuditoriaPaciente([]);
+      } finally {
+        if (!cancelled) setCargandoAuditoria(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [paciente.id]);
 
   const citasPaciente = useMemo(
     () => citas.filter((c) => String(c.pacienteId) === String(paciente.id)),
@@ -173,7 +191,7 @@ export function ExpedienteResumen() {
                 })}
                 {auditoriaPaciente.length === 0 && (
                   <div className="p-8 text-center text-gray-400 text-sm italic">
-                    No hay registros de auditoría para este paciente.
+                    {cargandoAuditoria ? 'Cargando registros...' : 'No hay registros de auditoría para este paciente.'}
                   </div>
                 )}
               </div>

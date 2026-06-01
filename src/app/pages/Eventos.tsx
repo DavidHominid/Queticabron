@@ -22,7 +22,8 @@ import { useLanguage } from '../context/LanguageContext';
 import { Especialidad, Evento } from '../types';
 import { labelCiudad } from '../utils/ciudades';
 import { labelEspecialidad } from '../utils/especialidades';
-import { nowIso, nowMs } from '../utils/clock';
+import { nowIso } from '../utils/clock';
+import { isEventoSoloLectura } from '../utils/eventoEstado';
 
 const formatDate = (value: string | null | undefined, t: (key: string) => string) => {
   if (!value) return t('eventos.no_date');
@@ -33,13 +34,6 @@ const formatDate = (value: string | null | undefined, t: (key: string) => string
     month: 'short',
     year: 'numeric',
   }).format(date);
-};
-
-const isEventoFinalizado = (fechaFin?: string | null) => {
-  if (!fechaFin) return false;
-  const end = new Date(`${fechaFin}T23:59:59`);
-  if (Number.isNaN(end.getTime())) return false;
-  return nowMs() > end.getTime();
 };
 
 const normCiudad = (value: unknown) => {
@@ -147,7 +141,7 @@ export function Eventos() {
                 labelEspecialidad(esp.especialidad as Especialidad, especialidadesCatalogo),
               );
               const totalHorarios = (evento.especialidades || []).reduce((acc, esp) => acc + (esp.horarios?.length || 0), 0);
-              const bloqueado = isEventoFinalizado(evento.fechaFin);
+              const bloqueado = isEventoSoloLectura(evento);
 
               return (
                 <Card

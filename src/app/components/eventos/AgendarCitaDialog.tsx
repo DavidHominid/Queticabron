@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, TipoCitaEvento } from '../../types';
 import { CrearPacienteDialog } from '../pacientes/CrearPacienteDialog';
+import { canAgendarCitaEnEvento } from '../../utils/eventoEstado';
 
 const timeToMinutes = (t: string) => {
   const [hh, mm] = t.split(':').map((x) => Number(x));
@@ -54,6 +55,23 @@ export function AgendarCitaDialog({
   const errorId = useId();
   const [guardando, setGuardando] = useState(false);
   const [crearPacienteOpen, setCrearPacienteOpen] = useState(false);
+
+  const diaYmd = useMemo(() => String(horario?.dia || '').trim().slice(0, 10), [horario?.dia]);
+
+  const msgNoAgendable = (reason?: string) => {
+    if (reason === 'cancelado') return 'Este evento está cancelado. No se pueden agendar citas.';
+    if (reason === 'finalizado') return 'Este evento ya finalizó. No se pueden agendar citas.';
+    if (reason === 'inscripciones_no_inician') return 'Aún no inician las inscripciones de este evento. No se pueden agendar citas.';
+    if (reason === 'fuera_fechas_evento') return 'La fecha de la cita está fuera de las fechas del evento.';
+    return 'Este evento no está activo. No se pueden agendar citas.';
+  };
+
+  const canAgendar = useMemo(() => canAgendarCitaEnEvento(evento, diaYmd), [diaYmd, evento]);
+
+  const bloqueoMsg = useMemo(() => {
+    if (canAgendar.ok) return '';
+    return msgNoAgendable(canAgendar.reason);
+  }, [canAgendar.ok, canAgendar.reason]);
 
   useEffect(() => {
     if (!open) return;
@@ -116,6 +134,7 @@ export function AgendarCitaDialog({
   }, [intervalo, tipoSeleccionado]);
 
   const horasDisponibles = useMemo(() => {
+    if (!canAgendar.ok) return [] as string[];
     const inicio = timeToMinutes(horario.horaInicio);
     const fin = timeToMinutes(horario.horaFin);
     if (inicio >= fin) return [] as string[];
@@ -135,7 +154,7 @@ export function AgendarCitaDialog({
     if (ocupada) return [] as string[];
     if (inicio + duracionMinutos > fin) return [] as string[];
     return [horario.horaInicio];
-  }, [citas, duracionMinutos, especialidad, evento.id, horario.dia, horario.horaFin, horario.horaInicio, tipoCitaIdFijo]);
+  }, [canAgendar.ok, citas, duracionMinutos, especialidad, evento.id, horario.dia, horario.horaFin, horario.horaInicio, tipoCitaIdFijo]);
 
   useEffect(() => {
     if (!open) return;
@@ -163,6 +182,10 @@ export function AgendarCitaDialog({
   };
 
   const submit = async () => {
+    if (!canAgendar.ok) {
+      setError(msgNoAgendable(canAgendar.reason));
+      return;
+    }
     if (!pacienteSeleccionado) {
       setError('Selecciona un paciente.');
       return;
@@ -298,9 +321,9 @@ export function AgendarCitaDialog({
             {pacientes.length === 0 && <div className="text-sm text-muted-foreground">No hay pacientes cargados.</div>}
           </div>
 
-          {error && (
+          {(error || bloqueoMsg) && (
             <div id={errorId} role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
+              {error || bloqueoMsg}
             </div>
           )}
         </div>
@@ -309,7 +332,7 @@ export function AgendarCitaDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button type="button" onClick={submit} disabled={guardando || !horaSeleccionada}>
+          <Button type="button" onClick={submit} disabled={guardando || !horaSeleccionada || !canAgendar.ok}>
             {guardando ? 'Agendando…' : 'Agendar cita'}
           </Button>
         </DialogFooter>

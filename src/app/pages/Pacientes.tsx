@@ -15,13 +15,24 @@ import { formatDateSafe } from '../components/ui/utils';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Plus, Search, User, Phone, MapPin, FileText, X, Heart, Calendar } from 'lucide-react';
+import { Plus, Search, User, Phone, MapPin, FileText, X, Heart, Calendar, Trash2 } from 'lucide-react';
 import { Paciente, Ciudad } from '../types';
 import { now, nowIso, todayYmd } from '../utils/clock';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '../components/ui/alert-dialog';
 
 export function Pacientes() {
   const navigate = useNavigate();
-  const { pacientes, citas, eventos, consultasMedicas, addPaciente, updatePaciente, addCita, addRegistroAuditoria, addCirugia, ciudadesCatalogo, especialidadesCatalogo } = useData();
+  const { pacientes, citas, eventos, consultasMedicas, addPaciente, updatePaciente, deletePaciente, addCita, addRegistroAuditoria, addCirugia, ciudadesCatalogo, especialidadesCatalogo } = useData();
   const { user } = useAuth();
   const { t } = useLanguage();
   const [showModal, setShowModal] = useState(false);
@@ -58,6 +69,7 @@ export function Pacientes() {
   };
 
   const isMedico = user?.rol === 'medico';
+  const isAdmin = user?.rol === 'administrador';
   const esCitaDelMedico = (c: any) => c?.medicoEncargado && (c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre);
 
   useEffect(() => {
@@ -133,7 +145,6 @@ export function Pacientes() {
               uploadedUrl = data.url;
            }
        } catch(err) {
-           console.error("Error uploading image", err);
        }
     }
 
@@ -284,6 +295,7 @@ export function Pacientes() {
         (p.telefono || '').includes(termRaw);
 
       if (!matchSearch) return false;
+      if (p.eliminado) return false;
       if (!isMedico) return true;
 
       if (filterType === 'agendados') {
@@ -658,6 +670,46 @@ export function Pacientes() {
                         Agendar Cita Rápida (Libre)
                       </Button>
                       */}
+                    </div>
+                  )}
+
+                  {isAdmin && (
+                    <div className="flex flex-col gap-2 w-full mt-2">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" className="w-full h-11">
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Eliminar Paciente
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Eliminar paciente?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esto solo lo eliminará de la lista de pacientes. Las citas, triage, consultas y cirugías seguirán existiendo.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={async () => {
+                                try {
+                                  await deletePaciente(selectedPaciente.id, {
+                                    rol_solicitante: user?.rol,
+                                    usuario_solicitante: user?.nombre,
+                                    ciudad: user?.ciudad,
+                                  });
+                                  setSelectedPaciente(null);
+                                } catch (err: any) {
+                                  alert(err?.message || 'No se pudo eliminar el paciente.');
+                                }
+                              }}
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   )}
                 </div>

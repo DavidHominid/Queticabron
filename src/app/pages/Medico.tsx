@@ -445,7 +445,6 @@ export function Medico() {
             } as any);
           }
         } catch (err: any) {
-          console.error('Error al agendar cita de seguimiento:', err?.message);
         }
       }
     }

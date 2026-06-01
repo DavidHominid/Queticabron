@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -31,7 +31,6 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
     cirugias, 
     seguimientos,
     estudios,
-    registrosAuditoria,
     especialidadesCatalogo,
     expedientesCita
   } = useData();
@@ -40,6 +39,8 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
   const [cirugiaSeleccionadaId, setCirugiaSeleccionadaId] = useState<string | null>(null);
   const [vista, setVista] = useState<'paciente' | 'cita'>('paciente');
   const [modalCitaId, setModalCitaId] = useState<string | null>(null);
+  const [auditoriaPaciente, setAuditoriaPaciente] = useState<any[]>([]);
+  const [cargandoAuditoria, setCargandoAuditoria] = useState(false);
 
   // Filter data for the specific patient — use loose string comparison to avoid number/string mismatch
   const citasPaciente = citas.filter((c) => String(c.pacienteId) === String(paciente.id));
@@ -145,6 +146,33 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
 
   const isLogClickable = (log: any) => !!resolveCitaFromLog(log);
 
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setCargandoAuditoria(true);
+      try {
+        const res = await fetch(`/api/auditoria?pacienteId=${encodeURIComponent(String(paciente.id))}`);
+        if (!res.ok) {
+          if (!cancelled) setAuditoriaPaciente([]);
+          return;
+        }
+        const data = await res.json();
+        const next = Array.isArray(data) ? data : [];
+        if (!cancelled) {
+          setAuditoriaPaciente(next.sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime()));
+        }
+      } catch {
+        if (!cancelled) setAuditoriaPaciente([]);
+      } finally {
+        if (!cancelled) setCargandoAuditoria(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [paciente.id]);
+
   return (
     <div className="w-full">
       <Card className="w-full shadow-sm overflow-hidden flex flex-col">
@@ -187,14 +215,7 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="divide-y max-h-[300px] overflow-y-auto">
-                        {registrosAuditoria
-                          .filter(a => 
-                            a.detalles.includes(paciente.nombre) || 
-                            a.detalles.includes(paciente.numeroExpediente) ||
-                            (a.detalles.includes('Paciente ID') && a.detalles.includes(paciente.id))
-                          )
-                          .sort((a, b) => new Date(b.fechaHora).getTime() - new Date(a.fechaHora).getTime())
-                          .map((log) => (
+                        {auditoriaPaciente.map((log) => (
                             <div 
                               key={log.id} 
                               className={`p-4 transition-colors ${isLogClickable(log) ? 'cursor-pointer hover:bg-blue-50 relative group' : 'hover:bg-gray-50'}`}
@@ -227,12 +248,9 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
                               </div>
                             </div>
                           ))}
-                        {registrosAuditoria.filter(a => 
-                            a.detalles.includes(paciente.nombre) || 
-                            a.detalles.includes(paciente.numeroExpediente)
-                          ).length === 0 && (
+                        {auditoriaPaciente.length === 0 && (
                           <div className="p-8 text-center text-gray-400 text-sm italic">
-                            No hay registros de auditoría para este paciente.
+                            {cargandoAuditoria ? 'Cargando registros...' : 'No hay registros de auditoría para este paciente.'}
                           </div>
                         )}
                       </div>

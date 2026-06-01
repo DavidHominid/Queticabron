@@ -31,6 +31,7 @@ interface DataContextType {
   pacientes: Paciente[];
   addPaciente: (paciente: Paciente) => Promise<any> | void;
   updatePaciente: (id: string, paciente: Partial<Paciente>) => Promise<any> | void;
+  deletePaciente: (id: string, payload?: { rol_solicitante?: string; usuario_solicitante?: string; ciudad?: string }) => Promise<void>;
   getPacienteByExpediente: (numeroExpediente: string) => Paciente | undefined;
 
   // Citas
@@ -133,13 +134,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [estudios, setEstudios] = useState<EstudioSocioeconomico[]>([]);
   const [sedesQuirurgicas, setSedesQuirurgicas] = useState<SedeQuirurgica[]>([]);
 
-  useEffect(() => {
-    console.log('📊 Estado de pacientes actualizado:', pacientes.length, 'pacientes cargados.');
-    if (pacientes.length > 0) {
-      console.log('Primer paciente en estado:', pacientes[0]);
-    }
-  }, [pacientes]);
-
   const fetchOperationalData = async () => {
     try {
       const safeFetch = async (path: string, setter: (data: any) => void) => {
@@ -149,7 +143,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
           const data = await res.json();
           setter(data);
         } catch (err: any) {
-          console.error(`❌ Error de red al cargar ${path}:`, err.message);
         }
       };
 
@@ -162,7 +155,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         safeFetch('seguimientos', setSeguimientos),
       ]);
     } catch (err) {
-      console.error('Error cargando datos operativos:', err);
     }
   };
 
@@ -183,7 +175,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
               accion: a.accion || '---',
               detalles: a.detalles || '---',
               fechaHora: a.fechaHora || a.fecha_hora || new Date().toISOString(),
-              ciudad: a.ciudad || '---'
+              ciudad: a.ciudad || '---',
+              pacienteId:
+                a.pacienteId !== undefined && a.pacienteId !== null
+                  ? String(a.pacienteId)
+                  : a.paciente_id !== undefined && a.paciente_id !== null
+                    ? String(a.paciente_id)
+                    : undefined,
             }));
             setter(mapped);
             return;
@@ -199,7 +197,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
           setter(data);
         } catch (err: any) {
-          console.error(`❌ Error de red al cargar ${path}:`, err.message);
         }
       };
 
@@ -216,7 +213,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         safeFetch('auditoria', setRegistrosAuditoria)
       ]);
     } catch (err) {
-      console.error('Error cargando catálogos:', err);
     }
   };
 
@@ -236,26 +232,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (isMounted) setIsInitialized(true);
     });
 
-    // Recargar todo cuando el usuario regresa a la pestaña
-    const handleFocus = () => fetchAllData();
-    window.addEventListener('focus', handleFocus);
-
     // ── Conectar al stream SSE ──────────────────────────────────────────────
     const connect = () => {
       if (!isMounted) return;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+      es?.close();
       es = new EventSource('/api/sse');
 
       // Confirmación de conexión exitosa
       es.addEventListener('connected', () => {
-        console.log('📡 SSE conectado — actualizaciones en tiempo real activas.');
         reconnectDelay = 1000; // resetear delay al reconectar exitosamente
       });
 
       // ⚡ Evento principal: el servidor avisa que hay datos nuevos
       es.addEventListener('operacional', () => {
         if (isMounted) {
-          console.log('📡 SSE: cambio operacional detectado → recargando datos...');
           fetchOperationalData();
+        }
+      });
+
+      es.addEventListener('static', () => {
+        if (isMounted) {
+          fetchStaticData();
         }
       });
 
@@ -264,7 +265,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         es?.close();
         es = null;
         if (!isMounted) return;
-        console.warn(`📡 SSE desconectado. Reconectando en ${reconnectDelay / 1000}s...`);
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
         reconnectTimeout = setTimeout(() => {
           reconnectDelay = Math.min(reconnectDelay * 2, 30000);
           connect();
@@ -274,23 +275,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     connect();
 
-    // Fallback polling de seguridad (5 min) — por si se pierde algún evento SSE
-    const fallbackInterval = setInterval(() => {
-      if (isMounted) fetchOperationalData();
-    }, 300000);
-
-    // Polling lento (3 min): catálogos, auditorías, usuarios, etc.
-    const staticInterval = setInterval(() => {
-      if (isMounted) fetchStaticData();
-    }, 180000);
-
     return () => {
       isMounted = false;
       es?.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      clearInterval(fallbackInterval);
-      clearInterval(staticInterval);
-      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
@@ -352,7 +340,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, error: errorData.error, duplicado: errorData.duplicado };
       }
     } catch (err: any) {
-      console.error('❌ Error en addPaciente:', err);
       return { success: false, error: `Error de red o servidor: ${err.message}` };
     }
   };
@@ -381,8 +368,29 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return { success: false, error: errorData.error, duplicado: errorData.duplicado };
       }
     } catch (err: any) {
-      console.error('❌ Error en updatePaciente:', err);
       return { success: false, error: `Error de red o servidor: ${err.message}` };
+    }
+  };
+
+  const deletePaciente = async (
+    id: string,
+    payload?: { rol_solicitante?: string; usuario_solicitante?: string; ciudad?: string },
+  ) => {
+    const res = await fetch(`/api/pacientes/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error || 'No se pudo eliminar el paciente.');
+    }
+    const data = await res.json().catch(() => null);
+    const updated = data?.paciente;
+    if (updated?.id) {
+      setPacientes((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    } else {
+      setPacientes((prev) => prev.map((p) => (p.id === id ? { ...p, eliminado: true } : p)));
     }
   };
 
@@ -406,7 +414,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setCitas((prev) => [...prev, payload]);
       return payload;
     } catch (err) {
-      console.error(err);
       throw err;
     }
   };
@@ -423,7 +430,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setCitas((prev) => prev.map((c) => (c.id === id ? actualizado : c)));
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -447,7 +453,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (err) {
-      console.error(err);
       setInformacionMedica((prev) => {
         const filtered = prev.filter((i) => i.pacienteId !== info.pacienteId);
         return [...filtered, info];
@@ -469,7 +474,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         );
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -489,7 +493,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setRegistrosTriage([...registrosTriage, nuevo]);
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -513,7 +516,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         return nuevo;
       }
     } catch (err) {
-      console.error(err);
     }
     return null;
   };
@@ -534,11 +536,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setCirugias([...cirugias, nuevo]);
       } else {
         const err = await res.json().catch(() => ({}));
-        console.error("Backend error addCirugia:", err);
         toast.error(`Error al crear cirugía: ${err.error || 'Problema de conexión con el servidor'}`);
       }
     } catch (err: any) {
-      console.error(err);
       toast.error(`Error de red al crear cirugía: ${err.message}`);
     }
   };
@@ -567,7 +567,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         prev.map((c) => (c.id === id ? { ...c, ...campos } : c))
       );
     } catch (err) {
-      console.error(err);
       throw err; // <--- SÚPER IMPORTANTE: Lanzar el error para que el componente lo atrape
     }
   };
@@ -584,7 +583,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSeguimientos((prev) => [...prev, nuevo]);
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -600,7 +598,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSeguimientos((prev) => prev.map((s) => (s.id === id ? actualizado : s)));
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -615,7 +612,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setRegistrosAuditoria((prev) => [...prev, registro]);
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -723,7 +719,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setUsuarios([...usuarios, nuevo]);
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -739,7 +734,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setUsuarios(usuarios.map((u) => (u.id === id ? actualizado : u)));
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -752,7 +746,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setUsuarios(usuarios.filter((u) => u.id !== id));
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -768,7 +761,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setEstudios([...estudios, nuevo]);
       }
     } catch (err) {
-      console.error(err);
     }
   };
 
@@ -812,7 +804,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           return old && old.periodos ? { ...s, periodos: old.periodos } : s;
         }));
       }
-    } catch (err) { console.error('Error refreshing sedes:', err); }
+    } catch (err) {}
   };
 
   const fetchPeriodosSede = async (sedeId: string): Promise<PeriodoDisponibilidad[]> => {
@@ -854,6 +846,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         pacientes,
         addPaciente,
         updatePaciente,
+        deletePaciente,
         getPacienteByExpediente,
         citas,
         addCita,

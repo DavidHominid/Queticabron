@@ -57,7 +57,6 @@ export function CiudadAutocomplete({ value, onChange, placeholder, id, required 
           setSuggestions(localMatches);
         }
       } catch (error) {
-        console.error("Error fetching city suggestions from backend proxy:", error);
         setSuggestions(localMatches);
       } finally {
         setLoading(false);

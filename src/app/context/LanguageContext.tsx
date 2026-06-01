@@ -365,6 +365,8 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Citas
     'citas.not_active': 'Este evento no está activo. No se pueden agendar citas.',
+    'citas.inscriptions_not_started': 'Aún no inician las inscripciones de este evento. No se pueden agendar citas.',
+    'citas.outside_event_dates': 'La fecha seleccionada está fuera de las fechas del evento.',
     'citas.day_of_only': 'Para el día de la cita solo se permite cancelar o registrar llegada.',
     'citas.slot_taken': 'Ese horario ya fue ocupado por otra cita.',
     'citas.title': 'Citas',
@@ -439,8 +441,11 @@ const translations: Record<Language, Record<string, string>> = {
     'eventos.delete_title': 'Eliminar evento',
     'eventos.delete_desc': 'Se eliminará el evento "{0}" y también especialidades, horarios, practicantes, citas, triage y notas médicas relacionadas.',
     'eventos.cancel': 'Cancelar',
+    'eventos.cancel_event': 'Cancelar evento',
+    'eventos.cancel_event_title': 'Cancelar evento',
+    'eventos.cancel_event_desc': 'El evento "{0}" quedará cancelado y ya no se podrán realizar registros ni citas.',
     'common.confirm': 'Confirmar',
-    'eventos.delete_test': 'Eliminar (pruebas)',
+    'eventos.delete_test': 'Eliminar',
     'eventos.delete_test_title': 'Eliminar evento (modo pruebas)',
     'eventos.delete_test_desc': 'El evento ya finalizó y normalmente es de solo lectura. En modo pruebas se permite eliminarlo de forma forzada.',
 
@@ -586,6 +591,18 @@ const translations: Record<Language, Record<string, string>> = {
     'audit.refresh': 'Actualizar',
     'audit.total': 'Total Registros',
     'audit.log': 'Registro de Actividades',
+    'audit.search_placeholder': 'Buscar en auditoría…',
+    'audit.showing': 'Mostrando {0}-{1} de {2}',
+    'audit.page_of': 'Página {0} de {1}',
+    'audit.go_to_page': 'Ir',
+    'audit.prev': 'Anterior',
+    'audit.next': 'Siguiente',
+    'audit.all_roles': 'Todos los roles',
+    'audit.all_users': 'Todos los usuarios',
+    'audit.role_recepcion': 'Recepción',
+    'audit.role_triage': 'Triage',
+    'audit.role_medico': 'Médico',
+    'audit.role_admin': 'Administrador',
     'audit.no_records': 'No hay registros de auditoría',
     'audit.will_appear': 'Los registros aparecerán aquí cuando se realicen acciones',
   },
@@ -945,6 +962,8 @@ const translations: Record<Language, Record<string, string>> = {
 
     // Citas
     'citas.not_active': 'This event is not active. Appointments cannot be scheduled.',
+    'citas.inscriptions_not_started': 'Registrations for this event have not started yet. Appointments cannot be scheduled.',
+    'citas.outside_event_dates': 'The selected date is outside the event dates.',
     'citas.day_of_only': 'On the day of the appointment, you can only cancel or register arrival.',
     'citas.slot_taken': 'That slot is already taken by another appointment.',
     'citas.title': 'Appointments',
@@ -1019,6 +1038,9 @@ const translations: Record<Language, Record<string, string>> = {
     'eventos.delete_title': 'Delete Event',
     'eventos.delete_desc': 'The event "{0}" will be deleted along with related specialties, schedules, practitioners, appointments, triage, and medical notes.',
     'eventos.cancel': 'Cancel',
+    'eventos.cancel_event': 'Cancel event',
+    'eventos.cancel_event_title': 'Cancel event',
+    'eventos.cancel_event_desc': 'The event "{0}" will be cancelled and no more registrations or appointments can be created.',
     'common.confirm': 'Confirm',
     'eventos.delete_test': 'Delete (tests)',
     'eventos.delete_test_title': 'Delete Event (test mode)',
@@ -1166,6 +1188,18 @@ const translations: Record<Language, Record<string, string>> = {
     'audit.refresh': 'Refresh',
     'audit.total': 'Total Records',
     'audit.log': 'Activity Log',
+    'audit.search_placeholder': 'Search audit…',
+    'audit.showing': 'Showing {0}-{1} of {2}',
+    'audit.page_of': 'Page {0} of {1}',
+    'audit.go_to_page': 'Go',
+    'audit.prev': 'Previous',
+    'audit.next': 'Next',
+    'audit.all_roles': 'All roles',
+    'audit.all_users': 'All users',
+    'audit.role_recepcion': 'Reception',
+    'audit.role_triage': 'Triage',
+    'audit.role_medico': 'Doctor',
+    'audit.role_admin': 'Admin',
     'audit.no_records': 'No audit records',
     'audit.will_appear': 'Records will appear here when actions are performed',
   },
@@ -1181,7 +1215,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         return saved;
       }
     } catch (e) {
-      console.error('Error reading language from localStorage:', e);
     }
     return 'es';
   });
@@ -1190,7 +1223,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem('app_language', language);
     } catch (e) {
-      console.error('Error writing language to localStorage:', e);
     }
   }, [language]);
 

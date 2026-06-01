@@ -181,6 +181,7 @@ router.post('/', async (req, res) => {
     }
     
     await recordAudit({
+      paciente_id: pacienteId,
       usuario_id: c.usuarioId || null,
       nombre_usuario: c.nombreUsuario || c.medicoNombre || c.medicoEncargado || 'Médico',
       rol: c.rol || 'medico',

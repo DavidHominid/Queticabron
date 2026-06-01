@@ -63,6 +63,7 @@ router.post('/', async (req, res) => {
     // El recordAudit es opcional, si falla no deberia tirar la peticion entera
     try {
       await recordAudit({
+        paciente_id: result.rows[0].id_paciente,
         accion: 'Registro de Paciente',
         detalles: `Se registró al paciente: ${nombre} ${apellido} (${p.numeroExpediente}). ID: ${identificacion}`,
         rol: p.rol_solicitante || 'admin',
@@ -122,6 +123,7 @@ router.put('/:id', async (req, res) => {
 
     try {
       await recordAudit({
+        paciente_id: parseInt(id),
         accion: 'Actualización de Paciente',
         detalles: `Se actualizó la información de: ${nombre} ${apellido}`,
         rol: p.rol_solicitante || 'admin',
@@ -132,6 +134,50 @@ router.put('/:id', async (req, res) => {
     }
 
     res.json(mapPaciente(result.rows[0]));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  const rol = String(req.body?.rol_solicitante || req.query?.rol_solicitante || '').toLowerCase();
+  const nombreUsuario = String(req.body?.usuario_solicitante || req.query?.usuario_solicitante || 'Administrador');
+  const ciudad = String(req.body?.ciudad || req.query?.ciudad || '');
+
+  if (rol !== 'administrador' && rol !== 'admin') {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE "${SCHEMA}".paciente
+       SET eliminado = true,
+           eliminado_en = NOW(),
+           eliminado_por = $1
+       WHERE id_paciente = $2
+       RETURNING *`,
+      [nombreUsuario, parseInt(id)],
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Paciente no encontrado' });
+    }
+
+    const row = result.rows[0];
+    try {
+      await recordAudit({
+        accion: 'Eliminación de Paciente',
+        detalles: `Se eliminó (lógico) al paciente: ${row.nombre} ${row.apellido || ''} (${row.numero_expediente}).`,
+        rol: rol,
+        nombre_usuario: nombreUsuario,
+        ciudad: ciudad || row.ciudad || undefined,
+      });
+    } catch (auditErr) {
+      console.error('⚠️ Error no crítico en auditoría:', auditErr.message);
+    }
+
+    res.json({ success: true, paciente: mapPaciente(row) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

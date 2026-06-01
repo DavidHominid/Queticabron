@@ -26,6 +26,7 @@ import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, Usuario } from
 import { labelCiudad } from '../utils/ciudades';
 import { labelEspecialidad } from '../utils/especialidades';
 import { nowIso, nowMs, todayYmd } from '../utils/clock';
+import { canAgendarCitaEnEvento } from '../utils/eventoEstado';
 
 const listDaysInclusive = (start: string, end: string) => {
   if (!start || !end) return [] as string[];
@@ -150,6 +151,13 @@ export function EventoDetalle() {
   const evento = useMemo(() => eventos.find((e) => e.id === id) || null, [eventos, id]);
   const bloqueado = useMemo(() => isEventoFinalizado(evento?.fechaFin || null), [evento?.fechaFin]);
   const hoy = useMemo(() => todayYmd(), []);
+  const msgNoAgendable = (reason?: string) => {
+    if (reason === 'cancelado') return 'Este evento está cancelado. No se pueden agendar citas.';
+    if (reason === 'finalizado') return 'Este evento ya finalizó. No se pueden agendar citas.';
+    if (reason === 'inscripciones_no_inician') return 'Aún no inician las inscripciones de este evento. No se pueden agendar citas.';
+    if (reason === 'fuera_fechas_evento') return 'La fecha de la cita está fuera de las fechas del evento.';
+    return 'Este evento no está activo. No se pueden agendar citas.';
+  };
 
   const usuariosById = useMemo(() => {
     const out = new Map<string, Usuario>();
@@ -318,6 +326,12 @@ export function EventoDetalle() {
       return;
     }
 
+    const can = canAgendarCitaEnEvento(evento, payload.day, hoy);
+    if (!can.ok) {
+      setAgendaMensaje(msgNoAgendable(can.reason));
+      return;
+    }
+
     if (payload.disponibles <= 0) {
       setAgendaMensaje('Este bloque ya no tiene cupos disponibles.');
       return;
@@ -417,7 +431,7 @@ export function EventoDetalle() {
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="destructive">
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Eliminar (pruebas)
+                    Eliminar
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -762,6 +776,8 @@ export function EventoDetalle() {
                 pacientes={pacientes}
                 tipoCitaIdFijo={agendarHorario.tipoCitaId}
                 onAgendar={async ({ paciente, hora, tipoCita }) => {
+                  const can = canAgendarCitaEnEvento(evento, agendarHorario.dia, hoy);
+                  if (!can.ok) throw new Error(msgNoAgendable(can.reason));
                   const espCfg = evento.especialidades.find((e) => e.especialidad === (especialidad as Especialidad));
                   if (!espCfg) throw new Error('No se encontró la configuración de la especialidad en el evento.');
 
@@ -830,6 +846,7 @@ export function EventoDetalle() {
                 subtitulo={detalleSubtitulo}
                 primaryAction={
                   detalleHorario && detalleDisponibles > 0
+                    && canAgendarCitaEnEvento(evento, detalleHorario.dia, hoy).ok
                     ? {
                         label: 'Agendar otro cupo',
                         onClick: () => {

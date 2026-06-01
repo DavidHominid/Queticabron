@@ -3,11 +3,33 @@ import pool, { SCHEMA } from '../config/db.js';
 // Helper para registrar auditoría de forma centralizada
 export async function recordAudit(data) {
   try {
-    const { usuario_id, nombre_usuario, rol, accion, detalles, ciudad } = data;
+    const { usuario_id, nombre_usuario, rol, accion, detalles, ciudad, paciente_id } = data;
     const idValue = `aud${Date.now()}-${Math.floor(Math.random()*10000)}`;
+
+    const pacienteIdValue = Number.isFinite(Number(paciente_id)) ? parseInt(String(paciente_id), 10) : null;
+    if (pacienteIdValue !== null) {
+      try {
+        await pool.query(
+          `INSERT INTO "${SCHEMA}".auditoria (id, usuario_id, nombre_usuario, rol, accion, detalles, fecha_hora, ciudad, paciente_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            idValue,
+            usuario_id || null,
+            nombre_usuario || 'Sistema',
+            rol || '---',
+            accion,
+            detalles || '',
+            new Date(),
+            ciudad || 'Sonoyta',
+            pacienteIdValue,
+          ],
+        );
+        return;
+      } catch {}
+    }
+
     await pool.query(
       `INSERT INTO "${SCHEMA}".auditoria (id, usuario_id, nombre_usuario, rol, accion, detalles, fecha_hora, ciudad) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [idValue, usuario_id || null, nombre_usuario || 'Sistema', rol || '---', accion, detalles || '', new Date(), ciudad || 'Sonoyta']
+      [idValue, usuario_id || null, nombre_usuario || 'Sistema', rol || '---', accion, detalles || '', new Date(), ciudad || 'Sonoyta'],
     );
   } catch (err) {
     console.error('⚠️ Fallo al registrar auditoría:', err.message);
@@ -40,7 +62,10 @@ export const mapPaciente = (p) => ({
   edad: p.edad || (p.fecha_de_nacimiento ? calculateAge(p.fecha_de_nacimiento) : 0),
   imagen: p.imagen,
   nacionalidad: p.nacionalidad || 'Mexicana',
-  identificacion: p.identificacion || ''
+  identificacion: p.identificacion || '',
+  eliminado: Boolean(p.eliminado),
+  eliminadoEn: p.eliminado_en ? new Date(p.eliminado_en).toISOString() : null,
+  eliminadoPor: p.eliminado_por ? String(p.eliminado_por) : null,
 });
 
 // La BD usa texto libre para estado de citas

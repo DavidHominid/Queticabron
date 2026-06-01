@@ -17,6 +17,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, Seguimiento, TipoCitaEvento } from '../types';
 import { labelEspecialidad } from '../utils/especialidades';
 import { nowIso, todayYmd } from '../utils/clock';
+import { canAgendarCitaEnEvento } from '../utils/eventoEstado';
 
 const timeToMinutes = (t: string) => {
   const [hh, mm] = String(t || '').split(':').map((x) => Number(x));
@@ -85,6 +86,11 @@ export function Citas() {
   const [detalleEvento, setDetalleEvento] = useState<Evento | null>(null);
 
   const hoy = useMemo(() => todayYmd(), []);
+  const msgNoAgendable = (reason?: string) => {
+    if (reason === 'inscripciones_no_inician') return t('citas.inscriptions_not_started');
+    if (reason === 'fuera_fechas_evento') return t('citas.outside_event_dates');
+    return t('citas.not_active');
+  };
 
   const canSeeAllCiudades = user?.rol === 'administrador';
   const ciudadesUsuario = useMemo(() => {
@@ -149,11 +155,12 @@ export function Citas() {
         return;
       }
     }
-    if (payload.evento.estado !== 'activo') {
-      setAgendaMensaje(t('citas.not_active'));
+    const dia = String(payload.horario.dia || '').substring(0, 10);
+    const can = canAgendarCitaEnEvento(payload.evento, dia, hoy);
+    if (!can.ok) {
+      setAgendaMensaje(msgNoAgendable(can.reason));
       return;
     }
-    const dia = String(payload.horario.dia || '').substring(0, 10);
     if (dia && dia < hoy) {
       setAgendaMensaje(t('citas.day_of_only'));
       return;
@@ -190,10 +197,11 @@ export function Citas() {
 
   const onAgendar = async (payload: { paciente: Paciente; hora: string; tipoCita: TipoCitaEvento | null }) => {
     if (!agendarEvento || !agendarEspecialidad || !agendarHorario) return;
-    if (agendarEvento.estado !== 'activo') {
-      throw new Error(t('citas.not_active'));
-    }
     const dia = String(agendarHorario.dia || '').substring(0, 10);
+    const can = canAgendarCitaEnEvento(agendarEvento, dia, hoy);
+    if (!can.ok) {
+      throw new Error(msgNoAgendable(can.reason));
+    }
     if (dia && dia < hoy) {
       throw new Error(t('citas.day_of_only'));
     }

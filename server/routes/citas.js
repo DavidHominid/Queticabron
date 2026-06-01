@@ -111,6 +111,43 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Paciente, fecha y hora son obligatorios.' });
     }
     const eventoIdVal = c.eventoId && c.eventoId !== 'general' ? c.eventoId : null;
+    if (eventoIdVal) {
+      const evRes = await pool.query(
+        `SELECT
+           estado,
+           fecha_inicio,
+           fecha_fin,
+           fecha_inicio_inscripcion,
+           (estado = 'cancelado') AS cancelado,
+           (fecha_fin IS NOT NULL AND CURRENT_DATE > fecha_fin) AS finalizado,
+           (fecha_inicio_inscripcion IS NOT NULL AND CURRENT_DATE < fecha_inicio_inscripcion) AS insc_no_inicia,
+           (fecha_inicio_inscripcion IS NULL OR fecha_fin IS NULL OR (CURRENT_DATE >= fecha_inicio_inscripcion AND CURRENT_DATE <= fecha_fin)) AS ventana_activa,
+           ($2::date >= fecha_inicio AND $2::date <= fecha_fin) AS fecha_cita_valida
+         FROM "${SCHEMA}".eventos
+         WHERE id = $1
+         LIMIT 1`,
+        [eventoIdVal, fechaCita],
+      );
+      if (!evRes.rows?.length) {
+        return res.status(400).json({ error: 'El evento seleccionado no existe.' });
+      }
+      const ev = evRes.rows[0];
+      if (ev.cancelado) {
+        return res.status(403).json({ error: 'Este evento está cancelado. No se pueden agendar citas.' });
+      }
+      if (ev.finalizado) {
+        return res.status(403).json({ error: 'Este evento ya finalizó. No se pueden agendar citas.' });
+      }
+      if (ev.insc_no_inicia) {
+        return res.status(403).json({ error: 'Aún no inician las inscripciones de este evento. No se pueden agendar citas.' });
+      }
+      if (!ev.ventana_activa) {
+        return res.status(403).json({ error: 'Este evento no está activo. No se pueden agendar citas.' });
+      }
+      if (!ev.fecha_cita_valida) {
+        return res.status(400).json({ error: 'La fecha de la cita está fuera de las fechas del evento.' });
+      }
+    }
     const conflict = await pool.query(
       `SELECT id_cita
        FROM "${SCHEMA}".citas
@@ -201,6 +238,7 @@ router.post('/', async (req, res) => {
     );
 
     await recordAudit({
+      paciente_id: pacienteId,
       usuario_id: c.usuarioId || null,
       nombre_usuario: c.usuario_solicitante || 'Sistema',
       rol: c.rol_solicitante || 'recepcion',

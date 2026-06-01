@@ -104,6 +104,9 @@ export interface Paciente {
   imagen?: string;
   nacionalidad?: string;
   identificacion?: string;
+  eliminado?: boolean;
+  eliminadoEn?: string | null;
+  eliminadoPor?: string | null;
 }
 
 // Cita
@@ -401,6 +404,7 @@ export interface RegistroAuditoria {
   detalles: string;
   fechaHora: string;
   ciudad: Ciudad;
+  pacienteId?: string;
 }
 
 // Usuario del Sistema

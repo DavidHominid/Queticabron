@@ -7,6 +7,7 @@ import esLocale from '@fullcalendar/core/locales/es';
 import { Cita, Especialidad, EspecialidadCatalogo, Evento, HorarioDisponible } from '../../types';
 import { labelEspecialidad } from '../../utils/especialidades';
 import { now, todayYmd } from '../../utils/clock';
+import { deriveEstadoEvento } from '../../utils/eventoEstado';
 
 export type EstadoAgendaDia = 'disponible' | Cita['estado'];
 
@@ -202,7 +203,7 @@ export function AgendaCitasDiaCalendar({
     }
 
     for (const e of eventos || []) {
-      if (e.estado !== 'activo') continue;
+      if (deriveEstadoEvento(e, hoy) !== 'activo') continue;
       for (const esp of e.especialidades || []) {
         for (const h of esp.horarios || []) {
           const day = String(h?.dia || '').trim();

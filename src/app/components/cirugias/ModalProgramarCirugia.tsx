@@ -35,7 +35,7 @@ export function ModalProgramarCirugia({ cirugia, onClose, onSubmit }: ModalProgr
     const today = new Date().toISOString().slice(0, 10);
     if (fechaCirugia && fechaCirugia !== today) {
       sedesQuirurgicas.filter(s => s.activa && !s.periodos).forEach(s => {
-        fetchPeriodosSede(s.id).catch(console.error);
+        fetchPeriodosSede(s.id).catch(() => {});
       });
     }
   }, [fechaCirugia, sedesQuirurgicas, fetchPeriodosSede]);

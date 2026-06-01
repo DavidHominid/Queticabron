@@ -1,9 +1,20 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
+import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import pool from './config/db.js';
-import { migrateDoctorFksToUsuarios, migrateExpedienteCitaToExpediente, migrateAgendaCirugiasEstados } from './helpers/migrations.js';
+import {
+  migrateDoctorFksToUsuarios,
+  migrateExpedienteCitaToExpediente,
+  migrateAgendaCirugiasEstados,
+  migrateUsuariosPasswordsToBcrypt,
+  migrateOperacionalNotifyTriggers,
+  migratePacienteSoftDeleteColumns,
+  migrateStaticNotifyTriggers,
+  migrateAuditoriaPacienteId,
+} from './helpers/migrations.js';
 
 // Importación de rutas
 import pacientesRoutes from './routes/pacientes.js';
@@ -24,9 +35,15 @@ import expedienteCitaRoutes from './routes/expediente-cita.js';
 import expedienteRoutes from './routes/expediente.js';
 import sedesRoutes from './routes/sedes.js';
 import { sseMiddleware } from './helpers/sse.js';
+import { startDbNotifyListener } from './helpers/db-notify.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const envActual = path.resolve(process.cwd(), '.env');
+const envPadre = path.resolve(process.cwd(), '..', '.env');
+const envPath = fs.existsSync(envActual) ? envActual : fs.existsSync(envPadre) ? envPadre : undefined;
+dotenv.config(envPath ? { path: envPath } : undefined);
 
 const app = express();
 const basePort = Number(process.env.PORT) || 3001;
@@ -60,6 +77,24 @@ migrateExpedienteCitaToExpediente().catch((err) => {
 });
 migrateAgendaCirugiasEstados().catch((err) => {
   console.error('❌ Error migrando estados cirugia:', err.message);
+});
+migrateUsuariosPasswordsToBcrypt().catch((err) => {
+  console.error('❌ Error migrando passwords a bcrypt:', err.message);
+});
+migrateOperacionalNotifyTriggers().catch((err) => {
+  console.error('❌ Error creando triggers operacionales:', err.message);
+});
+migratePacienteSoftDeleteColumns().catch((err) => {
+  console.error('❌ Error migrando paciente (soft delete):', err.message);
+});
+migrateStaticNotifyTriggers().catch((err) => {
+  console.error('❌ Error creando triggers estáticos:', err.message);
+});
+migrateAuditoriaPacienteId().catch((err) => {
+  console.error('❌ Error migrando auditoría (paciente_id):', err.message);
+});
+startDbNotifyListener().catch((err) => {
+  console.error('❌ Error iniciando LISTEN/NOTIFY:', err.message);
 });
 
 // ── Tiempo real: Server-Sent Events ────────────────────────────────────────

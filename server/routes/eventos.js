@@ -20,7 +20,11 @@ const SELECT_EVENTOS = `
     e.fecha_fin,
     e.fecha_inicio_inscripcion,
     e.fecha_fin_inscripcion,
-    e.estado,
+    CASE
+      WHEN e.estado = 'cancelado' THEN 'cancelado'
+      WHEN e.fecha_fin IS NOT NULL AND CURRENT_DATE > e.fecha_fin THEN 'finalizado'
+      ELSE 'activo'
+    END AS estado,
     e.tipo,
     ee.id AS evento_especialidad_id,
     ee.especialidad,
@@ -376,7 +380,7 @@ router.post('/', async (req, res) => {
         e.fechaInicio,
         e.fechaFin,
         e.tipo || 'general',
-        e.estado || 'activo',
+        String(e.estado || '').trim().toLowerCase() === 'cancelado' ? 'cancelado' : 'activo',
       ],
     );
 
@@ -401,8 +405,12 @@ router.put('/:id', async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    const payloadKeys = Object.keys(e || {});
+    const cancelOnly =
+      payloadKeys.length === 1 && payloadKeys[0] === 'estado' && String(e?.estado || '').trim().toLowerCase() === 'cancelado';
+
     const lockRes = await client.query(
-      `SELECT fecha_fin, (fecha_fin IS NOT NULL AND CURRENT_DATE > fecha_fin) AS locked
+      `SELECT estado, fecha_fin, (fecha_fin IS NOT NULL AND CURRENT_DATE > fecha_fin) AS locked
        FROM "${SCHEMA}".eventos
        WHERE id = $1`,
       [id],
@@ -411,67 +419,104 @@ router.put('/:id', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Evento no encontrado' });
     }
+
+    const currentEstado = String(lockRes.rows[0].estado || '').trim().toLowerCase();
     const locked = Boolean(lockRes.rows[0].locked);
     const force = EVENTOS_MODO_PRUEBAS && wantsForce(req.query?.force);
-    if (locked && !force) {
+
+    if (cancelOnly) {
+      await client.query(`UPDATE "${SCHEMA}".eventos SET estado = 'cancelado' WHERE id = $1`, [id]);
+      await client.query('COMMIT');
+      const [saved] = await fetchEventos(pool, id);
+      return res.json(saved);
+    }
+
+    if ((locked && !force) || currentEstado === 'finalizado') {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'Este evento ya finalizó. No se puede modificar.' });
     }
 
-    const citasResult = await client.query(
-      `SELECT id_cita, fecha_cita, hora, especialidad, estado, tipo_cita_id, duracion_minutos
-       FROM "${SCHEMA}".citas
-       WHERE evento_id = $1 AND estado != 'cancelada'`,
-      [id],
-    );
-    const citasEvento = (citasResult.rows || []).map((row) => ({
-      id: String(row.id_cita),
-      fecha: formatDate(row.fecha_cita) || null,
-      hora: row.hora || '08:00',
-      especialidad: row.especialidad,
-      estado: row.estado,
-      tipoCitaId: row.tipo_cita_id ? String(row.tipo_cita_id) : null,
-      duracionMinutos: Number.isFinite(Number(row.duracion_minutos)) ? Number(row.duracion_minutos) : null,
-    }));
-    const citasValidas = citasEvento.filter((c) => c.fecha && c.especialidad);
-
-    const especialidadesPayload = Array.isArray(e.especialidades) ? e.especialidades : [];
-    const invalidas = citasValidas.filter((c) => !citaCoveredByEspecialidades(c, especialidadesPayload));
-    if (invalidas.length > 0) {
+    if (currentEstado === 'cancelado') {
       await client.query('ROLLBACK');
-      const sample = invalidas.slice(0, 3).map((c) => `${c.especialidad} ${c.fecha} ${c.hora}`).join(', ');
-      return res.status(400).json({
-        error:
-          `No puedes guardar el evento porque dejarías citas sin horario. ` +
-          `Asegura que estos horarios sigan existiendo: ${sample}${invalidas.length > 3 ? '…' : ''}`,
-      });
+      return res.status(403).json({ error: 'Este evento está cancelado. No se puede modificar.' });
     }
 
-    for (const esp of especialidadesPayload) {
-      const horarios = Array.isArray(esp?.horarios) ? esp.horarios : [];
-      const citasEsp = citasValidas.filter((c) => c.especialidad === esp?.especialidad);
-      for (const h of horarios) {
-        if (!h?.dia || !h?.horaInicio || !h?.horaFin) continue;
-        if (!isIsoDate(h.dia)) continue;
-        const cupo = computeCupoForHorario(h);
-        const ocupadas = countCitasInWindow(
-          citasEsp.filter((c) => c.fecha === h.dia),
-          h.dia,
-          h.horaInicio,
-          h.horaFin,
-        );
-        if (ocupadas > cupo) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({
-            error:
-              `No puedes reducir cupos por debajo de las citas existentes. ` +
-              `${esp.especialidad} ${h.dia} ${h.horaInicio}-${h.horaFin} tiene ${ocupadas} cita(s) pero el cupo es ${cupo}.`,
-          });
+    const [eventoActual] = await fetchEventos(client, id);
+    if (!eventoActual) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    const merged = {
+      ...eventoActual,
+      ...e,
+      fechaInicioInscripcion: e?.fechaInicioInscripcion ?? eventoActual.fechaInicioInscripcion,
+      fechaFinInscripcion: e?.fechaFinInscripcion ?? eventoActual.fechaFinInscripcion,
+      fechaInicio: e?.fechaInicio ?? eventoActual.fechaInicio,
+      fechaFin: e?.fechaFin ?? eventoActual.fechaFin,
+      ciudad: e?.ciudad ?? eventoActual.ciudad,
+      nombre: e?.nombre ?? eventoActual.nombre,
+      tipo: e?.tipo ?? (eventoActual.tipo || 'general'),
+      estado: String(e?.estado || '').trim().toLowerCase() === 'cancelado' ? 'cancelado' : 'activo',
+      especialidades: Array.isArray(e?.especialidades) ? e.especialidades : eventoActual.especialidades,
+    };
+
+    if (Array.isArray(e?.especialidades)) {
+      const citasResult = await client.query(
+        `SELECT id_cita, fecha_cita, hora, especialidad, estado, tipo_cita_id, duracion_minutos
+         FROM "${SCHEMA}".citas
+         WHERE evento_id = $1 AND estado != 'cancelada'`,
+        [id],
+      );
+      const citasEvento = (citasResult.rows || []).map((row) => ({
+        id: String(row.id_cita),
+        fecha: formatDate(row.fecha_cita) || null,
+        hora: row.hora || '08:00',
+        especialidad: row.especialidad,
+        estado: row.estado,
+        tipoCitaId: row.tipo_cita_id ? String(row.tipo_cita_id) : null,
+        duracionMinutos: Number.isFinite(Number(row.duracion_minutos)) ? Number(row.duracion_minutos) : null,
+      }));
+      const citasValidas = citasEvento.filter((c) => c.fecha && c.especialidad);
+
+      const especialidadesPayload = Array.isArray(merged.especialidades) ? merged.especialidades : [];
+      const invalidas = citasValidas.filter((c) => !citaCoveredByEspecialidades(c, especialidadesPayload));
+      if (invalidas.length > 0) {
+        await client.query('ROLLBACK');
+        const sample = invalidas.slice(0, 3).map((c) => `${c.especialidad} ${c.fecha} ${c.hora}`).join(', ');
+        return res.status(400).json({
+          error:
+            `No puedes guardar el evento porque dejarías citas sin horario. ` +
+            `Asegura que estos horarios sigan existiendo: ${sample}${invalidas.length > 3 ? '…' : ''}`,
+        });
+      }
+
+      for (const esp of especialidadesPayload) {
+        const horarios = Array.isArray(esp?.horarios) ? esp.horarios : [];
+        const citasEsp = citasValidas.filter((c) => c.especialidad === esp?.especialidad);
+        for (const h of horarios) {
+          if (!h?.dia || !h?.horaInicio || !h?.horaFin) continue;
+          if (!isIsoDate(h.dia)) continue;
+          const cupo = computeCupoForHorario(h);
+          const ocupadas = countCitasInWindow(
+            citasEsp.filter((c) => c.fecha === h.dia),
+            h.dia,
+            h.horaInicio,
+            h.horaFin,
+          );
+          if (ocupadas > cupo) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+              error:
+                `No puedes reducir cupos por debajo de las citas existentes. ` +
+                `${esp.especialidad} ${h.dia} ${h.horaInicio}-${h.horaFin} tiene ${ocupadas} cita(s) pero el cupo es ${cupo}.`,
+            });
+          }
         }
       }
     }
 
-    const metadata = buildMetadata(e);
+    const metadata = buildMetadata(merged);
     const updateResult = await client.query(
       `UPDATE "${SCHEMA}".eventos
        SET titulo = $1,
@@ -486,15 +531,15 @@ router.put('/:id', async (req, res) => {
        WHERE id = $10
        RETURNING id`,
       [
-        e.nombre,
+        merged.nombre,
         metadata,
-        String(e.ciudad || 'sonoyta').toLowerCase(),
-        e.fechaInicioInscripcion || null,
-        e.fechaFinInscripcion || e.fechaLimiteInscripcion || null,
-        e.fechaInicio,
-        e.fechaFin,
-        e.tipo || 'general',
-        e.estado,
+        String(merged.ciudad || 'sonoyta').toLowerCase(),
+        merged.fechaInicioInscripcion || null,
+        merged.fechaFinInscripcion || merged.fechaLimiteInscripcion || null,
+        merged.fechaInicio,
+        merged.fechaFin,
+        merged.tipo || 'general',
+        merged.estado,
         id,
       ],
     );
@@ -504,8 +549,10 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Evento no encontrado' });
     }
 
-    await client.query(`DELETE FROM "${SCHEMA}".evento_especialidad WHERE evento_id = $1`, [id]);
-    await persistEspecialidades(client, id, e.especialidades || []);
+    if (Array.isArray(e?.especialidades)) {
+      await client.query(`DELETE FROM "${SCHEMA}".evento_especialidad WHERE evento_id = $1`, [id]);
+      await persistEspecialidades(client, id, merged.especialidades || []);
+    }
     await client.query('COMMIT');
 
     const [saved] = await fetchEventos(pool, id);
