@@ -8,6 +8,26 @@ import { useData } from '../../context/DataContext';
 import { Ciudad, Paciente } from '../../types';
 import { now, todayYmd } from '../../utils/clock';
 
+const NOMBRE_REGEX = /[^A-Za-zñÑáéíóúÁÉÍÓÚüÜ\s'’\-]/g;
+
+const sanitizeTitleNombre = (v: string) => {
+  const allowed = String(v || '').replace(NOMBRE_REGEX, '');
+  const trimmed = allowed.replace(/\s{2,}/g, ' ').trim();
+  if (!trimmed) return '';
+  const partes = trimmed.split(/([\s'’\-]+)/);
+  const titled = partes
+    .map((chunk) => {
+      if (!chunk) return '';
+      if (/^[\s'’\-]+$/.test(chunk)) return chunk;
+      return (
+        chunk.charAt(0).toLocaleUpperCase('es-MX') +
+        chunk.slice(1).toLocaleLowerCase('es-MX')
+      );
+    })
+    .join('');
+  return titled;
+};
+
 const calcularEdad = (fechaNacimiento: string) => {
   const birth = new Date(`${fechaNacimiento}T12:00:00`);
   if (Number.isNaN(birth.getTime())) return 0;
@@ -34,6 +54,7 @@ export function CrearPacienteDialog({
   const ciudad = (ciudadDefault || user?.ciudad || 'sonoyta') as Ciudad;
 
   const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
   const [telefono, setTelefono] = useState('');
   const [sexo, setSexo] = useState<'Masculino' | 'Femenino'>('Masculino');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
@@ -50,6 +71,7 @@ export function CrearPacienteDialog({
 
   const reset = () => {
     setNombre('');
+    setApellido('');
     setTelefono('');
     setSexo('Masculino');
     setFechaNacimiento('');
@@ -61,10 +83,15 @@ export function CrearPacienteDialog({
 
   const submit = async () => {
     const n = String(nombre || '').trim();
+    const a = String(apellido || '').trim();
     const t = String(telefono || '').trim();
     const fn = String(fechaNacimiento || '').trim();
     if (!n) {
-      setError('Ingresa el nombre.');
+      setError('Ingresa el/los Nombre(s).');
+      return;
+    }
+    if (!a) {
+      setError('Ingresa los Apellidos.');
       return;
     }
     if (!t) {
@@ -78,10 +105,11 @@ export function CrearPacienteDialog({
 
     setError('');
     setGuardando(true);
-    const nuevoPaciente: Paciente = {
+    const nuevoPaciente: any = {
       id: `pac${Date.now()}`,
       numeroExpediente,
       nombre: n,
+      apellido: a,
       edad: calcularEdad(fn),
       fechaNacimiento: fn,
       sexo,
@@ -123,9 +151,24 @@ export function CrearPacienteDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Label htmlFor="nuevoPacienteNombre">Nombre *</Label>
-            <Input id="nuevoPacienteNombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          <div className="sm:col-span-1">
+            <Label htmlFor="nuevoPacienteNombre">Nombre(s) *</Label>
+            <Input
+              id="nuevoPacienteNombre"
+              placeholder="Ej. María José"
+              value={nombre}
+              onChange={(e) => setNombre(sanitizeTitleNombre(e.target.value))}
+            />
+          </div>
+
+          <div className="sm:col-span-1">
+            <Label htmlFor="nuevoPacienteApellido">Apellidos *</Label>
+            <Input
+              id="nuevoPacienteApellido"
+              placeholder="Ej. López O'Connor"
+              value={apellido}
+              onChange={(e) => setApellido(sanitizeTitleNombre(e.target.value))}
+            />
           </div>
 
           <div>
@@ -190,4 +233,3 @@ export function CrearPacienteDialog({
     </Dialog>
   );
 }
-

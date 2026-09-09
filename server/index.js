@@ -18,6 +18,7 @@ import {
 
 // Importación de rutas
 import pacientesRoutes from './routes/pacientes.js';
+import expedienteCapturaRoutes from './routes/expediente-captura.js';
 import citasRoutes from './routes/citas.js';
 import usuariosRoutes from './routes/usuarios.js';
 import triageRoutes from './routes/triage.js';
@@ -104,6 +105,7 @@ app.get('/api/sse', sseMiddleware);
 
 // Montaje de rutas
 app.use('/api/pacientes', pacientesRoutes);
+app.use('/api/pacientes', expedienteCapturaRoutes);
 app.use('/api/citas', citasRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api/triage', triageRoutes);

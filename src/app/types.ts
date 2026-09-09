@@ -31,8 +31,8 @@ export interface SedeQuirurgica {
   costoRentaEstimado?: number;
   ciudad: string;
   activa: boolean;
-  disponibleHoy: boolean;               // computed by server
-  periodos?: PeriodoDisponibilidad[];   // loaded on demand
+  disponibleHoy?: boolean;               // computed by server (opcional en el payload)
+  periodos?: PeriodoDisponibilidad[];      // loaded on demand
 }
 
 export interface User {
@@ -107,6 +107,10 @@ export interface Paciente {
   eliminado?: boolean;
   eliminadoEn?: string | null;
   eliminadoPor?: string | null;
+  origenExpediente?: 'sistema' | 'captura_fisica';
+  fechaCapturaDigitalPaciente?: string | null;
+  capturadoPorUsuarioId?: string | null;
+  observacionesCaptura?: any;
 }
 
 // Cita
@@ -126,6 +130,8 @@ export interface Cita {
   costoPagado: number;
   cedidaA?: string; // ID del nuevo paciente si se cedió el cupo
   fechaCreacion: string;
+  origen?: 'sistema' | 'captura_fisica';
+  fechaCapturaCita?: string | null;
 }
 
 // Información Médica General (para todas las especialidades excepto dentista)

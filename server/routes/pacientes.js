@@ -17,10 +17,20 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   const p = req.body;
   console.log('📬 Recibida petición POST para registrar:', JSON.stringify(p));
-  
-  const names = (p.nombre || '').split(' ');
-  const nombre = names[0];
-  const apellido = names.slice(1).join(' ');
+
+  const rawNombre = (p.nombre || '').trim();
+  const rawApellido = (p.apellido || '').trim();
+
+  let nombre = rawNombre;
+  let apellido = rawApellido;
+
+  if (!apellido && rawNombre) {
+    const spaceIdx = rawNombre.indexOf(' ');
+    if (spaceIdx !== -1) {
+      nombre = rawNombre.substring(0, spaceIdx);
+      apellido = rawNombre.substring(spaceIdx + 1);
+    }
+  }
 
   const nacionalidad = p.nacionalidad || 'Mexicana';
   const identificacion = (p.identificacion || '').replace(/\s/g, '').toUpperCase();
@@ -49,6 +59,24 @@ router.post('/', async (req, res) => {
       if (duplicado.rows.length > 0) {
         console.log(`⚠️ Paciente duplicado detectado: ${identificacion}`);
         return res.status(400).json({ duplicado: true, error: 'Este paciente ya existe en la base de datos con esa identificación.' });
+      }
+    }
+
+    // Evitar duplicados por nombre + apellido exactos (case-insensitive)
+    if (nombre && apellido) {
+      const dupNombre = await pool.query(
+        `SELECT 1 FROM "${SCHEMA}".paciente
+         WHERE LOWER(TRIM(nombre)) = LOWER(TRIM($1))
+           AND LOWER(TRIM(apellido)) = LOWER(TRIM($2))
+         LIMIT 1`,
+        [nombre, apellido]
+      );
+      if (dupNombre.rows.length > 0) {
+        console.log(`⚠️ Paciente duplicado detectado por nombre completo: ${nombre} ${apellido}`);
+        return res.status(400).json({
+          duplicado: true,
+          error: `Ya existe un paciente registrado con el nombre "${nombre} ${apellido}".`,
+        });
       }
     }
 
@@ -85,10 +113,20 @@ router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const p = req.body;
   try {
-    const names = (p.nombre || '').split(' ');
-    const nombre = names[0];
-    const apellido = names.slice(1).join(' ');
-    
+    const rawNombre = (p.nombre || '').trim();
+    const rawApellido = (p.apellido || '').trim();
+
+    let nombre = rawNombre;
+    let apellido = rawApellido;
+
+    if (!apellido && rawNombre) {
+      const spaceIdx = rawNombre.indexOf(' ');
+      if (spaceIdx !== -1) {
+        nombre = rawNombre.substring(0, spaceIdx);
+        apellido = rawNombre.substring(spaceIdx + 1);
+      }
+    }
+
     const nacionalidad = p.nacionalidad || 'Mexicana';
     const identificacion = (p.identificacion || '').replace(/\s/g, '').toUpperCase();
 
@@ -113,6 +151,24 @@ router.put('/:id', async (req, res) => {
       );
       if (duplicado.rows.length > 0) {
         return res.status(400).json({ duplicado: true, error: 'Este identificador ya está asignado a otro paciente.' });
+      }
+    }
+
+    // Evitar duplicados por nombre + apellido en UPDATE (si pertenece a otro paciente)
+    if (nombre && apellido) {
+      const dupNombre = await pool.query(
+        `SELECT id_paciente FROM "${SCHEMA}".paciente
+         WHERE LOWER(TRIM(nombre)) = LOWER(TRIM($1))
+           AND LOWER(TRIM(apellido)) = LOWER(TRIM($2))
+           AND id_paciente != $3
+         LIMIT 1`,
+        [nombre, apellido, parseInt(id)]
+      );
+      if (dupNombre.rows.length > 0) {
+        return res.status(400).json({
+          duplicado: true,
+          error: `Ya existe otro paciente registrado con el nombre "${nombre} ${apellido}".`,
+        });
       }
     }
 

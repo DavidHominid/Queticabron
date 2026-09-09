@@ -20,13 +20,20 @@ export function PacienteCard({ paciente, onClick, className = '' }: PacienteCard
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden flex-shrink-0">
             {paciente.imagen ? (
-              <img src={paciente.imagen} alt={paciente.nombre} className="w-full h-full object-cover" />
+              <img
+                src={paciente.imagen}
+                alt={`${(paciente.nombre || '').trim()}${paciente.apellido ? ' ' + String(paciente.apellido).trim() : ''}`}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <User className="w-6 h-6 text-blue-600" />
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 truncate">{paciente.nombre}</h3>
+            <h3 className="font-semibold text-gray-900 truncate">
+              {(paciente.nombre || '').trim()}
+              {paciente.apellido ? ` ${String(paciente.apellido).trim()}` : ''}
+            </h3>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="outline" className="text-xs">
                 {paciente.numeroExpediente}

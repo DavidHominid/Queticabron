@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router';
-import { ClipboardList } from 'lucide-react';
+import { AlertTriangle, ClipboardList } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { useData } from '../../context/DataContext';
@@ -134,6 +135,21 @@ export function ExpedienteResumen() {
 
   return (
     <>
+      {paciente.origenExpediente === 'captura_fisica' && (
+        <Alert className="mb-6 border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <AlertTriangle className="text-amber-600 dark:text-amber-400" />
+          <AlertTitle className="text-amber-800 dark:text-amber-300 font-semibold">
+            Expediente Capturado Digitalmente
+          </AlertTitle>
+          <AlertDescription className="text-amber-700 dark:text-amber-400/90">
+            Este expediente fue digitizado a partir de registros físicos anteriores.
+            {paciente.fechaCapturaDigitalPaciente && (
+              <> Fecha de captura: <strong>{new Date(paciente.fechaCapturaDigitalPaciente).toLocaleString('es-MX')}</strong>.</>
+            )}{' '}
+            La información puede presentar omisiones o errores al ser transcripta de documentos originales.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-6">
           <ExpedientePersonalInfo paciente={paciente} />

@@ -33,11 +33,13 @@ interface DataContextType {
   updatePaciente: (id: string, paciente: Partial<Paciente>) => Promise<any> | void;
   deletePaciente: (id: string, payload?: { rol_solicitante?: string; usuario_solicitante?: string; ciudad?: string }) => Promise<void>;
   getPacienteByExpediente: (numeroExpediente: string) => Paciente | undefined;
+  fetchPacientePorId: (id: string) => Promise<Paciente | null>;
 
   // Citas
   citas: Cita[];
   addCita: (cita: Cita) => Promise<Cita>;
   updateCita: (id: string, cita: Partial<Cita>) => void;
+  fetchCitasPaciente: (pacienteId: string) => Promise<Cita[]>;
 
   // Información Médica
   informacionMedica: InformacionMedica[];
@@ -218,6 +220,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const fetchAllData = async () => {
     await Promise.all([fetchOperationalData(), fetchStaticData()]);
+  };
+
+  const fetchPacientePorId = async (id: string): Promise<Paciente | null> => {
+    const idTrim = String(id || '').trim();
+    if (!idTrim) return null;
+    try {
+      const res = await fetch(`/api/pacientes/${idTrim}`);
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => null);
+      const pacienteParsed: Paciente | null =
+        data && typeof data === 'object' && 'id' in data ? (data as Paciente) : null;
+      if (pacienteParsed) {
+        setPacientes((prev) => {
+          const foundIdx = prev.findIndex((p) => String(p.id) === String(idTrim));
+          if (foundIdx === -1) return [...prev, pacienteParsed];
+          const next = [...prev];
+          next[foundIdx] = { ...next[foundIdx], ...pacienteParsed };
+          return next;
+        });
+      }
+      return pacienteParsed;
+    } catch (err) {
+      return null;
+    }
   };
 
   // ── Tiempo real: SSE + fallback polling ──────────────────────────────────
@@ -430,6 +456,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setCitas((prev) => prev.map((c) => (c.id === id ? actualizado : c)));
       }
     } catch (err) {
+    }
+  };
+
+  const fetchCitasPaciente = async (pacienteId: string): Promise<Cita[]> => {
+    const id = String(pacienteId || '').trim();
+    if (!id) return [];
+    try {
+      const res = await fetch(`/api/pacientes/${id}/citas`);
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => []);
+      const citasPac: Cita[] = Array.isArray(data) ? (data as Cita[]) : [];
+      setCitas((prev) => {
+        const idsPrev = new Set(prev.map((c) => String(c.id)));
+        const paraAgregar = citasPac.filter((c) => !idsPrev.has(String(c.id)));
+        if (!paraAgregar.length) return prev;
+        return [...paraAgregar, ...prev];
+      });
+      return citasPac;
+    } catch (err) {
+      return [];
     }
   };
 
@@ -848,9 +894,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         updatePaciente,
         deletePaciente,
         getPacienteByExpediente,
+        fetchPacientePorId,
         citas,
         addCita,
         updateCita,
+        fetchCitasPaciente,
         informacionMedica,
         addInformacionMedica,
         updateInformacionMedica,

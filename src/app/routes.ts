@@ -5,6 +5,7 @@ import { Eventos } from './pages/Eventos';
 import { EventoDetalle } from './pages/EventoDetalle';
 import { EventoEditor } from './pages/EventoEditor';
 import { Pacientes } from './pages/Pacientes';
+import { ImportarExpedientePage } from './pages/pacientes/importarexpedientepage';
 import { Citas } from './pages/Citas';
 import { TriageNuevo } from './pages/TriageNuevo';
 import { Consultas } from './pages/Consultas';
@@ -50,6 +51,10 @@ export const router = createBrowserRouter([
       {
         path: 'eventos/:id/editar',
         Component: EventoEditor,
+      },
+      {
+        path: 'pacientes/importar',
+        Component: ImportarExpedientePage,
       },
       {
         path: 'pacientes',

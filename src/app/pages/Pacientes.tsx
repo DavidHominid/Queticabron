@@ -15,7 +15,7 @@ import { formatDateSafe } from '../components/ui/utils';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Plus, Search, User, Phone, MapPin, FileText, X, Heart, Calendar, Trash2 } from 'lucide-react';
+import { Plus, Search, User, Phone, MapPin, FileText, X, Heart, Calendar, Trash2, Upload } from 'lucide-react';
 import { Paciente, Ciudad } from '../types';
 import { now, nowIso, todayYmd } from '../utils/clock';
 import {
@@ -220,7 +220,7 @@ export function Pacientes() {
       nombreUsuario: user?.nombre || '',
       rol: user?.rol || 'medico',
       accion: 'Iniciar Proceso de Cirugía',
-      detalles: `Inició proceso de cirugía para ${selectedPaciente.nombre} - Diagnóstico: ${data.diagnostico || ''}`,
+      detalles: `Inició proceso de cirugía para ${(selectedPaciente.nombre || '').trim()}${selectedPaciente.apellido ? ' ' + String(selectedPaciente.apellido).trim() : ''} - Diagnóstico: ${data.diagnostico || ''}`,
       fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     } as any);
@@ -251,7 +251,7 @@ export function Pacientes() {
       nombreUsuario: user?.nombre || '',
       rol: user?.rol || 'recepcion',
       accion: 'Agendar Cita General',
-      detalles: `Agendó cita general para ${payload.paciente.nombre} (${payload.paciente.numeroExpediente}) · Especialidad: ${payload.especialidad} · ${payload.fecha} ${payload.hora} (cita ID: ${nueva.id})`,
+      detalles: `Agendó cita general para ${(payload.paciente.nombre || '').trim()}${payload.paciente.apellido ? ' ' + String(payload.paciente.apellido).trim() : ''} (${payload.paciente.numeroExpediente}) · Especialidad: ${payload.especialidad} · ${payload.fecha} ${payload.hora} (cita ID: ${nueva.id})`,
       fechaHora: nowIso(),
       ciudad: user?.ciudad || 'sonoyta',
     } as any);
@@ -288,8 +288,9 @@ export function Pacientes() {
     const termRaw = searchTerm.trim();
 
     return pacientes.filter((p) => {
+      const nombreCompleto = `${(p.nombre || '').trim()}${p.apellido ? ' ' + String(p.apellido).trim() : ''}`.toLowerCase();
       const matchSearch =
-        (p.nombre || '').toLowerCase().includes(termLower) ||
+        nombreCompleto.includes(termLower) ||
         (p.id || '').toLowerCase().includes(termLower) ||
         (p.numeroExpediente || '').toLowerCase().includes(termLower) ||
         (p.telefono || '').includes(termRaw);
@@ -330,10 +331,16 @@ export function Pacientes() {
             </p>
           </div>
           {!isMedico && (
-            <Button onClick={() => { resetForm(); setShowModal(true); }}>
-              <Plus className="w-4 h-4 mr-2" />
-              {t('pac.new')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => navigate('/pacientes/importar')}>
+                <Upload className="w-4 h-4 mr-2" />
+                Importar Expediente
+              </Button>
+              <Button onClick={() => { resetForm(); setShowModal(true); }}>
+                <Plus className="w-4 h-4 mr-2" />
+                {t('pac.new')}
+              </Button>
+            </div>
           )}
         </div>
 
@@ -588,7 +595,11 @@ export function Pacientes() {
                   <div className="flex items-center gap-4">
                     {selectedPaciente.imagen ? (
                       <div className="w-16 h-16 rounded-full overflow-hidden border border-border shadow-sm flex-shrink-0 bg-card">
-                        <img src={selectedPaciente.imagen} alt={selectedPaciente.nombre} className="w-full h-full object-cover" />
+                        <img
+                          src={selectedPaciente.imagen}
+                          alt={`${(selectedPaciente.nombre || '').trim()}${selectedPaciente.apellido ? ' ' + String(selectedPaciente.apellido).trim() : ''}`}
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     ) : (
                       <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center border border-border shadow-sm flex-shrink-0">
@@ -596,7 +607,10 @@ export function Pacientes() {
                       </div>
                     )}
                     <div className="text-left">
-                      <SheetTitle className="text-xl">{selectedPaciente.nombre}</SheetTitle>
+                      <SheetTitle className="text-xl">
+                        {(selectedPaciente.nombre || '').trim()}
+                        {selectedPaciente.apellido ? ` ${String(selectedPaciente.apellido).trim()}` : ''}
+                      </SheetTitle>
                       <div className="mt-2 text-left">
                          <Badge variant="outline">{selectedPaciente.numeroExpediente}</Badge>
                       </div>
