@@ -528,11 +528,7 @@ export function Seguimientos() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-primary/15 text-[color:var(--brand-primary-strong)]">
-                    {pacienteAgendar?.imagen ? (
-                      <img src={pacienteAgendar.imagen} alt={pacienteAgendar.nombre} className="h-full w-full object-cover" />
-                    ) : (
-                      <User className="h-6 w-6" />
-                    )}
+                    <User className="h-6 w-6" />
                   </div>
                   <div className="min-w-0">
                     <CardTitle className="text-base font-semibold text-foreground">{pacienteAgendar?.nombre || 'Paciente'}</CardTitle>
@@ -670,11 +666,7 @@ export function Seguimientos() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3">
                       <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-primary/15 text-[color:var(--brand-primary-strong)]">
-                        {paciente?.imagen ? (
-                          <img src={paciente.imagen} alt={paciente.nombre} className="h-full w-full object-cover" />
-                        ) : (
-                          <User className="h-6 w-6" />
-                        )}
+                        <User className="h-6 w-6" />
                       </div>
                       <div className="min-w-0">
                         <CardTitle className="text-base font-semibold text-foreground">{paciente?.nombre || 'Paciente'}</CardTitle>
@@ -1015,11 +1007,7 @@ export function Seguimientos() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-primary/15 text-[color:var(--brand-primary-strong)]">
-                          {paciente?.imagen ? (
-                            <img src={paciente.imagen} alt={paciente.nombre} className="w-full h-full object-cover" />
-                          ) : (
-                            <User className="h-6 w-6" />
-                          )}
+                          <User className="h-6 w-6" />
                         </div>
                         <div className="min-w-0">
                           <CardTitle className="text-base font-semibold text-foreground">{paciente?.nombre || 'Paciente'}</CardTitle>

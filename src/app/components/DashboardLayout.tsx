@@ -375,7 +375,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-8 relative">
+        <main className="flex-1 overflow-y-auto px-8 pb-8 relative">
           {!isInitialized ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-12 bg-background/70 backdrop-blur-sm z-50">
               <div className="relative w-24 h-24 flex items-center justify-center">

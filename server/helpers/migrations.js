@@ -218,3 +218,20 @@ export async function migrateAuditoriaPacienteId() {
     `,
   );
 }
+
+export async function migratePacienteCleanDefaultsAndDropLegacy() {
+  if (!(await tableExists(SCHEMA, 'paciente'))) return;
+
+  try {
+    await pool.query(`ALTER TABLE "${SCHEMA}".paciente DROP COLUMN IF EXISTS nacionalidad`);
+  } catch (_) {}
+  try {
+    await pool.query(`ALTER TABLE "${SCHEMA}".paciente DROP COLUMN IF EXISTS identificacion`);
+  } catch (_) {}
+  try {
+    await pool.query(`ALTER TABLE "${SCHEMA}".paciente DROP COLUMN IF EXISTS imagen`);
+  } catch (_) {}
+  try {
+    await pool.query(`ALTER TABLE "${SCHEMA}".paciente ALTER COLUMN ciudad SET DEFAULT 'Puerto Peñasco'::text`);
+  } catch (_) {}
+}

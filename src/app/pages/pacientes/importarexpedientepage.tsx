@@ -287,7 +287,6 @@ export function ImportarExpedientePage() {
     return createEmptyDraft();
   });
 
-  const [mainTab, setMainTab] = useState<'paciente' | 'citas'>('paciente');
   const [activeCitaIdx, setActiveCitaIdx] = useState(0);
   const [newChip, setNewChip] = useState<{ alergia: string; medicamento: string }>({
     alergia: '',
@@ -669,41 +668,41 @@ export function ImportarExpedientePage() {
   return (
     <DashboardLayout>
       <div
-        className="max-w-[1400px] w-full mx-auto -mt-8"
+        className="max-w-[1400px] w-full mx-auto"
         style={{
           ['--border-input' as any]: 'hsl(var(--border) / 0.65)',
           ['--input-background' as any]: '#ffffff',
         }}
       >
-        <div className="sticky top-0 z-20 -mx-8 border-b border-border/70 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          <div className="mx-auto max-w-[1400px] px-8 py-4">
-            <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row">
-              <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+        <div className="sticky top-0 z-20 -mx-8 border-b border-border/50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85">
+          <div className="mx-auto max-w-[1400px] px-4 sm:px-6 md:px-8 py-3 sm:py-3.5">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 min-w-0">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate('/pacientes')}
-                  className="shrink-0"
+                  className="shrink-0 self-start sm:self-auto"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Volver
                 </Button>
-                <div className="min-w-0 flex-1 sm:flex-none">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
+                    <h1 className="text-base sm:text-lg md:text-xl font-semibold text-foreground leading-tight truncate">
                       Capturar Expediente Histórico
                     </h1>
-                    <Badge variant="secondary" className="gap-1 border border-border/60 bg-muted/70 text-muted-foreground">
+                    <Badge variant="outline" className="gap-1 border-border/50 bg-surface-tint/60 text-accent-foreground/80">
                       <FileText className="w-3 h-3" />
                       Origen físico
                     </Badge>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1 hidden sm:block">
-                    Datos del paciente e información médica se capturan una sola vez; las citas históricas se registran en pestañas independientes.
+                  <p className="text-[13px] sm:text-sm text-muted-foreground mt-1 leading-relaxed">
+                    Captura en una sola página: datos del paciente, información médica e historial de citas.
                   </p>
                 </div>
               </div>
-              <Tooltip>
+              <Tooltip delayDuration={400}>
                 <TooltipTrigger asChild>
                   <div className="w-full sm:w-auto">
                     <Button
@@ -725,31 +724,35 @@ export function ImportarExpedientePage() {
           </div>
         </div>
 
-        <div className="pt-8 pb-20 space-y-8">
-          <Tabs
-            value={mainTab}
-            onValueChange={(v) => setMainTab(v as 'paciente' | 'citas')}
-          >
-            <TabsList className="w-full sm:w-auto grid grid-cols-2 sm:flex h-auto p-1 bg-muted/60 rounded-lg">
-              <TabsTrigger value="paciente" className="py-2.5 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <User className="w-4 h-4 mr-2" />
-                Paciente e Info Médica
-              </TabsTrigger>
-              <TabsTrigger value="citas" className="py-2.5 data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <FileText className="w-4 h-4 mr-2" />
-                Citas Históricas · {draft.citas.length}
-              </TabsTrigger>
-            </TabsList>
+        <div className="pt-5 sm:pt-7 pb-20 space-y-10 sm:space-y-12">
+          {/* ===== SECCIÓN 1: DATOS PACIENTE ===== */}
+          <section id="seccion-paciente" className="space-y-6">
+            <header className="flex items-end justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/70 mb-1">
+                  Sección 1
+                </p>
+                <h2 className="text-xl sm:text-2xl font-semibold text-foreground leading-tight tracking-tight">
+                  Datos del paciente e información médica
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">
+                  Información que se registra una sola vez por expediente.
+                </p>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <Badge variant="outline" className="text-[11px] border-border/60">
+                  1 sola vez
+                </Badge>
+              </div>
+            </header>
 
-            {/* ===== TAB 1: DATOS PACIENTE ===== */}
-            <TabsContent value="paciente" className="mt-8">
-              <div className="grid gap-6 grid-cols-1 xl:grid-cols-2">
+              <div className="grid gap-5 sm:gap-6 grid-cols-1 xl:grid-cols-2">
                 <Card className="shadow-[0_2px_8px_rgba(121,201,197,0.05)] border-border/70">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <User className="w-5 h-5 text-primary" />
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-[17px] leading-snug">
+                      <User className="w-4.5 h-4.5 text-primary shrink-0" />
                       Datos Generales del Paciente
-                      <Badge variant="destructive" className="ml-auto text-xs">
+                      <Badge variant="destructive" className="ml-auto text-[11px]">
                         * Obligatorios
                       </Badge>
                     </CardTitle>
@@ -841,33 +844,33 @@ export function ImportarExpedientePage() {
               </Card>
 
               <Card className="shadow-[0_2px_8px_rgba(121,201,197,0.05)] border-border/70">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Heart className="w-5 h-5 text-rose-500" />
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-[17px] leading-snug">
+                    <Heart className="w-4.5 h-4.5 text-rose-500 shrink-0" />
                     Información Médica General
-                    <Badge variant="outline" className="ml-auto text-xs">
+                    <Badge variant="outline" className="ml-auto text-[11px]">
                       Opcional · 1 sola vez
                     </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
-                  <div className="space-y-2">
-                    <Label>Alergias conocidas</Label>
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <div className="space-y-2.5">
+                    <Label className="text-[13px] leading-tight">Alergias conocidas</Label>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                       {draft.infoMedica.alergias.map((a) => (
                         <Badge
                           key={a}
                           variant="secondary"
-                          className="gap-1 pr-1 pl-2 py-1"
+                          className="gap-1 pr-1 pl-2 py-0.5 text-[12px]"
                         >
                           {a}
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-5 w-5 p-0 hover:bg-muted rounded-full"
+                            className="h-4.5 w-4.5 p-0 hover:bg-muted rounded-full"
                             onClick={() => quitarAlergia(a)}
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-2.5 h-2.5" />
                           </Button>
                         </Badge>
                       ))}
@@ -892,26 +895,26 @@ export function ImportarExpedientePage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>
-                      <Pill className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                  <div className="space-y-2.5">
+                    <Label className="text-[13px] leading-tight flex items-center gap-1.5">
+                      <Pill className="w-3.5 h-3.5 -mt-0.5" />
                       Medicamentos actuales
                     </Label>
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                       {draft.infoMedica.medicamentosActuales.map((a) => (
                         <Badge
                           key={a}
                           variant="outline"
-                          className="gap-1 pr-1 pl-2 py-1"
+                          className="gap-1 pr-1 pl-2 py-0.5 text-[12px]"
                         >
                           {a}
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-5 w-5 p-0 hover:bg-muted rounded-full"
+                            className="h-4.5 w-4.5 p-0 hover:bg-muted rounded-full"
                             onClick={() => quitarMedicamento(a)}
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-2.5 h-2.5" />
                           </Button>
                         </Badge>
                       ))}
@@ -939,22 +942,22 @@ export function ImportarExpedientePage() {
               </Card>
 
               <Card className="xl:col-span-2 shadow-[0_2px_8px_rgba(121,201,197,0.05)] border-border/70">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Stethoscope className="w-5 h-5 text-primary" />
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-[17px] leading-snug">
+                    <Stethoscope className="w-4.5 h-4.5 text-primary shrink-0" />
                     Antecedentes Patológicos y Familiares
-                    <Badge variant="outline" className="ml-auto text-xs">
+                    <Badge variant="outline" className="ml-auto text-[11px]">
                       Opcional · 1 sola vez por paciente
                     </Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-5">
-                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+                <CardContent className="space-y-5 sm:space-y-6">
+                  <div className="grid gap-4 sm:gap-5 grid-cols-1 lg:grid-cols-2">
                     <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5">
-                        <FileText className="w-4 h-4 text-primary/70" />
+                      <Label className="flex items-center gap-1.5 text-[13px] leading-tight">
+                        <FileText className="w-3.5 h-3.5 text-primary/70 shrink-0" />
                         Antecedentes Patológicos
-                        <Badge variant="outline" className="ml-auto text-[11px] font-normal">
+                        <Badge variant="outline" className="ml-auto text-[10.5px] font-normal">
                           Texto libre
                         </Badge>
                       </Label>
@@ -966,15 +969,15 @@ export function ImportarExpedientePage() {
                           actualizarAntecedente('patologicos', e.target.value)
                         }
                       />
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Incluye enfermedades crónicas, padecimientos diagnosticados, cirugías previas, transfusiones, alergias documentadas, hospitalizaciones, etc.
+                      <p className="text-[11.5px] text-muted-foreground/80 leading-relaxed">
+                        Incluye enfermedades crónicas, padecimientos diagnosticados, cirugías previas, transfusiones, alergias documentadas, hospitalizaciones.
                       </p>
                     </div>
                     <div className="space-y-2">
-                      <Label className="flex items-center gap-1.5">
-                        <Heart className="w-4 h-4 text-primary/70" />
+                      <Label className="flex items-center gap-1.5 text-[13px] leading-tight">
+                        <Heart className="w-3.5 h-3.5 text-primary/70 shrink-0" />
                         Antecedentes Familiares
-                        <Badge variant="outline" className="ml-auto text-[11px] font-normal">
+                        <Badge variant="outline" className="ml-auto text-[10.5px] font-normal">
                           Texto libre
                         </Badge>
                       </Label>
@@ -986,15 +989,15 @@ export function ImportarExpedientePage() {
                           actualizarAntecedente('familiares', e.target.value)
                         }
                       />
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Incluye padecimientos de padres, abuelos, hermanos y causa de muerte de familiares directos. Factor hereditario, enfermedades genéticas, consanguinidad, etc.
+                      <p className="text-[11.5px] text-muted-foreground/80 leading-relaxed">
+                        Incluye padecimientos de padres, abuelos, hermanos y causa de muerte de familiares directos. Factor hereditario, enfermedades genéticas.
                       </p>
                     </div>
                   </div>
 
-                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 pt-1">
+                  <div className="grid gap-4 sm:gap-5 grid-cols-1 lg:grid-cols-2 pt-0.5">
                     <div className="space-y-2">
-                      <Label>Antecedentes Psicosociales</Label>
+                      <Label className="text-[13px] leading-tight">Antecedentes Psicosociales</Label>
                       <Textarea
                         rows={5}
                         placeholder="Historial familiar, hábitos, tabaquismo, alcoholismo, situaciones psicosociales, estado civil, ocupación, escolaridad, vivienda, etc."
@@ -1005,7 +1008,7 @@ export function ImportarExpedientePage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Notas adicionales / Observaciones generales del expediente</Label>
+                      <Label className="text-[13px] leading-tight">Notas adicionales / Observaciones generales del expediente</Label>
                       <Textarea
                         rows={5}
                         placeholder="Cualquier dato adicional relevante del expediente físico, contexto, aclaraciones de lectura..."
@@ -1015,28 +1018,58 @@ export function ImportarExpedientePage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-end pt-2">
-                    <Button variant="secondary" onClick={() => setMainTab('citas')}>
-                      Continuar a Citas Históricas →
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
-            </div>
-          </TabsContent>
+              </div>
+          </section>
 
-          {/* ===== TAB 2: CITAS HISTÓRICAS ===== */}
-          <TabsContent value="citas" className="mt-8">
+          {/* ===== SECCIÓN 2: CITAS HISTÓRICAS ===== */}
+          <section id="seccion-citas" className="space-y-6">
+            <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/70 mb-1">
+                  Sección 2
+                </p>
+                <h2 className="text-xl sm:text-2xl font-semibold text-foreground leading-tight tracking-tight flex items-center gap-2.5 flex-wrap">
+                  Citas Históricas
+                  <Badge variant="secondary" className="text-[12px] font-medium">
+                    {draft.citas.length} registro{draft.citas.length !== 1 ? 's' : ''}
+                  </Badge>
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl leading-relaxed">
+                  Cada pestaña corresponde a una consulta histórica. Agrega todas las citas disponibles del expediente físico.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Tooltip delayDuration={300}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={agregarCita}
+                      className="h-9"
+                    >
+                      <Plus className="w-4 h-4 mr-1.5" />
+                      Nueva Cita
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">Agregar nueva cita histórica</TooltipContent>
+                </Tooltip>
+              </div>
+            </header>
+
             {pacienteInvalido && (
-              <Card className="mb-6 border-amber-200/80 bg-amber-50/60 dark:bg-amber-950/10 shadow-[0_2px_8px_rgba(249,110,91,0.05)]">
-                <CardContent className="py-4 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-sm text-amber-800 dark:text-amber-200">
-                    <strong>Antes de continuar:</strong> llena los 5 campos obligatorios del paciente
-                    en la pestaña anterior. De lo contrario no podrás guardar el expediente.
+              <Card className="border-amber-200/70 bg-amber-50/50 dark:bg-amber-950/10 shadow-[0_2px_8px_rgba(249,110,91,0.04)]">
+                <CardContent className="py-3.5 px-4 flex items-start gap-3">
+                  <AlertTriangle className="w-4.5 h-4.5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-[13px] text-amber-800 dark:text-amber-200 leading-relaxed">
+                    <strong className="font-semibold">Completa la sección 1 antes de guardar:</strong> llena los 5 campos obligatorios del paciente.
                     <div className="mt-2">
-                      <Button size="sm" variant="secondary" onClick={() => setMainTab('paciente')}>
-                        ← Ir a Datos Paciente
+                      <Button size="sm" variant="outline" onClick={() => {
+                        const el = document.getElementById('seccion-paciente');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }} className="h-8 text-[12px] border-amber-300/70 hover:bg-amber-100/60 text-amber-800 dark:text-amber-200">
+                        ↑ Ir a Datos Paciente
                       </Button>
                     </div>
                   </div>
@@ -1045,9 +1078,26 @@ export function ImportarExpedientePage() {
             )}
 
             <Tabs value={String(activeCitaIdx)} onValueChange={(v) => setActiveCitaIdx(Number(v))}>
-              <div className="mb-0 flex items-end border-b border-border">
+              <div
+                role="tablist"
+                className="tab-bar-citas group/tabbar
+                           flex items-stretch
+                           border-b border-border
+                           overflow-x-auto overflow-y-hidden
+                           scroll-smooth
+                           [&::-webkit-scrollbar]:h-1.5
+                           [&::-webkit-scrollbar]:w-1.5
+                           [&::-webkit-scrollbar-thumb]:bg-border/80
+                           [&::-webkit-scrollbar-thumb]:rounded-full
+                           [&::-webkit-scrollbar-track]:bg-transparent
+                           [scrollbar-width]:thin
+                           [scrollbar-color]:hsl(var(--border)/0.8)_transparent"
+              >
                 {draft.citas.map((cita, i) => {
                   const isActive = activeCitaIdx === i;
+                  const fechaMostrar = cita.fechaCita
+                    ? new Date(cita.fechaCita).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+                    : 'sin fecha';
                   return (
                     <button
                       type="button"
@@ -1063,24 +1113,28 @@ export function ImportarExpedientePage() {
                         }
                       }}
                       className={[
-                        'group relative flex items-center gap-1.5 flex-1 min-w-0',
-                        'px-2 sm:px-3 py-2',
-                        'rounded-t-md',
-                        'whitespace-nowrap',
-                        'border border-border',
+                        'group/tab relative flex items-center gap-2',
+                        'flex-1 min-w-[92px] sm:min-w-[112px] md:min-w-[132px] max-w-[190px]',
+                        'shrink',
+                        'px-2.5 sm:px-3.5 py-2.5',
+                        'rounded-t-lg',
+                        'border border-b-0 border-border/80',
                         'transition-colors duration-150 ease-out',
                         isActive
-                          ? 'bg-card border-b-card -mb-px z-[1] text-foreground shadow-[0_-1px_0_rgba(0,0,0,0.01)]'
-                          : 'bg-muted/10 border-b-border text-muted-foreground hover:text-foreground/80 hover:bg-muted/30',
+                          ? 'bg-card text-foreground border-border -mb-px z-[1]'
+                          : 'bg-transparent text-muted-foreground hover:text-foreground/85 hover:bg-muted/40 -mb-px',
+                        i > 0 ? '-ml-px' : '',
                       ].join(' ')}
-                      style={{ marginRight: '-1px' }}
                     >
-                      <span className="min-w-0 flex-1 flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 shrink-0 text-muted-foreground/60 group-hover:text-foreground/60" />
-                        <span className="truncate font-medium text-[13px]">
+                      <Calendar className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground/60 group-hover/tab:text-foreground/60'}`} />
+                      <div className="flex flex-col items-start min-w-0 leading-tight flex-1">
+                        <span className="truncate font-semibold text-[13px] tracking-tight w-full">
                           Cita {i + 1}
                         </span>
-                      </span>
+                        <span className={`truncate text-[11px] w-full ${!cita.fechaCita ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground/75'}`}>
+                          {fechaMostrar}
+                        </span>
+                      </div>
                       <span
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1095,10 +1149,10 @@ export function ImportarExpedientePage() {
                           }
                         }}
                         className={[
-                          'shrink-0 inline-flex items-center justify-center h-5 w-5 rounded transition-colors',
+                          'shrink-0 inline-flex items-center justify-center h-5 w-5 rounded-full transition-colors ml-0.5',
                           draft.citas.length > 1
-                            ? 'cursor-pointer hover:bg-muted text-muted-foreground hover:text-foreground'
-                            : 'opacity-30 cursor-not-allowed text-muted-foreground',
+                            ? 'cursor-pointer hover:bg-muted/90 text-muted-foreground/70 hover:text-foreground'
+                            : 'opacity-25 cursor-not-allowed text-muted-foreground',
                         ].join(' ')}
                         aria-label={draft.citas.length > 1 ? `Eliminar Cita ${i + 1}` : undefined}
                         title={draft.citas.length > 1 ? `Eliminar Cita ${i + 1}` : 'Debe haber al menos una cita'}
@@ -1109,15 +1163,20 @@ export function ImportarExpedientePage() {
                   );
                 })}
 
-                <Tooltip>
+                <Tooltip delayDuration={300}>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       onClick={agregarCita}
-                      className="shrink-0 inline-flex items-center justify-center h-[38px] w-9 rounded-t-md rounded-b-none border border-border border-b-card -mb-px z-[1] bg-muted/20 hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"
+                      className="shrink-0 inline-flex items-center justify-center
+                                 h-[42px] min-w-[44px] px-2.5
+                                 rounded-t-lg
+                                 border border-b-0 border-border/80 -mb-px z-[1]
+                                 ml-[-1px]
+                                 bg-muted/10 hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
                       aria-label="Nueva Cita Histórica"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-4.5 h-4.5" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">Nueva Cita Histórica</TooltipContent>
@@ -1126,28 +1185,28 @@ export function ImportarExpedientePage() {
 
               {draft.citas.map((cita, i) => (
                 <TabsContent key={cita.id} value={String(i)} className="mt-0">
-                  <Card className="shadow-[0_2px_8px_rgba(121,201,197,0.05)] rounded-t-none border-t-0 border-border/70">
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2 flex-wrap">
-                        <Calendar className="w-5 h-5 text-primary" />
+                  <Card className="shadow-[0_2px_8px_rgba(121,201,197,0.05)] rounded-none rounded-b-xl border-border/80">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-base sm:text-[17px] leading-snug flex items-center gap-2 flex-wrap">
+                        <Calendar className="w-4.5 h-4.5 text-primary shrink-0" />
                         Cita Histórica #{i + 1}
                         {!cita.fechaCita && (
-                          <Badge variant="outline" className="gap-1 text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300">
+                          <Badge variant="outline" className="gap-1 text-[11px] text-amber-700 border-amber-200/80 bg-amber-50/70 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300">
                             <AlertTriangle className="w-3 h-3" />
                             Falta fecha
                           </Badge>
                         )}
                         {cita.fechaCita && (
-                          <Badge variant="secondary" className="font-normal">
-                            {new Date(cita.fechaCita).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })}
+                          <Badge variant="secondary" className="font-normal text-[12px]">
+                            {new Date(cita.fechaCita).toLocaleDateString('es-MX', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}
                           </Badge>
                         )}
-                        <Badge variant="outline" className="ml-auto text-xs">
-                          Información exclusiva de esta cita
+                        <Badge variant="outline" className="ml-auto text-[11px]">
+                          Exclusiva de esta cita
                         </Badge>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
+                    <CardContent className="space-y-5 sm:space-y-6">
                       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                         <div className="space-y-2">
                           <Label>
@@ -1213,13 +1272,18 @@ export function ImportarExpedientePage() {
                         </div>
                       </div>
 
-                      <div className="border-t pt-5">
-                        <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wide">
-                          Signos Vitales (todos opcionales para expedientes antiguos)
-                        </h3>
-                        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+                      <div className="border-t pt-4 sm:pt-5">
+                        <div className="flex items-baseline justify-between gap-2 mb-3 sm:mb-4">
+                          <h3 className="text-[12px] sm:text-[13px] font-medium uppercase tracking-[0.06em] text-muted-foreground/80 flex items-center gap-2">
+                            Signos Vitales
+                          </h3>
+                          <span className="text-[11px] text-muted-foreground/70 hidden sm:inline">
+                            Todos opcionales para expedientes antiguos
+                          </span>
+                        </div>
+                        <div className="grid gap-3 sm:gap-3.5 grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8">
                           <div className="space-y-1.5">
-                            <Label htmlFor={`sv-temp-${i}`} className="text-xs">
+                            <Label htmlFor={`sv-temp-${i}`} className="text-[11.5px] leading-tight text-muted-foreground/90">
                               Temp (°C)
                             </Label>
                             <Input
@@ -1230,7 +1294,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor={`sv-pa-${i}`} className="text-xs">
+                            <Label htmlFor={`sv-pa-${i}`} className="text-[11.5px] leading-tight text-muted-foreground/90">
                               PA (mmHg)
                             </Label>
                             <Input
@@ -1243,7 +1307,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor={`sv-hr-${i}`} className="text-xs">
+                            <Label htmlFor={`sv-hr-${i}`} className="text-[11.5px] leading-tight text-muted-foreground/90">
                               FC (lpm)
                             </Label>
                             <Input
@@ -1254,7 +1318,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor={`sv-rr-${i}`} className="text-xs">
+                            <Label htmlFor={`sv-rr-${i}`} className="text-[11.5px] leading-tight text-muted-foreground/90">
                               FR (rpm)
                             </Label>
                             <Input
@@ -1267,7 +1331,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor={`sv-o2-${i}`} className="text-xs">
+                            <Label htmlFor={`sv-o2-${i}`} className="text-[11.5px] leading-tight text-muted-foreground/90">
                               O2 Sat (%)
                             </Label>
                             <Input
@@ -1280,7 +1344,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor={`sv-glu-${i}`} className="text-xs">
+                            <Label htmlFor={`sv-glu-${i}`} className="text-[11.5px] leading-tight text-muted-foreground/90">
                               Glucosa
                             </Label>
                             <Input
@@ -1293,7 +1357,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor={`sv-alt-${i}`} className="text-xs">
+                            <Label htmlFor={`sv-alt-${i}`} className="text-[11.5px] leading-tight text-muted-foreground/90">
                               Altura (cm)
                             </Label>
                             <Input
@@ -1304,7 +1368,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <Label htmlFor={`sv-peso-${i}`} className="text-xs">
+                            <Label htmlFor={`sv-peso-${i}`} className="text-[11.5px] leading-tight text-muted-foreground/90">
                               Peso (kg)
                             </Label>
                             <Input
@@ -1317,13 +1381,15 @@ export function ImportarExpedientePage() {
                         </div>
                       </div>
 
-                      <div className="border-t pt-5">
-                        <h3 className="text-sm font-semibold mb-4 text-muted-foreground uppercase tracking-wide">
-                          Nota Clínica de la Cita
-                        </h3>
-                        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+                      <div className="border-t pt-4 sm:pt-5">
+                        <div className="flex items-baseline justify-between gap-2 mb-3 sm:mb-4">
+                          <h3 className="text-[12px] sm:text-[13px] font-medium uppercase tracking-[0.06em] text-muted-foreground/80 flex items-center gap-2">
+                            Nota Clínica de la Cita
+                          </h3>
+                        </div>
+                        <div className="grid gap-4 sm:gap-5 grid-cols-1 lg:grid-cols-2">
                           <div className="space-y-2">
-                            <Label>Motivo de Consulta (CC)</Label>
+                            <Label className="text-[13px] leading-tight">Motivo de Consulta (CC)</Label>
                             <Textarea
                               rows={3}
                               placeholder="Quéja principal del paciente en esta cita"
@@ -1334,7 +1400,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Observaciones / Historia del Padecimiento (HPI)</Label>
+                            <Label className="text-[13px] leading-tight">Observaciones / Historia del Padecimiento (HPI)</Label>
                             <Textarea
                               rows={3}
                               placeholder="Descripción del padecimiento actual en esta consulta"
@@ -1345,7 +1411,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-2 lg:col-span-2">
-                            <Label>Padecimiento Actual (PE - detalle)</Label>
+                            <Label className="text-[13px] leading-tight">Padecimiento Actual (PE - detalle)</Label>
                             <Textarea
                               rows={3}
                               placeholder="Examen físico relevante, impresión diagnóstica o padecimiento actual documentado"
@@ -1356,8 +1422,8 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>
-                              <Pill className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+                            <Label className="text-[13px] leading-tight flex items-center gap-1.5">
+                              <Pill className="w-3.5 h-3.5 -mt-0.5" />
                               Medicamentos Recetados (RX)
                             </Label>
                             <Textarea
@@ -1370,7 +1436,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Tratamiento / Procedimientos (PT)</Label>
+                            <Label className="text-[13px] leading-tight">Tratamiento / Procedimientos (PT)</Label>
                             <Textarea
                               rows={4}
                               placeholder="Tratamiento indicado, procedimientos realizados, curaciones, etc."
@@ -1381,7 +1447,7 @@ export function ImportarExpedientePage() {
                             />
                           </div>
                           <div className="space-y-2 lg:col-span-2">
-                            <Label>Plan y Seguimiento (A/P)</Label>
+                            <Label className="text-[13px] leading-tight">Plan y Seguimiento (A/P)</Label>
                             <Textarea
                               rows={3}
                               placeholder="Plan terapéutico, estudios a realizar, cita de seguimiento, recomendaciones."
@@ -1398,9 +1464,8 @@ export function ImportarExpedientePage() {
                 </TabsContent>
               ))}
             </Tabs>
-          </TabsContent>
-        </Tabs>
-      </div>
+          </section>
+        </div>
       </div>
 
       <AlertDialog

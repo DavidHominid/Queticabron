@@ -51,15 +51,13 @@ export function CrearPacienteDialog({
 }) {
   const { user } = useAuth();
   const { pacientes, addPaciente } = useData();
-  const ciudad = (ciudadDefault || user?.ciudad || 'sonoyta') as Ciudad;
+  const ciudad = (ciudadDefault || user?.ciudad || 'Puerto Peñasco') as Ciudad;
 
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [telefono, setTelefono] = useState('');
   const [sexo, setSexo] = useState<'Masculino' | 'Femenino'>('Masculino');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
-  const [identificacion, setIdentificacion] = useState('');
-  const [nacionalidad, setNacionalidad] = useState('Mexicana');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
 
@@ -75,8 +73,6 @@ export function CrearPacienteDialog({
     setTelefono('');
     setSexo('Masculino');
     setFechaNacimiento('');
-    setIdentificacion('');
-    setNacionalidad('Mexicana');
     setError('');
     setGuardando(false);
   };
@@ -116,8 +112,6 @@ export function CrearPacienteDialog({
       telefono: t,
       ciudad,
       fechaRegistro: todayYmd(),
-      nacionalidad,
-      identificacion: String(identificacion || '').trim() || undefined,
     };
 
     try {
@@ -197,25 +191,6 @@ export function CrearPacienteDialog({
               value={fechaNacimiento}
               onChange={(e) => setFechaNacimiento(e.target.value)}
             />
-          </div>
-
-          <div>
-            <Label htmlFor="nuevoPacienteNacionalidad">Nacionalidad</Label>
-            <select
-              id="nuevoPacienteNacionalidad"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
-              value={nacionalidad}
-              onChange={(e) => setNacionalidad(e.target.value)}
-            >
-              <option value="Mexicana">Mexicana</option>
-              <option value="Americana">Americana</option>
-              <option value="Otra">Otra</option>
-            </select>
-          </div>
-
-          <div className="sm:col-span-2">
-            <Label htmlFor="nuevoPacienteId">Identificación</Label>
-            <Input id="nuevoPacienteId" value={identificacion} onChange={(e) => setIdentificacion(e.target.value)} />
           </div>
         </div>
 

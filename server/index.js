@@ -14,6 +14,7 @@ import {
   migratePacienteSoftDeleteColumns,
   migrateStaticNotifyTriggers,
   migrateAuditoriaPacienteId,
+  migratePacienteCleanDefaultsAndDropLegacy,
 } from './helpers/migrations.js';
 
 // Importación de rutas
@@ -93,6 +94,9 @@ migrateStaticNotifyTriggers().catch((err) => {
 });
 migrateAuditoriaPacienteId().catch((err) => {
   console.error('❌ Error migrando auditoría (paciente_id):', err.message);
+});
+migratePacienteCleanDefaultsAndDropLegacy().catch((err) => {
+  console.error('❌ Error migrando paciente (clean defaults / legacy cols):', err.message);
 });
 startDbNotifyListener().catch((err) => {
   console.error('❌ Error iniciando LISTEN/NOTIFY:', err.message);

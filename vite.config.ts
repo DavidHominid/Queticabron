@@ -26,6 +26,10 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5000,
     allowedHosts: true,
+    hmr: {
+      host: 'localhost',
+      clientPort: 5000,
+    },
     proxy: {
       '/api': {
         target: `http://127.0.0.1:${apiPort}`,

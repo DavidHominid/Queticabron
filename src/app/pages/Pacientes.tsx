@@ -45,44 +45,26 @@ export function Pacientes() {
     (user?.ciudad || '') ||
     (Array.isArray((user as any)?.ciudades) ? (user as any).ciudades[0] : '') ||
     (ciudadesCatalogo || []).find((c) => c.activa)?.codigo ||
-    'sonoyta';
+    'Puerto Peñasco';
   const initialFormData: Partial<Paciente> = {
     nombre: '',
     fechaNacimiento: '',
     sexo: 'Masculino',
     telefono: '',
     ciudad: ciudadDefault,
-    imagen: '',
-    nacionalidad: 'Mexicana',
-    identificacion: '',
   };
 
   const [formData, setFormData] = useState<Partial<Paciente>>(initialFormData);
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
 
   const resetForm = () => {
     setFormData(initialFormData);
-    setImageFile(null);
     setSelectedPaciente(null);
   };
 
   const isMedico = user?.rol === 'medico';
   const isAdmin = user?.rol === 'administrador';
   const esCitaDelMedico = (c: any) => c?.medicoEncargado && (c.medicoEncargado === user?.id || c.medicoEncargado === user?.nombre);
-
-  useEffect(() => {
-    if (!imageFile) {
-      setImagePreviewUrl('');
-      return;
-    }
-    const url = URL.createObjectURL(imageFile);
-    setImagePreviewUrl(url);
-    return () => {
-      URL.revokeObjectURL(url);
-    };
-  }, [imageFile]);
 
 
 
@@ -116,37 +98,7 @@ export function Pacientes() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validaciones de formato
-    const idValue = (formData.identificacion || '').replace(/\s/g, '').toUpperCase();
-    if (formData.nacionalidad === 'Mexicana') {
-      const curpRegex = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{1}[0-9]{1}$/;
-      if (!curpRegex.test(idValue)) {
-        alert("La CURP ingresada no tiene un formato válido (18 caracteres).");
-        return;
-      }
-    } else if (formData.nacionalidad === 'Americana') {
-      const passportRegex = /^[0-9]{9}$/;
-      if (!passportRegex.test(idValue)) {
-        alert("El pasaporte americano debe tener 9 dígitos numéricos.");
-        return;
-      }
-    }
-
     setSaving(true);
-
-    let uploadedUrl = formData.imagen || '';
-    if (imageFile) {
-       const fd = new FormData();
-       fd.append('imagen', imageFile);
-       try {
-           const res = await fetch('/api/upload', { method: 'POST', body: fd });
-           if (res.ok) {
-              const data = await res.json();
-              uploadedUrl = data.url;
-           }
-       } catch(err) {
-       }
-    }
 
     // Generar número de expediente
     const año = now().getFullYear();
@@ -161,11 +113,8 @@ export function Pacientes() {
       fechaNacimiento: formData.fechaNacimiento || '',
       sexo: formData.sexo || 'Masculino',
       telefono: formData.telefono || '',
-      ciudad: (formData.ciudad as Ciudad) || user?.ciudad || 'sonoyta',
+      ciudad: (formData.ciudad as Ciudad) || user?.ciudad || 'Puerto Peñasco',
       fechaRegistro: todayYmd(),
-      imagen: uploadedUrl,
-      nacionalidad: formData.nacionalidad || 'Mexicana',
-      identificacion: idValue,
     };
 
     let res;
@@ -173,9 +122,6 @@ export function Pacientes() {
       // Estamos editando
       res = await updatePaciente(selectedPaciente.id, {
         ...formData,
-        imagen: uploadedUrl,
-        nacionalidad: formData.nacionalidad || 'Mexicana',
-        identificacion: idValue,
       });
     } else {
       // Estamos registrando nuevo
@@ -332,7 +278,7 @@ export function Pacientes() {
           </div>
           {!isMedico && (
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => navigate('/pacientes/importar')}>
+              <Button variant="outline" onClick={() => navigate('/importar-expediente')}>
                 <Upload className="w-4 h-4 mr-2" />
                 Importar Expediente
               </Button>
@@ -491,76 +437,6 @@ export function Pacientes() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="nacionalidad">{t('pac.nationality')}</Label>
-                    <select
-                      id="nacionalidad"
-                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
-                      value={formData.nacionalidad || 'Mexicana'}
-                      onChange={(e) => setFormData({ ...formData, nacionalidad: e.target.value })}
-                    >
-                      <option value="Mexicana">{t('pac.mexican')}</option>
-                      <option value="Americana">{t('pac.american')}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="identificacion">
-                      {formData.nacionalidad === 'Americana' ? t('pac.passport') : t('pac.curp')}
-                    </Label>
-                    <Input
-                      id="identificacion"
-                      type="text"
-                      value={formData.identificacion || ''}
-                      onChange={(e) => setFormData({ ...formData, identificacion: e.target.value.toUpperCase() })}
-                      placeholder={formData.nacionalidad === 'Americana' ? 'Ej. 123456789' : 'Ej. VENG920101HSRLRRA0'}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label>{t('pac.photo')}</Label>
-                  <div className="mt-2 flex items-center gap-4">
-                    {imageFile && (
-                      <img
-                        src={imagePreviewUrl}
-                        alt="Preview"
-                        className="w-16 h-16 object-cover rounded-full border border-border"
-                      />
-                    )}
-                    {!imageFile && formData.imagen && (
-                      <img
-                        src={formData.imagen}
-                        alt="Current"
-                        className="w-16 h-16 object-cover rounded-full border border-border"
-                      />
-                    )}
-                    <div className="flex flex-col gap-1">
-                      <Label
-                        htmlFor="imagen"
-                        className="cursor-pointer bg-muted/20 text-foreground hover:bg-muted/30 px-4 py-2 rounded-lg font-semibold text-sm transition-colors border border-border inline-flex items-center justify-center"
-                      >
-                        {t('pac.select_image')}
-                      </Label>
-                      <input
-                        id="imagen"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            setImageFile(e.target.files[0]);
-                          }
-                        }}
-                      />
-                      <span className="text-xs text-muted-foreground/70">
-                        {imageFile ? imageFile.name : t('pac.no_file')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="bg-muted/20 border border-border rounded-lg p-4">
                   <p className="text-sm text-foreground">
                     <strong>{t('pac.note')}</strong> {t('pac.auto_id')}
@@ -593,19 +469,9 @@ export function Pacientes() {
               <SheetHeader className="border-b border-border bg-muted/20 pb-6 pt-6 px-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
-                    {selectedPaciente.imagen ? (
-                      <div className="w-16 h-16 rounded-full overflow-hidden border border-border shadow-sm flex-shrink-0 bg-card">
-                        <img
-                          src={selectedPaciente.imagen}
-                          alt={`${(selectedPaciente.nombre || '').trim()}${selectedPaciente.apellido ? ' ' + String(selectedPaciente.apellido).trim() : ''}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center border border-border shadow-sm flex-shrink-0">
-                        <User className="w-8 h-8 text-secondary-foreground" />
-                      </div>
-                    )}
+                    <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center border border-border shadow-sm flex-shrink-0">
+                      <User className="w-8 h-8 text-secondary-foreground" />
+                    </div>
                     <div className="text-left">
                       <SheetTitle className="text-xl">
                         {(selectedPaciente.nombre || '').trim()}

@@ -5,7 +5,6 @@ import { Eventos } from './pages/Eventos';
 import { EventoDetalle } from './pages/EventoDetalle';
 import { EventoEditor } from './pages/EventoEditor';
 import { Pacientes } from './pages/Pacientes';
-import { ImportarExpedientePage } from './pages/pacientes/importarexpedientepage';
 import { Citas } from './pages/Citas';
 import { TriageNuevo } from './pages/TriageNuevo';
 import { Consultas } from './pages/Consultas';
@@ -22,6 +21,7 @@ import { Usuarios } from './pages/Usuarios';
 import { Variables } from './pages/Variables';
 import { AgendaQuirofanos } from './pages/AgendaQuirofanos';
 import { RootLayout } from './components/RootLayout';
+import { ImportarExpedientePage } from './pages/pacientes/importarexpedientepage';
 
 export const router = createBrowserRouter([
   {
@@ -53,12 +53,12 @@ export const router = createBrowserRouter([
         Component: EventoEditor,
       },
       {
-        path: 'pacientes/importar',
-        Component: ImportarExpedientePage,
-      },
-      {
         path: 'pacientes',
         Component: Pacientes,
+      },
+      {
+        path: 'importar-expediente',
+        Component: ImportarExpedientePage,
       },
       {
         path: 'citas',
@@ -129,6 +129,5 @@ export const router = createBrowserRouter([
     ],
   },
 ], {
-  // CORREGIDO: Se cierra el arreglo con "]" y se abre el objeto de configuración "{ basename: ... }"
   basename: '/citas',
 });

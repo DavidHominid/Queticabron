@@ -32,36 +32,7 @@ router.post('/', async (req, res) => {
     }
   }
 
-  const nacionalidad = p.nacionalidad || 'Mexicana';
-  const identificacion = (p.identificacion || '').replace(/\s/g, '').toUpperCase();
-
   try {
-    // Validaciones de formato en el servidor
-    if (nacionalidad === 'Mexicana') {
-      const curpRegex = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{1}[0-9]{1}$/;
-      if (identificacion && !curpRegex.test(identificacion)) {
-        return res.status(400).json({ error: 'Formato de CURP inválido.' });
-      }
-    } else if (nacionalidad === 'Americana') {
-      const passportRegex = /^[0-9]{9}$/;
-      if (identificacion && !passportRegex.test(identificacion)) {
-        return res.status(400).json({ error: 'El pasaporte americano debe tener 9 dígitos.' });
-      }
-    }
-
-    // Evitar duplicados por identificacion (CURP/Pasaporte) si la identificación no está vacía
-    if (identificacion !== '') {
-      console.log(`🔍 Verificando duplicados para ID: ${identificacion}`);
-      const duplicado = await pool.query(
-        `SELECT 1 FROM "${SCHEMA}".paciente WHERE identificacion = $1 LIMIT 1`,
-        [identificacion]
-      );
-      if (duplicado.rows.length > 0) {
-        console.log(`⚠️ Paciente duplicado detectado: ${identificacion}`);
-        return res.status(400).json({ duplicado: true, error: 'Este paciente ya existe en la base de datos con esa identificación.' });
-      }
-    }
-
     // Evitar duplicados por nombre + apellido exactos (case-insensitive)
     if (nombre && apellido) {
       const dupNombre = await pool.query(
@@ -81,9 +52,11 @@ router.post('/', async (req, res) => {
     }
 
     console.log('📝 Insertando nuevo paciente en DB...');
+    const ciudad = p.ciudad || 'Puerto Peñasco';
+    const fechaRegistro = p.fechaRegistro || new Date().toISOString().slice(0, 10);
     const result = await pool.query(
-      `INSERT INTO "${SCHEMA}".paciente (nombre, apellido, fecha_de_nacimiento, sexo, telefono, numero_expediente, ciudad, fecha_registro, imagen, nacionalidad, identificacion) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-      [nombre, apellido, p.fechaNacimiento, p.sexo, p.telefono, p.numeroExpediente, p.ciudad, p.fechaRegistro, p.imagen || null, nacionalidad, identificacion]
+      `INSERT INTO "${SCHEMA}".paciente (nombre, apellido, fecha_de_nacimiento, sexo, telefono, numero_expediente, ciudad, fecha_registro) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [nombre, apellido, p.fechaNacimiento, p.sexo, p.telefono, p.numeroExpediente, ciudad, fechaRegistro]
     );
 
     console.log('✅ Paciente guardado con éxito. ID:', result.rows[0].id_paciente);
@@ -93,10 +66,10 @@ router.post('/', async (req, res) => {
       await recordAudit({
         paciente_id: result.rows[0].id_paciente,
         accion: 'Registro de Paciente',
-        detalles: `Se registró al paciente: ${nombre} ${apellido} (${p.numeroExpediente}). ID: ${identificacion}`,
+        detalles: `Se registró al paciente: ${nombre} ${apellido} (${p.numeroExpediente || 'sin número de expediente'})`,
         rol: p.rol_solicitante || 'admin',
         nombre_usuario: p.usuario_solicitante || 'Administrador',
-        ciudad: p.ciudad
+        ciudad: ciudad
       });
     } catch (auditErr) {
       console.error('⚠️ Error no crítico en auditoría:', auditErr.message);
@@ -127,33 +100,6 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    const nacionalidad = p.nacionalidad || 'Mexicana';
-    const identificacion = (p.identificacion || '').replace(/\s/g, '').toUpperCase();
-
-    // Validaciones de formato en el servidor
-    if (nacionalidad === 'Mexicana') {
-      const curpRegex = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[A-Z0-9]{1}[0-9]{1}$/;
-      if (identificacion && !curpRegex.test(identificacion)) {
-        return res.status(400).json({ error: 'Formato de CURP inválido.' });
-      }
-    } else if (nacionalidad === 'Americana') {
-      const passportRegex = /^[0-9]{9}$/;
-      if (identificacion && !passportRegex.test(identificacion)) {
-        return res.status(400).json({ error: 'El pasaporte americano debe tener 9 dígitos.' });
-      }
-    }
-
-    // Evitar duplicados por identificacion en UPDATE si la identificación es de OTRO paciente
-    if (identificacion !== '') {
-      const duplicado = await pool.query(
-        `SELECT id_paciente FROM "${SCHEMA}".paciente WHERE identificacion = $1 AND id_paciente != $2 LIMIT 1`,
-        [identificacion, parseInt(id)]
-      );
-      if (duplicado.rows.length > 0) {
-        return res.status(400).json({ duplicado: true, error: 'Este identificador ya está asignado a otro paciente.' });
-      }
-    }
-
     // Evitar duplicados por nombre + apellido en UPDATE (si pertenece a otro paciente)
     if (nombre && apellido) {
       const dupNombre = await pool.query(
@@ -172,9 +118,10 @@ router.put('/:id', async (req, res) => {
       }
     }
 
+    const ciudad = p.ciudad || 'Puerto Peñasco';
     const result = await pool.query(
-      `UPDATE "${SCHEMA}".paciente SET nombre = $1, apellido = $2, fecha_de_nacimiento = $3, sexo = $4, telefono = $5, ciudad = $6, imagen = $7, nacionalidad = $8, identificacion = $9 WHERE id_paciente = $10 RETURNING *`,
-      [nombre, apellido, p.fechaNacimiento, p.sexo, p.telefono, p.ciudad, p.imagen || null, nacionalidad, identificacion, parseInt(id)]
+      `UPDATE "${SCHEMA}".paciente SET nombre = $1, apellido = $2, fecha_de_nacimiento = $3, sexo = $4, telefono = $5, ciudad = $6 WHERE id_paciente = $7 RETURNING *`,
+      [nombre, apellido, p.fechaNacimiento, p.sexo, p.telefono, ciudad, parseInt(id)]
     );
 
     try {
