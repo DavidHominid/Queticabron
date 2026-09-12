@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { Card, CardContent } from '../components/ui/card';
@@ -12,13 +12,21 @@ export function ExpedientePaciente() {
   const { pacienteId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { pacientes } = useData();
+  const { pacientes, fetchCitasPaciente } = useData();
 
   const paciente = useMemo(() => {
     const id = String(pacienteId || '').trim();
     if (!id) return null;
     return pacientes.find((p) => String(p.id) === id) || null;
   }, [pacienteId, pacientes]);
+
+  // Cargar TODAS las citas del paciente (incluyendo históricas fuera del rango global)
+  useEffect(() => {
+    const id = String(pacienteId || '').trim();
+    if (id) {
+      fetchCitasPaciente(id);
+    }
+  }, [pacienteId]);
 
   const tab = location.pathname.includes('/citas') ? 'citas' : 'paciente';
 

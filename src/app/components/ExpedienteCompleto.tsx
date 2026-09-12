@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { FileText, ClipboardList } from 'lucide-react';
+import { Textarea } from './ui/textarea';
+import { User, Heart, Pill, FileText, ClipboardList } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { Paciente, EstudioSocioeconomico } from '../types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { formatDateSafe } from './ui/utils';
 
 // Sub-components
 import { ExpedienteHeader } from './expediente/ExpedienteHeader';
@@ -50,6 +52,7 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
   const cirugiasPaciente = cirugias.filter((c) => String(c.pacienteId) === String(paciente.id));
 
   // Helper function to get full consultation data for a specific appointment
+  // IMPORTANTE: El triaje SIEMPRE corresponde a LOS SIGNOS VITALES REGISTRADOS PARA ESTA CITA (no últimos del paciente)
   const obtenerDatosCompletoCita = (citaId: string) => {
     const exp = (expedientesCita || []).find(
       (e) => String(e.citaId) === String(citaId) && String(e.pacienteId) === String(paciente.id)
@@ -61,7 +64,18 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
       return { triageData, consultaData };
     }
 
-    const triage = triagesPaciente.find(t => String(t.citaId) === String(citaId));
+    // Triage EXCLUSIVO de ESTA cita (por citaId). Si existen múltiples para la misma cita,
+    // elegimos el más reciente por fechaHora (o fecha como fallback para datos históricos).
+    const triajesParaCita = triagesPaciente.filter((t) => String(t.citaId) === String(citaId));
+    const triage =
+      triajesParaCita.length > 1
+        ? [...triajesParaCita].sort((a, b) => {
+            const fa = new Date(String((a as any).fechaHora || (a as any).fecha || (a as any).fechaTriaje || 0)).getTime();
+            const fb = new Date(String((b as any).fechaHora || (b as any).fecha || (b as any).fechaTriaje || 0)).getTime();
+            return fb - fa;
+          })[0]
+        : triajesParaCita[0] || undefined;
+
     const citaRef = citasPaciente.find((c) => String(c.id) === String(citaId)) || null;
     const fechaCita = citaRef?.fecha ? String(citaRef.fecha).substring(0, 10) : '';
     const byCitaId = consultasPaciente.find((c) => String(c.citaId || '') === String(citaId));
@@ -72,7 +86,7 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
             .sort((a, b) => String(b.fechaHora || '').localeCompare(String(a.fechaHora || '')))[0]
         : undefined;
     const consulta = byCitaId || byFecha;
-    
+
     const triageData = triage?.signosVitales;
     const consultaData = consulta;
 
@@ -188,19 +202,210 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
             </div>
 
             <TabsContent value="paciente">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="space-y-6">
-                  <ExpedientePersonalInfo paciente={paciente} />
-                  
-                  <ExpedienteVitalSigns 
-                    triages={triagesPaciente} 
-                    calcularIMC={calcularIMC} 
-                  />
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+                    <div>
+                      <h2 className="text-2xl font-bold text-foreground">
+                        Datos del paciente e información médica
+                      </h2>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Información que se registra una sola vez por expediente.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs shrink-0">
+                      1 sola vez
+                    </Badge>
+                  </div>
 
-                  <ExpedienteMedicalInfo infoMedica={infoMedica} />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                    <Card className="rounded-xl">
+                      <CardHeader className="pb-2 border-b flex flex-row items-center justify-between gap-2">
+                        <CardTitle className="text-lg flex items-center gap-2 text-foreground">
+                          <User className="w-5 h-5 text-[color:var(--brand-primary-strong)]" />
+                          Datos Generales del Paciente
+                        </CardTitle>
+                        <Badge className="bg-red-600 hover:bg-red-700 text-white text-[11px]">
+                          Obligatorios
+                        </Badge>
+                      </CardHeader>
+                      <CardContent className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nombre(s)</p>
+                          <p className="mt-1 text-base font-medium text-foreground">
+                            {String(paciente.nombre || '').trim() || <span className="text-muted-foreground italic">Sin capturar</span>}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Apellidos</p>
+                          <p className="mt-1 text-base font-medium text-foreground">
+                            {String(paciente.apellido || '').trim() || <span className="text-muted-foreground italic">Sin capturar</span>}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fecha de nacimiento</p>
+                          <p className="mt-1 text-base font-medium text-foreground tabular-nums">
+                            {formatDateSafe(paciente.fechaNacimiento)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sexo</p>
+                          <p className="mt-1 text-base font-medium text-foreground capitalize">
+                            {String(paciente.sexo || '').trim() ? String(paciente.sexo).toLowerCase() : <span className="text-muted-foreground italic">Sin capturar</span>}
+                          </p>
+                        </div>
+                        <div className="md:col-span-1">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Teléfono</p>
+                          <p className="mt-1 text-base font-medium text-foreground tabular-nums">
+                            {String(paciente.telefono || '').trim() || <span className="text-muted-foreground italic">Sin capturar</span>}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-xl">
+                      <CardHeader className="pb-2 border-b flex flex-row items-center justify-between gap-2">
+                        <CardTitle className="text-lg flex items-center gap-2 text-foreground">
+                          <Heart className="w-5 h-5 text-rose-500" />
+                          Información Médica General
+                        </CardTitle>
+                        <Badge variant="outline" className="text-[11px] text-muted-foreground">
+                          Opcional · 1 sola vez
+                        </Badge>
+                      </CardHeader>
+                      <CardContent className="p-5 space-y-5">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">Alergias conocidas</p>
+                          {infoMedica?.alergias && infoMedica.alergias.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {infoMedica.alergias.map((a: string, idx: number) => (
+                                <Badge key={idx} className="bg-red-100 text-red-700 border-red-200">
+                                  {a}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-sm text-muted-foreground italic">Sin alergias registradas.</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            <Pill className="w-4 h-4 text-muted-foreground" />
+                            Medicamentos actuales
+                          </p>
+                          {infoMedica?.medicamentosActuales && infoMedica.medicamentosActuales.length > 0 ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {infoMedica.medicamentosActuales.map((m: string, idx: number) => (
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className="border-amber-300 bg-amber-50 text-amber-800"
+                                >
+                                  {m}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="mt-2 text-sm text-muted-foreground italic">Sin medicamentos registrados.</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card className="rounded-xl">
+                    <CardHeader className="pb-2 border-b flex flex-row items-center justify-between gap-2">
+                      <CardTitle className="text-lg flex items-center gap-2 text-foreground">
+                        <ClipboardList className="w-5 h-5 text-[color:var(--brand-secondary-strong)]" />
+                        Antecedentes Patológicos y Familiares
+                      </CardTitle>
+                      <Badge variant="outline" className="text-[11px] text-muted-foreground">
+                        Opcional · 1 sola vez por paciente
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            <FileText className="w-4 h-4 text-muted-foreground" />
+                            Antecedentes Patológicos
+                          </p>
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            Texto libre
+                          </Badge>
+                        </div>
+                        <Textarea
+                          rows={5}
+                          disabled
+                          readOnly
+                          value={infoMedica?.antecedentes?.patologicos?.trim() || ''}
+                          placeholder="Sin antecedentes patológicos registrados."
+                          className="resize-none text-xs bg-gray-50 leading-relaxed"
+                        />
+                        <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                          Incluye enfermedades crónicas, padecimientos diagnosticados, cirugías previas, transfusiones, alergias documentadas, hospitalizaciones.
+                        </p>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            <Heart className="w-4 h-4 text-muted-foreground" />
+                            Antecedentes Familiares
+                          </p>
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            Texto libre
+                          </Badge>
+                        </div>
+                        <Textarea
+                          rows={5}
+                          disabled
+                          readOnly
+                          value={infoMedica?.antecedentes?.familiares?.trim() || ''}
+                          placeholder="Sin antecedentes familiares registrados."
+                          className="resize-none text-xs bg-gray-50 leading-relaxed"
+                        />
+                        <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                          Incluye padecimientos de padres, abuelos, hermanos y causa de muerte de familiares directos. Factor hereditario, enfermedades genéticas.
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground mb-1.5">Antecedentes Psicosociales</p>
+                        <Textarea
+                          rows={4}
+                          disabled
+                          readOnly
+                          value={infoMedica?.antecedentesPsicosociales?.trim() || ''}
+                          placeholder="Sin antecedentes psicosociales registrados."
+                          className="resize-none text-xs bg-gray-50 leading-relaxed"
+                        />
+                        <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                          Historial familiar, hábitos, tabaquismo, alcoholismo, situaciones psicosociales, estado civil, ocupación, escolaridad, vivienda, etc.
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground mb-1.5">Notas adicionales / Observaciones generales del expediente</p>
+                        <Textarea
+                          rows={4}
+                          disabled
+                          readOnly
+                          value={infoMedica?.notas?.trim() || ''}
+                          placeholder="Sin notas adicionales."
+                          className="resize-none text-xs bg-gray-50 leading-relaxed"
+                        />
+                        <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                          Cualquier dato adicional relevante del expediente físico, contexto, aclaraciones de lectura...
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
-                <div className="lg:col-span-2 space-y-6">
+                <ExpedienteVitalSigns 
+                  triages={triagesPaciente} 
+                  calcularIMC={calcularIMC} 
+                />
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <ExpedienteSurgeryHistory 
                     cirugias={cirugiasPaciente}
                     onVerDetalle={setCirugiaSeleccionadaId}
@@ -214,7 +419,7 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                      <div className="divide-y max-h-[300px] overflow-y-auto">
+                      <div className="divide-y max-h-[420px] overflow-y-auto">
                         {auditoriaPaciente.map((log) => (
                             <div 
                               key={log.id} 

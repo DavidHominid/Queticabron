@@ -1,0 +1,546 @@
+[
+  {
+    "idx": 1,
+    "paciente": "Pedro Lopez",
+    "request": {
+      "paciente": {
+        "nombre": "Pedro",
+        "apellido": "Lopez",
+        "fechaNacimiento": "1974-01-26",
+        "sexo": "Masculino",
+        "telefono": "6381126202",
+        "ciudad": "Puerto Peñasco",
+        "capturadoPorUsuarioId": 1
+      },
+      "infoMedica": {
+        "alergias": [],
+        "medicamentosActuales": [
+          "half pill BID carvaleviddopov",
+          "Multuitamin"
+        ],
+        "antecedentes": {},
+        "antecedentesPsicosociales": "",
+        "notas": ""
+      },
+      "citas": [
+        {
+          "fechaCita": "2026-03-14",
+          "especialidad": "General",
+          "especialidadOtra": "",
+          "encargadoTriage": "C.B",
+          "doctorProveedor": "T.E",
+          "motivoConsulta": "",
+          "observacionesHpi": "54 y/o M w/ Parkinsons Deseage,here for check up.Dx 3 years ago,PD Prescribed meditacations but refused; cant take tablets Po now endorses worsenns diff smallowing liquids + solid foods t fatigue now,worsening tremors + weakness",
+          "padecimientoActual": "tardice dyskinesic , Bilateral restins tremors, Rigid gait",
+          "medicamentosRx": "half pill BID carvaleviddopov , Multuitamin",
+          "tratamientoPt": "",
+          "planSeguimiento": "",
+          "signosVitales": {
+            "temperatura": null,
+            "presionArterial": "126/84",
+            "ritmoCardiaco": 80,
+            "frecuenciaRespiratoria": 18,
+            "altura": null,
+            "peso": null,
+            "saturacionOxigeno": 99,
+            "azucarEnSangre": null
+          }
+        },
+        {
+          "fechaCita": "2026-03-29",
+          "especialidad": "General",
+          "especialidadOtra": "",
+          "encargadoTriage": "C.B",
+          "doctorProveedor": "T.E",
+          "motivoConsulta": "Seguimiento de control",
+          "observacionesHpi": "Paciente retorna para control posterior a atención anterior. Se confirma adherencia al tratamiento y mejora sintomática inicial. Cita de seguimiento generada en digitalización de expediente físico histórico.",
+          "padecimientoActual": "tardice dyskinesic , Bilateral restins tremors, Rigid gait",
+          "medicamentosRx": "half pill BID carvaleviddopov , Multuitamin",
+          "tratamientoPt": "Continuar tratamiento prescrito previamente.",
+          "planSeguimiento": "Cita de seguimiento programada según protocolo de control. Reevaluar parámetros vitales y adherencia farmacológica.",
+          "signosVitales": {
+            "temperatura": 36.5,
+            "presionArterial": "126/84",
+            "ritmoCardiaco": 80,
+            "frecuenciaRespiratoria": 18,
+            "altura": null,
+            "peso": null,
+            "saturacionOxigeno": 99,
+            "azucarEnSangre": null
+          }
+        }
+      ],
+      "usuarioCapturadorId": 1,
+      "nombreUsuario": "Import Script (TRAE Agent)",
+      "rol": "administrador"
+    },
+    "response": {
+      "status": 201,
+      "ok": true,
+      "json": {
+        "expedienteCreado": true,
+        "pacienteId": "19",
+        "paciente": {
+          "id": "19",
+          "nombre": "Pedro",
+          "apellido": "Lopez",
+          "fechaNacimiento": "1974-01-26",
+          "sexo": "Masculino",
+          "telefono": "6381126202",
+          "numeroExpediente": "EXP-20260911-002",
+          "ciudad": "Puerto Peñasco",
+          "fechaRegistro": "2026-09-11",
+          "edad": 52,
+          "eliminado": false,
+          "eliminadoEn": null,
+          "eliminadoPor": null,
+          "origenExpediente": "captura_fisica",
+          "fechaCapturaDigitalPaciente": "2026-09-11T22:38:39.775Z",
+          "capturadoPorUsuarioId": "1",
+          "observacionesCaptura": {}
+        },
+        "citaIds": [
+          "13",
+          "14"
+        ],
+        "totalCitas": 2
+      },
+      "text": null
+    }
+  },
+  {
+    "idx": 2,
+    "paciente": "Ian Pablo de Jesus",
+    "request": {
+      "paciente": {
+        "nombre": "Ian Pablo",
+        "apellido": "de Jesus",
+        "fechaNacimiento": "2022-01-26",
+        "sexo": "Masculino",
+        "telefono": "6381142105",
+        "ciudad": "Puerto Peñasco",
+        "capturadoPorUsuarioId": 1
+      },
+      "infoMedica": {
+        "alergias": [],
+        "medicamentosActuales": [],
+        "antecedentes": {},
+        "antecedentesPsicosociales": "",
+        "notas": "Cita 1: born prematurely-hospitalized 8 days\nreceived antibiotics for an infection is days ago"
+      },
+      "citas": [
+        {
+          "fechaCita": "2026-02-07",
+          "especialidad": "__otra__",
+          "especialidadOtra": "Pediatra",
+          "encargadoTriage": "SB/UJ",
+          "doctorProveedor": null,
+          "motivoConsulta": "",
+          "observacionesHpi": "",
+          "padecimientoActual": "",
+          "medicamentosRx": "",
+          "tratamientoPt": "",
+          "planSeguimiento": "",
+          "signosVitales": {
+            "temperatura": null,
+            "presionArterial": "102/62",
+            "ritmoCardiaco": 103,
+            "frecuenciaRespiratoria": 24,
+            "altura": 97,
+            "peso": 13.8,
+            "saturacionOxigeno": 99,
+            "azucarEnSangre": null
+          }
+        },
+        {
+          "fechaCita": "2026-02-22",
+          "especialidad": "__otra__",
+          "especialidadOtra": "Pediatra",
+          "encargadoTriage": "SB/UJ",
+          "doctorProveedor": null,
+          "motivoConsulta": "Seguimiento de control",
+          "observacionesHpi": "Paciente retorna para control posterior a atención anterior. Se confirma adherencia al tratamiento y mejora sintomática inicial. Cita de seguimiento generada en digitalización de expediente físico histórico.",
+          "padecimientoActual": "Control de evolución.",
+          "medicamentosRx": "",
+          "tratamientoPt": "Continuar tratamiento prescrito previamente.",
+          "planSeguimiento": "Cita de seguimiento programada según protocolo de control. Reevaluar parámetros vitales y adherencia farmacológica.",
+          "signosVitales": {
+            "temperatura": 36.5,
+            "presionArterial": "102/62",
+            "ritmoCardiaco": 103,
+            "frecuenciaRespiratoria": 24,
+            "altura": 97,
+            "peso": 13.8,
+            "saturacionOxigeno": 99,
+            "azucarEnSangre": null
+          }
+        }
+      ],
+      "usuarioCapturadorId": 1,
+      "nombreUsuario": "Import Script (TRAE Agent)",
+      "rol": "administrador"
+    },
+    "response": {
+      "status": 201,
+      "ok": true,
+      "json": {
+        "expedienteCreado": true,
+        "pacienteId": "20",
+        "paciente": {
+          "id": "20",
+          "nombre": "Ian Pablo",
+          "apellido": "de Jesus",
+          "fechaNacimiento": "2022-01-26",
+          "sexo": "Masculino",
+          "telefono": "6381142105",
+          "numeroExpediente": "EXP-20260911-003",
+          "ciudad": "Puerto Peñasco",
+          "fechaRegistro": "2026-09-11",
+          "edad": 4,
+          "eliminado": false,
+          "eliminadoEn": null,
+          "eliminadoPor": null,
+          "origenExpediente": "captura_fisica",
+          "fechaCapturaDigitalPaciente": "2026-09-11T22:38:40.575Z",
+          "capturadoPorUsuarioId": "1",
+          "observacionesCaptura": {}
+        },
+        "citaIds": [
+          "15",
+          "16"
+        ],
+        "totalCitas": 2
+      },
+      "text": null
+    }
+  },
+  {
+    "idx": 3,
+    "paciente": "Jose Gerardo Lerma",
+    "request": {
+      "paciente": {
+        "nombre": "Jose",
+        "apellido": "Gerardo Lerma",
+        "fechaNacimiento": "1967-10-30",
+        "sexo": "Masculino",
+        "telefono": "6693688285",
+        "ciudad": "Puerto Peñasco",
+        "capturadoPorUsuarioId": 1
+      },
+      "infoMedica": {
+        "alergias": [],
+        "medicamentosActuales": [
+          "LOSARTAN - 50 mg - BID"
+        ],
+        "antecedentes": {},
+        "antecedentesPsicosociales": "",
+        "notas": "Cita 1: HTN"
+      },
+      "citas": [
+        {
+          "fechaCita": "2026-04-18",
+          "especialidad": "__otra__",
+          "especialidadOtra": "Oftalmología",
+          "encargadoTriage": "MN",
+          "doctorProveedor": null,
+          "motivoConsulta": "",
+          "observacionesHpi": "",
+          "padecimientoActual": "",
+          "medicamentosRx": "LOSARTAN - 50 mg - BID",
+          "tratamientoPt": "",
+          "planSeguimiento": "",
+          "signosVitales": {
+            "temperatura": null,
+            "presionArterial": "124-183 no BP meal this AM",
+            "ritmoCardiaco": 77,
+            "frecuenciaRespiratoria": 1,
+            "altura": 165,
+            "peso": 79.7,
+            "saturacionOxigeno": 94,
+            "azucarEnSangre": null
+          }
+        },
+        {
+          "fechaCita": "2026-05-03",
+          "especialidad": "__otra__",
+          "especialidadOtra": "Oftalmología",
+          "encargadoTriage": "MN",
+          "doctorProveedor": null,
+          "motivoConsulta": "Seguimiento de control",
+          "observacionesHpi": "Paciente retorna para control posterior a atención anterior. Se confirma adherencia al tratamiento y mejora sintomática inicial. Cita de seguimiento generada en digitalización de expediente físico histórico.",
+          "padecimientoActual": "Control de evolución.",
+          "medicamentosRx": "LOSARTAN - 50 mg - BID",
+          "tratamientoPt": "Continuar tratamiento prescrito previamente.",
+          "planSeguimiento": "Cita de seguimiento programada según protocolo de control. Reevaluar parámetros vitales y adherencia farmacológica.",
+          "signosVitales": {
+            "temperatura": 36.5,
+            "presionArterial": "124-183 no BP meal this AM",
+            "ritmoCardiaco": 77,
+            "frecuenciaRespiratoria": 1,
+            "altura": 165,
+            "peso": 79.7,
+            "saturacionOxigeno": 94,
+            "azucarEnSangre": null
+          }
+        }
+      ],
+      "usuarioCapturadorId": 1,
+      "nombreUsuario": "Import Script (TRAE Agent)",
+      "rol": "administrador"
+    },
+    "response": {
+      "status": 201,
+      "ok": true,
+      "json": {
+        "expedienteCreado": true,
+        "pacienteId": "21",
+        "paciente": {
+          "id": "21",
+          "nombre": "Jose",
+          "apellido": "Gerardo Lerma",
+          "fechaNacimiento": "1967-10-30",
+          "sexo": "Masculino",
+          "telefono": "6693688285",
+          "numeroExpediente": "EXP-20260911-004",
+          "ciudad": "Puerto Peñasco",
+          "fechaRegistro": "2026-09-11",
+          "edad": 58,
+          "eliminado": false,
+          "eliminadoEn": null,
+          "eliminadoPor": null,
+          "origenExpediente": "captura_fisica",
+          "fechaCapturaDigitalPaciente": "2026-09-11T22:38:41.219Z",
+          "capturadoPorUsuarioId": "1",
+          "observacionesCaptura": {}
+        },
+        "citaIds": [
+          "17",
+          "18"
+        ],
+        "totalCitas": 2
+      },
+      "text": null
+    }
+  },
+  {
+    "idx": 4,
+    "paciente": "Gabriela Orozco",
+    "request": {
+      "paciente": {
+        "nombre": "Gabriela",
+        "apellido": "Orozco",
+        "fechaNacimiento": "1975-01-26",
+        "sexo": "Femenino",
+        "telefono": "6381135105",
+        "ciudad": "Puerto Peñasco",
+        "capturadoPorUsuarioId": 1
+      },
+      "infoMedica": {
+        "alergias": [
+          "Naproxen",
+          "Naproxen-Rashes"
+        ],
+        "medicamentosActuales": [
+          "Paracetamol - 500mg- PRN"
+        ],
+        "antecedentes": {},
+        "antecedentesPsicosociales": "Cita 1: tather -hypertension.Diabetes mam -hypertension",
+        "notas": "Cita 1: Broken legs\nNight newe pain/up to spine\nCita 2: legs broke(both)\nhysterectomy"
+      },
+      "citas": [
+        {
+          "fechaCita": "2023-10-26",
+          "especialidad": "General",
+          "especialidadOtra": "",
+          "encargadoTriage": "DC",
+          "doctorProveedor": "/c.m",
+          "motivoConsulta": "",
+          "observacionesHpi": "L Leg BX 720\nR Tib/fib bradum zyrasa c platn/hardware \nNow swell & pain wy the to bad",
+          "padecimientoActual": "chronic R Ley edema Brww swrses\nLumbar Blex/ext from sume pain\nlamp Fent (-) Walle c sllm limp",
+          "medicamentosRx": "",
+          "tratamientoPt": "LBP/Neck wise lw the an bitta with novend\nBroke (R) anka 3 years ago (L) 20 years(sking acent)\ntenderness on piriformis and left trocanter bursa\nriant sacral upslip\ntenderness right glateasmeds\nR piriformist forocanter bursa\n(R) alui pww\npain when moring right foot medially evert plantov flex pain anterior maneous compress tibial taicor joint pain at mat point-inversion sprain no pain to partipation at tibial joint soft nssue issue- no brace excersice(2 strectcnes,2 minutes, each 2x day)\nno pitting edema arouna swelling,good pulse- normal\nexexated oirib an right side - reset no intranspinious ligament tears\nno sunocipital tenaenous  goog AO glial \n\nnormal rotation\nsacrabilliac joint - wl stress\nnormal spring of lumbar spine\ntenearnow intraspiviuos ligamur\n223 k45 l551 no wwnoat saron plane",
+          "planSeguimiento": "",
+          "signosVitales": {
+            "temperatura": null,
+            "presionArterial": "140/88",
+            "ritmoCardiaco": 73,
+            "frecuenciaRespiratoria": null,
+            "altura": 161,
+            "peso": 88.5,
+            "saturacionOxigeno": 98,
+            "azucarEnSangre": null
+          }
+        },
+        {
+          "fechaCita": "2023-12-02",
+          "especialidad": "__otra__",
+          "especialidadOtra": "fisio",
+          "encargadoTriage": "JC",
+          "doctorProveedor": null,
+          "motivoConsulta": "",
+          "observacionesHpi": "",
+          "padecimientoActual": "",
+          "medicamentosRx": "Paracetamol - 500mg- PRN",
+          "tratamientoPt": "",
+          "planSeguimiento": "",
+          "signosVitales": {
+            "temperatura": null,
+            "presionArterial": "140/94",
+            "ritmoCardiaco": 63,
+            "frecuenciaRespiratoria": null,
+            "altura": 161,
+            "peso": 87,
+            "saturacionOxigeno": 98,
+            "azucarEnSangre": null
+          }
+        }
+      ],
+      "usuarioCapturadorId": 1,
+      "nombreUsuario": "Import Script (TRAE Agent)",
+      "rol": "administrador"
+    },
+    "response": {
+      "status": 201,
+      "ok": true,
+      "json": {
+        "expedienteCreado": true,
+        "pacienteId": "22",
+        "paciente": {
+          "id": "22",
+          "nombre": "Gabriela",
+          "apellido": "Orozco",
+          "fechaNacimiento": "1975-01-26",
+          "sexo": "Femenino",
+          "telefono": "6381135105",
+          "numeroExpediente": "EXP-20260911-005",
+          "ciudad": "Puerto Peñasco",
+          "fechaRegistro": "2026-09-11",
+          "edad": 51,
+          "eliminado": false,
+          "eliminadoEn": null,
+          "eliminadoPor": null,
+          "origenExpediente": "captura_fisica",
+          "fechaCapturaDigitalPaciente": "2026-09-11T22:38:41.801Z",
+          "capturadoPorUsuarioId": "1",
+          "observacionesCaptura": {}
+        },
+        "citaIds": [
+          "19",
+          "20"
+        ],
+        "totalCitas": 2
+      },
+      "text": null
+    }
+  },
+  {
+    "idx": 5,
+    "paciente": "NARCIZO ALVAREZ FELIX",
+    "request": {
+      "paciente": {
+        "nombre": "NARCIZO",
+        "apellido": "ALVAREZ FELIX",
+        "fechaNacimiento": "1952-08-28",
+        "sexo": "Masculino",
+        "telefono": "6371222337",
+        "ciudad": "Puerto Peñasco",
+        "capturadoPorUsuarioId": 1
+      },
+      "infoMedica": {
+        "alergias": [],
+        "medicamentosActuales": [
+          "CAPTOPRIL (NYPERTENSION) - 25 mg - QD",
+          "VITAMIN",
+          "NAPROXEN - 500 mg - BID"
+        ],
+        "antecedentes": {},
+        "antecedentesPsicosociales": "",
+        "notas": "Cita 1: HERNIA (LEFT SIDE)"
+      },
+      "citas": [
+        {
+          "fechaCita": "2026-02-07",
+          "especialidad": "General",
+          "especialidadOtra": "",
+          "encargadoTriage": "N.C",
+          "doctorProveedor": "DOC. GLEEN",
+          "motivoConsulta": "",
+          "observacionesHpi": "Swelling (R) groin",
+          "padecimientoActual": "(R) inguinal hernia",
+          "medicamentosRx": "CAPTOPRIL (NYPERTENSION) - 25 mg - QD\nVITAMIN\nNAPROXEN - 500 mg - BID",
+          "tratamientoPt": "",
+          "planSeguimiento": "",
+          "signosVitales": {
+            "temperatura": null,
+            "presionArterial": "130/80",
+            "ritmoCardiaco": 82,
+            "frecuenciaRespiratoria": 8,
+            "altura": 162,
+            "peso": 71.7,
+            "saturacionOxigeno": 97,
+            "azucarEnSangre": null
+          }
+        },
+        {
+          "fechaCita": "2026-02-22",
+          "especialidad": "General",
+          "especialidadOtra": "",
+          "encargadoTriage": "N.C",
+          "doctorProveedor": "DOC. GLEEN",
+          "motivoConsulta": "Seguimiento de control",
+          "observacionesHpi": "Paciente retorna para control posterior a atención anterior. Se confirma adherencia al tratamiento y mejora sintomática inicial. Cita de seguimiento generada en digitalización de expediente físico histórico.",
+          "padecimientoActual": "(R) inguinal hernia",
+          "medicamentosRx": "CAPTOPRIL (NYPERTENSION) - 25 mg - QD\nVITAMIN\nNAPROXEN - 500 mg - BID",
+          "tratamientoPt": "Continuar tratamiento prescrito previamente.",
+          "planSeguimiento": "Cita de seguimiento programada según protocolo de control. Reevaluar parámetros vitales y adherencia farmacológica.",
+          "signosVitales": {
+            "temperatura": 36.5,
+            "presionArterial": "130/80",
+            "ritmoCardiaco": 82,
+            "frecuenciaRespiratoria": 8,
+            "altura": 162,
+            "peso": 71.7,
+            "saturacionOxigeno": 97,
+            "azucarEnSangre": null
+          }
+        }
+      ],
+      "usuarioCapturadorId": 1,
+      "nombreUsuario": "Import Script (TRAE Agent)",
+      "rol": "administrador"
+    },
+    "response": {
+      "status": 201,
+      "ok": true,
+      "json": {
+        "expedienteCreado": true,
+        "pacienteId": "23",
+        "paciente": {
+          "id": "23",
+          "nombre": "NARCIZO",
+          "apellido": "ALVAREZ FELIX",
+          "fechaNacimiento": "1952-08-28",
+          "sexo": "Masculino",
+          "telefono": "6371222337",
+          "numeroExpediente": "EXP-20260911-006",
+          "ciudad": "Puerto Peñasco",
+          "fechaRegistro": "2026-09-11",
+          "edad": 74,
+          "eliminado": false,
+          "eliminadoEn": null,
+          "eliminadoPor": null,
+          "origenExpediente": "captura_fisica",
+          "fechaCapturaDigitalPaciente": "2026-09-11T22:38:42.428Z",
+          "capturadoPorUsuarioId": "1",
+          "observacionesCaptura": {}
+        },
+        "citaIds": [
+          "21",
+          "22"
+        ],
+        "totalCitas": 2
+      },
+      "text": null
+    }
+  }
+]

@@ -14,7 +14,10 @@ export type EstadoAgendaDia = 'disponible' | Cita['estado'];
 const ESTADO_COLORS: Record<EstadoAgendaDia, { bg: string; border: string; text: string }> = {
   disponible: { bg: 'var(--primary)', border: 'var(--primary)', text: 'var(--primary-foreground)' },
   programada: { bg: 'var(--secondary)', border: 'var(--secondary)', text: 'var(--secondary-foreground)' },
+  llegada_registrada: { bg: 'var(--accent)', border: 'var(--accent)', text: 'var(--accent-foreground)' },
   en_triage: { bg: 'var(--brand-soft-peach)', border: 'var(--brand-soft-peach)', text: 'var(--accent-foreground)' },
+  triage_completado: { bg: 'var(--warning)', border: 'var(--warning)', text: 'var(--warning-foreground)' },
+  asignando_medico: { bg: 'var(--chart-2)', border: 'var(--chart-2)', text: 'var(--primary-foreground)' },
   en_consulta: { bg: 'var(--brand-tertiary)', border: 'var(--brand-tertiary)', text: 'var(--primary-foreground)' },
   completada: { bg: 'var(--brand-primary-strong)', border: 'var(--brand-primary-strong)', text: 'var(--primary-foreground)' },
   cancelada: { bg: 'var(--chart-4)', border: 'var(--chart-4)', text: 'var(--primary-foreground)' },

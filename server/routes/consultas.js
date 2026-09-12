@@ -1,6 +1,6 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
-import { mapConsultaMedica, recordAudit } from '../helpers/utils.js';
+import { mapConsultaMedica, recordAudit, toFEEstado } from '../helpers/utils.js';
 import { broadcast } from '../helpers/sse.js';
 
 const router = express.Router();
@@ -71,7 +71,7 @@ router.post('/', async (req, res) => {
     }
 
     const citaRes = await pool.query(
-      `SELECT id_cita, id_paciente, evento_id, especialidad, medico_encargado
+      `SELECT id_cita, id_paciente, evento_id, especialidad, medico_encargado, estado, saltado_triage
        FROM "${SCHEMA}".citas
        WHERE id_cita = $1
        LIMIT 1`,
@@ -82,6 +82,14 @@ router.post('/', async (req, res) => {
     }
     const cita = citaRes.rows[0];
 
+    const estadoActual = toFEEstado(cita.estado || '');
+    if (estadoActual !== 'en_consulta') {
+      return res.status(409).json({
+        error: `Cita en estado "${estadoActual}": debe estar "en_consulta" para guardar la valoración.`,
+        _meta: { estadoActual, requiereEstado: 'en_consulta' },
+      });
+    }
+
     const pacienteId = Number(cita.id_paciente);
     const eventoId = cita.evento_id ? String(cita.evento_id) : null;
     const especialidad = cita.especialidad ? String(cita.especialidad) : null;
@@ -91,6 +99,15 @@ router.post('/', async (req, res) => {
       String(c.medicoEncargado || '').trim() ||
       String(cita.medico_encargado || '').trim() ||
       null;
+
+    if (cita.medico_encargado && medicoUsuarioId && String(c.rol || '').toLowerCase() !== 'administracion' && String(c.rol || '').toLowerCase() !== 'admin') {
+      if (String(medicoUsuarioId) !== String(cita.medico_encargado)) {
+        return res.status(403).json({
+          error: `El médico ${medicoUsuarioId} no tiene permiso para guardar esta consulta. La cita está asignada a ${cita.medico_encargado}.`,
+          _meta: { medicoAsignado: cita.medico_encargado, medicoSolicitante: medicoUsuarioId },
+        });
+      }
+    }
 
     const incomingData = {
       id_cita: citaId,
@@ -180,13 +197,14 @@ router.post('/', async (req, res) => {
       );
     }
     
+    const detalleSaltadoTriage = Boolean(cita.saltado_triage) ? ' — Atendida sin triaje (especialidad no requiere).' : '';
     await recordAudit({
       paciente_id: pacienteId,
       usuario_id: c.usuarioId || null,
       nombre_usuario: c.nombreUsuario || c.medicoNombre || c.medicoEncargado || 'Médico',
       rol: c.rol || 'medico',
       accion: 'Consulta Médica',
-      detalles: `Completó consulta para cita ID: ${citaId} (paciente ID: ${pacienteId})`,
+      detalles: `Completó consulta para cita ID: ${citaId} (paciente ID: ${pacienteId})${detalleSaltadoTriage}`,
       ciudad: c.ciudad || 'Sonoyta',
     });
 

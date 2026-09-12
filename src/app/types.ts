@@ -65,6 +65,10 @@ export interface Evento {
 export interface EspecialidadEvento {
   especialidad: Especialidad;
   medicoEncargado: string;
+  medicoUsuarioIds: string[];
+  intervaloMinutosDefault: number;
+  cupoPorBloqueDefault: number;
+  requiereTriage: boolean;
   practicantes: string[];
   consultorio: string;
   horarios: HorarioDisponible[];
@@ -87,6 +91,18 @@ export interface HorarioDisponible {
   intervalo?: number;
   cupoTotal?: number;
   tipoCitaId?: string;
+}
+
+export interface EventoBloque {
+  id: string;
+  eventoEspecialidadId: string;
+  especialidad: Especialidad;
+  fecha: string;
+  horaInicio: string;
+  horaFin: string;
+  cupoTotal: number;
+  cupoOcupado: number;
+  medicoUsuarioIdsAsignados?: string[];
 }
 
 // Paciente
@@ -126,12 +142,31 @@ export interface Cita {
   tipoCitaNombre?: string;
   duracionMinutos?: number;
   medicoEncargado?: string;
-  estado: 'programada' | 'cancelada' | 'cedida' | 'en_triage' | 'en_consulta' | 'completada' | 'no_asistio';
+  bloqueId?: string | null;
+  horaLlegada?: string | null;
+  ordenLlegada?: number | null;
+  prioridadTriage?: number | null;
+  horaAsignacion?: string | null;
+  medicoAsignadoPor?: string | null;
+  saltadoTriage?: boolean;
+  estado:
+    | 'programada'
+    | 'cancelada'
+    | 'cedida'
+    | 'llegada_registrada'
+    | 'en_triage'
+    | 'triage_completado'
+    | 'asignando_medico'
+    | 'en_consulta'
+    | 'completada'
+    | 'no_asistio';
   costoPagado: number;
   cedidaA?: string; // ID del nuevo paciente si se cedió el cupo
   fechaCreacion: string;
-  origen?: 'sistema' | 'captura_fisica';
+  origen?: 'sistema' | 'captura_fisica' | string;
   fechaCapturaCita?: string | null;
+  especialidadOtra?: string;
+  encargadoTriage?: string;
 }
 
 // Información Médica General (para todas las especialidades excepto dentista)
@@ -154,6 +189,8 @@ export interface AntecedentesGenerales {
   hemorragiaSevera: boolean;
   embarazada?: boolean;
   lactando?: boolean;
+  patologicos?: string;
+  familiares?: string;
 }
 
 // Información Médica Dental (específica para dentista)
@@ -203,6 +240,7 @@ export interface RegistroTriage {
   fechaHora: string;
   signosVitales: SignosVitales;
   observaciones?: string;
+  razonConsulta?: string;
   realizadoPor: string;
 }
 
@@ -219,6 +257,8 @@ export interface ConsultaMedica {
   exploracionFisica: string;
   diagnostico: string;
   tratamiento: string;
+  planTratamiento?: string;
+  observaciones?: string;
   medicamentosRecetados?: Array<{
     nombre: string;
     dosis: string;
@@ -235,6 +275,10 @@ export interface ConsultaMedica {
   notaSeguimiento?: string;
   eventoSeguimientoId?: string;
   requiereCirugia?: boolean;
+  medicamentos?: string;
+  idDoctor?: string;
+  medicoUsuarioId?: string;
+  razonConsulta?: string;
 }
 
 export interface Medicamento {

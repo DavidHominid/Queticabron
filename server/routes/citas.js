@@ -1,6 +1,6 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
-import { mapCita, toDBEstado, recordAudit, normalizeHora } from '../helpers/utils.js';
+import { mapCita, toDBEstado, toFEEstado, recordAudit, normalizeHora } from '../helpers/utils.js';
 import { broadcast } from '../helpers/sse.js';
 
 const router = express.Router();
@@ -171,6 +171,22 @@ router.post('/', async (req, res) => {
     let costoPagado = Number.isFinite(Number(c.costoPagado)) ? Number(c.costoPagado) : 0;
     let duracionMinutos = Number.isFinite(Number(c.duracionMinutos)) ? Math.max(1, Math.floor(Number(c.duracionMinutos))) : 60;
     let tipoIdToInsert = null;
+    let requiereTriageEsp = true;
+    if (eventoIdVal) {
+      try {
+        const espRow = await pool.query(
+          `SELECT COALESCE(requiere_triage, true) AS requiere_triage
+           FROM "${SCHEMA}".evento_especialidad
+           WHERE evento_id = $1 AND lower(especialidad) = lower($2)
+           ORDER BY id LIMIT 1`,
+          [eventoIdVal, especialidad],
+        );
+        if (espRow.rows?.length) requiereTriageEsp = !(espRow.rows[0].requiere_triage === false || espRow.rows[0].requiere_triage === 'f');
+      } catch (_) {
+        requiereTriageEsp = true;
+      }
+    }
+    const saltadoTriage = !requiereTriageEsp;
 
     if (tipoId) {
       const tipoRes = await pool.query(
@@ -219,8 +235,8 @@ router.post('/', async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO "${SCHEMA}".citas
-        (id_paciente, evento_id, fecha_cita, hora, estado, especialidad, medico_encargado, consultorio, costo_pagado, tipo_cita_id, duracion_minutos)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        (id_paciente, evento_id, fecha_cita, hora, estado, especialidad, medico_encargado, consultorio, costo_pagado, tipo_cita_id, duracion_minutos, saltado_triage)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         pacienteId,
@@ -234,6 +250,7 @@ router.post('/', async (req, res) => {
         costoPagado,
         tipoIdToInsert,
         duracionMinutos,
+        saltadoTriage,
       ],
     );
 
@@ -358,6 +375,413 @@ router.put('/:id', async (req, res) => {
     broadcast('operacional'); // ⚡ notifica a todos los clientes
   } catch (err) {
     console.error('❌ Error en PUT /api/citas/:id:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const extraeAuditMetaCitas = (req, bodyExtra = {}) => {
+  const usuario = req.user || req.headers['x-usuario'] || {};
+  const nombre = bodyExtra?.usuario_solicitante || bodyExtra?.nombre_usuario || usuario?.nombre || (typeof usuario === 'string' ? usuario : null);
+  const rol = bodyExtra?.rol_solicitante || usuario?.rol || 'recepcion';
+  return {
+    usuario_id: bodyExtra?.usuarioId || usuario?.id ? String(bodyExtra?.usuarioId ?? usuario?.id) : null,
+    nombre_usuario: nombre ? String(nombre) : 'Sistema',
+    rol: rol ? String(rol) : '---',
+    ciudad: bodyExtra?.ciudad || usuario?.ciudad || 'Sonoyta',
+  };
+};
+
+const getEspecialidadEventoConfig = async (eventoId, especialidad) => {
+  if (!eventoId || eventoId === 'general' || !especialidad) {
+    return { requiereTriage: true, poolMedicosIds: [], legacyMedicoId: null };
+  }
+  const rows = await pool.query(
+    `SELECT medico_usuario_ids, medico_usuario_id, COALESCE(requiere_triage, true) AS requiere_triage
+     FROM "${SCHEMA}".evento_especialidad
+     WHERE evento_id = $1 AND lower(especialidad) = lower($2)
+     ORDER BY id LIMIT 1`,
+    [String(eventoId), String(especialidad)],
+  );
+  if (!rows.rows?.length) return { requiereTriage: true, poolMedicosIds: [], legacyMedicoId: null };
+  const r = rows.rows[0];
+  const raw = Array.isArray(r.medico_usuario_ids)
+    ? r.medico_usuario_ids
+    : typeof r.medico_usuario_ids === 'string'
+      ? r.medico_usuario_ids.replace(/^\{/, '').replace(/\}$/, '').split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+  let poolIds = raw.map(x => String(x)).filter(Boolean);
+  const legacy = r.medico_usuario_id ? String(r.medico_usuario_id) : null;
+  if (poolIds.length === 0 && legacy) poolIds = [legacy];
+  return {
+    requiereTriage: !(r.requiere_triage === false || r.requiere_triage === 'f' || r.requiere_triage === 0),
+    poolMedicosIds: poolIds,
+    legacyMedicoId: legacy,
+  };
+};
+
+router.put('/checkin/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const idNum = parseInt(id);
+    if (!Number.isFinite(idNum)) return res.status(400).json({ error: 'ID de cita inválido.' });
+    const current = await pool.query(
+      `SELECT id_cita, id_paciente, evento_id, especialidad, fecha_cita, estado, saltado_triage, hora_llegada
+       FROM "${SCHEMA}".citas WHERE id_cita = $1 LIMIT 1`,
+      [idNum],
+    );
+    if (!current.rows?.length) return res.status(404).json({ error: 'Cita no encontrada.' });
+    const c = current.rows[0];
+    const meta = extraeAuditMetaCitas(req, req.body || {});
+    const eventosRow = c.evento_id
+      ? await pool.query(`SELECT id FROM "${SCHEMA}".eventos WHERE id = $1 LIMIT 1`, [c.evento_id]).then(r => r.rows?.[0] || null)
+      : null;
+    if (c.evento_id && !eventosRow) return res.status(400).json({ error: 'Evento de la cita no encontrado.' });
+
+    const estadoActual = String(c.estado || '');
+    const ya = ['llegada_registrada', 'en_triage', 'triage_completado', 'asignando_medico', 'en_consulta', 'completada'].includes(toFEEstado(estadoActual));
+    if (ya && toFEEstado(estadoActual) !== 'programada' && toFEEstado(estadoActual) !== 'confirmada' && toFEEstado(estadoActual) !== 'pendiente') {
+      const estadoAnterior = toFEEstado(estadoActual);
+      if (estadoAnterior === 'en_consulta' || estadoAnterior === 'completada' ||
+          estadoAnterior === 'asignando_medico' || estadoAnterior === 'triage_completado' ||
+          estadoAnterior === 'en_triage' || estadoAnterior === 'llegada_registrada') {
+        // idempotencia: si ya está llegada_registrada, responder OK pero con warning
+      }
+    }
+
+    const { requiereTriage } = await getEspecialidadEventoConfig(c.evento_id, c.especialidad);
+    const saltaTriaje = !(requiereTriage);
+    const ahora = new Date();
+    const ordenRes = await pool.query(
+      `SELECT COALESCE(MAX(orden_llegada), 0) AS max_orden
+       FROM "${SCHEMA}".citas
+       WHERE fecha_cita = $1 AND evento_id IS NOT DISTINCT FROM $2 AND especialidad = $3`,
+      [c.fecha_cita, c.evento_id || null, c.especialidad],
+    );
+    const ordenLlegada = Number(ordenRes.rows?.[0]?.max_orden || 0) + 1;
+
+    const estadoDespues = saltaTriaje ? 'asignando_medico' : 'llegada_registrada';
+    const updated = await pool.query(
+      `UPDATE "${SCHEMA}".citas
+       SET hora_llegada = COALESCE($1, hora_llegada),
+           orden_llegada = $2,
+           saltado_triage = $3,
+           estado = $4
+       WHERE id_cita = $5
+       RETURNING *`,
+      [ahora, ordenLlegada, saltaTriaje, estadoDespues, idNum],
+    );
+    if (!updated.rows?.length) return res.status(404).json({ error: 'Cita no encontrada al actualizar.' });
+
+    await recordAudit({
+      ...meta,
+      paciente_id: c.id_paciente,
+      accion: saltaTriaje ? 'CheckIn Cita (Saltó Triage)' : 'CheckIn Cita',
+      detalles: `Cita #${idNum} orden de llegada #${ordenLlegada}. Especialidad: ${c.especialidad}. ${saltaTriaje ? 'Especialidad marcada sin triaje.' : 'Pendiente de pasar a triage.'}`,
+    });
+
+    const tipoRefAfter = await detectCitasTipoCitaRef();
+    const joinTipo =
+      tipoRefAfter === 'tipos_cita'
+        ? `LEFT JOIN "${SCHEMA}".tipos_cita etc ON c.tipo_cita_id = etc.id`
+        : `LEFT JOIN "${SCHEMA}".evento_tipo_cita etc ON c.tipo_cita_id = etc.id`;
+    const precioCol = tipoRefAfter === 'tipos_cita' ? 'etc.costo' : 'etc.precio';
+    const durCol = 'etc.duracion_minutos';
+    const enriched = await pool.query(
+      `SELECT c.*, t.id_triaje,
+              etc.nombre AS tipo_cita_nombre,
+              ${durCol} AS tipo_cita_duracion_minutos,
+              ${precioCol} AS tipo_cita_precio
+       FROM "${SCHEMA}".citas c
+       LEFT JOIN "${SCHEMA}".triaje t ON c.id_cita = t.id_cita
+       ${joinTipo}
+       WHERE c.id_cita = $1`,
+      [updated.rows[0].id_cita],
+    );
+    res.json({
+      ...mapCita(enriched.rows[0] || updated.rows[0]),
+      _meta: { saltoTriage: saltaTriaje, ordenLlegada, requiereTriage },
+    });
+    broadcast('operacional');
+  } catch (err) {
+    console.error('❌ Error en PUT /api/citas/checkin/:id:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/asignar-medico/:id', async (req, res) => {
+  const { id } = req.params;
+  const { medicoId, prioridadTriage } = req.body ?? {};
+  try {
+    const idNum = parseInt(id);
+    if (!Number.isFinite(idNum)) return res.status(400).json({ error: 'ID de cita inválido.' });
+    const idMedico = medicoId ? String(medicoId).trim() : '';
+    if (!idMedico) return res.status(400).json({ error: 'medicoId es obligatorio.' });
+    const current = await pool.query(
+      `SELECT c.id_cita, c.id_paciente, c.evento_id, c.especialidad, c.estado, c.medico_encargado, c.saltado_triage, c.prioridad_triage
+       FROM "${SCHEMA}".citas c WHERE c.id_cita = $1 LIMIT 1`,
+      [idNum],
+    );
+    if (!current.rows?.length) return res.status(404).json({ error: 'Cita no encontrada.' });
+    const c = current.rows[0];
+    const meta = extraeAuditMetaCitas(req, req.body || {});
+
+    const estadosValidos = ['llegada_registrada', 'triage_completado', 'asignando_medico', 'en_triage'];
+    const estadoActualFE = toFEEstado(String(c.estado || ''));
+    if (!estadosValidos.includes(estadoActualFE)) {
+      return res.status(409).json({
+        error: `No se puede asignar médico en estado actual: ${estadoActualFE}.`,
+      });
+    }
+
+    const { poolMedicosIds, legacyMedicoId } = await getEspecialidadEventoConfig(c.evento_id, c.especialidad);
+    const poolLookup = new Set([...(poolMedicosIds || []), legacyMedicoId].filter(Boolean).map(x => String(x)));
+    if (poolLookup.size > 0 && !poolLookup.has(idMedico)) {
+      return res.status(400).json({
+        error: `El médico ${idMedico} no pertenece al pool de la especialidad "${c.especialidad}" de este evento.`,
+        pool: Array.from(poolLookup),
+      });
+    }
+
+    const userRow = await pool.query(
+      `SELECT id, nombre, rol FROM "${SCHEMA}".usuarios WHERE id::text = $1 LIMIT 1`,
+      [idMedico],
+    );
+    if (!userRow.rows?.length) return res.status(404).json({ error: 'Médico (usuario) no encontrado.' });
+    const u = userRow.rows[0];
+    const esMedicoValido = (u.rol || '').toString().toLowerCase() === 'medico' || poolLookup.size === 0;
+    if (!esMedicoValido) {
+      return res.status(400).json({ error: `El usuario ${u.nombre} no tiene rol médico.` });
+    }
+    if (c.medico_encargado && String(c.medico_encargado) !== idMedico) {
+      return res.status(409).json({
+        error: `La cita ya tiene asignado el médico ${c.medico_encargado}. Reasignación no permitida en este endpoint.`,
+      });
+    }
+
+    const pTriage = Number.isFinite(Number(prioridadTriage)) ? Math.max(1, Math.min(5, Math.floor(Number(prioridadTriage))))
+                    : (Number.isFinite(Number(c.prioridad_triage)) ? Number(c.prioridad_triage) : 3);
+    const ahora = new Date();
+    const updated = await pool.query(
+      `UPDATE "${SCHEMA}".citas
+       SET medico_encargado = $1,
+           hora_asignacion = $2,
+           medico_asignado_por = $3,
+           prioridad_triage = $4,
+           estado = 'en_consulta'
+       WHERE id_cita = $5
+       RETURNING *`,
+      [idMedico, ahora, meta.usuario_id || null, pTriage, idNum],
+    );
+
+    await recordAudit({
+      ...meta,
+      paciente_id: c.id_paciente,
+      accion: 'Asignacion Medico Cita',
+      detalles: `Cita #${idNum} · asignado a ${u.nombre || idMedico} (${u.id}). Anterior medico_encargado: ${c.medico_encargado || '(ninguno)'}. Prioridad triaje: ${pTriage}.`,
+    });
+
+    const tipoRefAfter = await detectCitasTipoCitaRef();
+    const joinTipo =
+      tipoRefAfter === 'tipos_cita'
+        ? `LEFT JOIN "${SCHEMA}".tipos_cita etc ON c.tipo_cita_id = etc.id`
+        : `LEFT JOIN "${SCHEMA}".evento_tipo_cita etc ON c.tipo_cita_id = etc.id`;
+    const precioCol = tipoRefAfter === 'tipos_cita' ? 'etc.costo' : 'etc.precio';
+    const durCol = 'etc.duracion_minutos';
+    const enriched = await pool.query(
+      `SELECT c.*, t.id_triaje,
+              etc.nombre AS tipo_cita_nombre,
+              ${durCol} AS tipo_cita_duracion_minutos,
+              ${precioCol} AS tipo_cita_precio
+       FROM "${SCHEMA}".citas c
+       LEFT JOIN "${SCHEMA}".triaje t ON c.id_cita = t.id_cita
+       ${joinTipo}
+       WHERE c.id_cita = $1`,
+      [updated.rows[0].id_cita],
+    );
+    res.json({
+      ...mapCita(enriched.rows[0] || updated.rows[0]),
+      _meta: { medicoAsignado: u.nombre, medicoId: u.id, prioridadTriage: pTriage },
+    });
+    broadcast('operacional');
+  } catch (err) {
+    console.error('❌ Error en PUT /api/citas/asignar-medico/:id:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+const colaCitaBaseSelect = () => `
+  SELECT c.id_cita, c.id_paciente, c.evento_id, c.especialidad, c.fecha_cita, c.hora, c.estado, c.consultorio, c.medico_encargado,
+         c.bloque_id, c.hora_llegada, c.orden_llegada, c.prioridad_triage, c.hora_asignacion, c.medico_asignado_por, c.saltado_triage,
+         c.origen, c.fecha_captura_cita, c.duracion_minutos, c.costo_pagado,
+         ee.medico_usuario_ids, ee.intervalo_minutos_default, ee.cupo_por_bloque_default, ee.requiere_triage,
+         p.nombre AS paciente_nombre, p.apellido AS paciente_apellido, p.numero_expediente AS paciente_numero_expediente,
+         p.telefono AS paciente_telefono, p.fecha_de_nacimiento AS paciente_fecha_nacimiento, p.sexo AS paciente_sexo,
+         t.id_triaje, COALESCE(t.temperatura, cta.temperatura) AS t_temperatura, COALESCE(t.presion_arterial, cta.presion_arterial) AS t_presion_arterial,
+         COALESCE(t.ritmo_cardiaco, cta.ritmo_cardiaco) AS t_ritmo_cardiaco, COALESCE(t.saturacion_oxigeno, cta.saturacion_oxigeno) AS t_saturacion_oxigeno,
+         COALESCE(t.azucar_en_sangre, cta.azucar_en_sangre) AS t_azucar_en_sangre
+  FROM "${SCHEMA}".citas c
+  LEFT JOIN "${SCHEMA}".paciente p ON p.id_paciente = c.id_paciente
+  LEFT JOIN "${SCHEMA}".evento_especialidad ee
+    ON ee.evento_id IS NOT DISTINCT FROM c.evento_id AND lower(ee.especialidad) = lower(c.especialidad)
+  LEFT JOIN (
+    SELECT id_cita, id_triaje, temperatura, presion_arterial, ritmo_cardiaco, saturacion_oxigeno, azucar_en_sangre
+    FROM "${SCHEMA}".triaje
+  ) t ON t.id_cita = c.id_cita
+  LEFT JOIN LATERAL (
+    SELECT temperatura, presion_arterial, ritmo_cardiaco, saturacion_oxigeno, azucar_en_sangre
+    FROM "${SCHEMA}".triaje t2 WHERE t2.id_cita = c.id_cita ORDER BY t2.id_triaje DESC NULLS LAST LIMIT 1
+  ) cta ON true
+`;
+
+const mapColaCita = (r) => {
+  const rawPool = Array.isArray(r.medico_usuario_ids) ? r.medico_usuario_ids :
+    typeof r.medico_usuario_ids === 'string' ? r.medico_usuario_ids.replace(/^\{/, '').replace(/\}$/, '').split(',').map(s => s.trim()).filter(Boolean) : [];
+  let poolIds = rawPool.map(x => String(x)).filter(Boolean);
+  const legacy = r.medico_encargado && String(r.medico_encargado).trim();
+  if (poolIds.length === 0 && legacy) poolIds = [legacy];
+  const requiereTriage = !(r.requiere_triage === false || r.requiere_triage === 'f');
+  const paciente = {
+    id: String(r.id_paciente || ''),
+    nombre: r.paciente_nombre || '',
+    apellido: r.paciente_apellido || '',
+    numeroExpediente: r.paciente_numero_expediente ? String(r.paciente_numero_expediente) : null,
+    telefono: r.paciente_telefono || null,
+    fechaNacimiento: r.paciente_fecha_nacimiento ? new Date(r.paciente_fecha_nacimiento).toISOString().slice(0, 10) : null,
+    sexo: r.paciente_sexo || null,
+  };
+  return {
+    id: String(r.id_cita || ''),
+    paciente,
+    eventoId: r.evento_id ? String(r.evento_id) : null,
+    especialidad: r.especialidad,
+    fecha: r.fecha_cita ? new Date(r.fecha_cita).toISOString().slice(0, 10) : null,
+    hora: r.hora ? String(r.hora).slice(0, 5) : null,
+    estado: toFEEstado(r.estado),
+    consultorio: r.consultorio || null,
+    medicoEncargado: r.medico_encargado ? String(r.medico_encargado) : null,
+    bloqueId: r.bloque_id ? String(r.bloque_id) : null,
+    horaLlegada: r.hora_llegada ? new Date(r.hora_llegada).toISOString() : null,
+    ordenLlegada: Number.isFinite(Number(r.orden_llegada)) ? Number(r.orden_llegada) : null,
+    prioridadTriage: Number.isFinite(Number(r.prioridad_triage)) ? Number(r.prioridad_triage) : 3,
+    horaAsignacion: r.hora_asignacion ? new Date(r.hora_asignacion).toISOString() : null,
+    medicoAsignadoPor: r.medico_asignado_por ? String(r.medico_asignado_por) : null,
+    saltadoTriage: Boolean(r.saltado_triage),
+    origen: r.origen || 'sistema',
+    fechaCapturaCita: r.fecha_captura_cita ? new Date(r.fecha_captura_cita).toISOString() : null,
+    duracionMinutos: Number.isFinite(Number(r.duracion_minutos)) ? Number(r.duracion_minutos) : null,
+    costoPagado: Number.isFinite(Number(r.costo_pagado)) ? Number(r.costo_pagado) : 0,
+    especialidadOtra: null,
+    encargadoTriage: null,
+    medicoUsuarioIds: poolIds,
+    requiereTriage,
+    triaje: r.id_triaje ? {
+      id: String(r.id_triaje),
+      temperatura: r.t_temperatura ?? null,
+      presionArterial: r.t_presion_arterial ?? null,
+      ritmoCardiaco: Number.isFinite(Number(r.t_ritmo_cardiaco)) ? Number(r.t_ritmo_cardiaco) : null,
+      saturacionOxigeno: Number.isFinite(Number(r.t_saturacion_oxigeno)) ? Number(r.t_saturacion_oxigeno) : null,
+      azucarEnSangre: Number.isFinite(Number(r.t_azucar_en_sangre)) ? Number(r.t_azucar_en_sangre) : null,
+    } : null,
+  };
+};
+
+router.get('/cola-triage/:eventoId', async (req, res) => {
+  const { eventoId } = req.params;
+  const { especialidad } = req.query;
+  try {
+    const params = [];
+    params.push(eventoId);
+    const espFilter = especialidad ? `AND lower(c.especialidad) = lower($${params.length + 1})` : '';
+    if (especialidad) params.push(String(especialidad));
+    const rows = await pool.query(
+      `
+      ${colaCitaBaseSelect()}
+      WHERE c.evento_id = $1
+        AND (COALESCE(ee.requiere_triage, true) = true OR c.saltado_triage = false)
+        AND c.saltado_triage = false
+        AND toFEEstado(c.estado) IN ('llegada_registrada', 'en_triage')
+        ${espFilter}
+      ORDER BY
+        CASE toFEEstado(c.estado)
+          WHEN 'en_triage' THEN 0
+          WHEN 'llegada_registrada' THEN 1
+          ELSE 9
+        END ASC,
+        COALESCE(c.prioridad_triage, 3) ASC,
+        c.hora_llegada ASC NULLS LAST,
+        c.orden_llegada ASC NULLS LAST,
+        c.hora ASC NULLS LAST
+      `,
+      params,
+    ).catch(async () => {
+      // fallback: toFEEstado no es SQL; usar mapeo manual CASE
+      return pool.query(
+        `
+        ${colaCitaBaseSelect()}
+        WHERE c.evento_id = $1
+          AND (COALESCE(ee.requiere_triage, true) = true OR c.saltado_triage = false)
+          AND c.saltado_triage = false
+          AND (
+            c.estado IN ('llegada_registrada', 'en_triage', 'confirmada', 'pendiente')
+          )
+          ${espFilter}
+        ORDER BY
+          CASE
+            WHEN c.estado = 'en_triage' THEN 0
+            WHEN c.estado = 'confirmada' THEN 0
+            WHEN c.estado = 'llegada_registrada' THEN 1
+            WHEN c.estado = 'pendiente' THEN 1
+            ELSE 9
+          END ASC,
+          COALESCE(c.prioridad_triage, 3) ASC,
+          c.hora_llegada ASC NULLS LAST,
+          c.orden_llegada ASC NULLS LAST,
+          c.hora ASC NULLS LAST
+        `,
+        params,
+      );
+    });
+    res.json((rows.rows || []).map(mapColaCita));
+  } catch (err) {
+    console.error('❌ Error en GET /api/citas/cola-triage/:eventoId:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/cola-asignacion/:eventoId', async (req, res) => {
+  const { eventoId } = req.params;
+  const { especialidad } = req.query;
+  try {
+    const params = [];
+    params.push(eventoId);
+    const espFilter = especialidad ? `AND lower(c.especialidad) = lower($${params.length + 1})` : '';
+    if (especialidad) params.push(String(especialidad));
+    const rows = await pool.query(
+      `
+      ${colaCitaBaseSelect()}
+      WHERE c.evento_id = $1
+        AND (
+          (c.estado = 'triage_completado')
+          OR (c.estado = 'asignando_medico')
+          OR (c.saltado_triage = true AND c.estado IN ('llegada_registrada', 'confirmada', 'pendiente'))
+          OR (COALESCE(ee.requiere_triage, true) = false AND c.estado IN ('llegada_registrada', 'confirmada', 'pendiente'))
+        )
+        ${espFilter}
+      ORDER BY
+        CASE
+          WHEN c.saltado_triage = true OR COALESCE(ee.requiere_triage, true) = false THEN 0
+          ELSE 1
+        END ASC,
+        COALESCE(c.prioridad_triage, 3) ASC,
+        c.hora_llegada ASC NULLS LAST,
+        c.orden_llegada ASC NULLS LAST,
+        c.hora ASC NULLS LAST
+      `,
+      params,
+    );
+    res.json((rows.rows || []).map(mapColaCita));
+  } catch (err) {
+    console.error('❌ Error en GET /api/citas/cola-asignacion/:eventoId:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

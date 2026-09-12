@@ -102,6 +102,10 @@ const emptyEvento = (ciudad: Ciudad): Evento => ({
 const createEspecialidad = (especialidad: Especialidad): EspecialidadEvento => ({
   especialidad,
   medicoEncargado: '',
+  medicoUsuarioIds: [],
+  intervaloMinutosDefault: 30,
+  cupoPorBloqueDefault: 8,
+  requiereTriage: true,
   practicantes: [],
   consultorio: '',
   horarios: [],

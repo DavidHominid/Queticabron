@@ -299,9 +299,6 @@ export function ScheduleCalendarEditor({
           selectOverlap={false}
           events={events}
           validRange={validRange}
-          selectStart={() => {
-            setMensajeBloqueo('');
-          }}
           select={(info) => {
             setMensajeBloqueo('');
             const blocks = buildBlocksForRange(info.start, info.end);

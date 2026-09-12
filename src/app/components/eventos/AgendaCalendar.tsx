@@ -108,8 +108,8 @@ export function AgendaCalendar({
     [],
   );
   const buttonText = useMemo(() => ({ today: 'Hoy', week: 'Semana', day: 'Día', list: 'Lista' }), []);
-  const eventTimeFormat = useMemo(() => ({ hour: '2-digit', minute: '2-digit', meridiem: false }), []);
-  const slotLabelFormat = useMemo(() => ({ hour: '2-digit', minute: '2-digit', meridiem: false }), []);
+  const eventTimeFormat = useMemo(() => ({ hour: '2-digit' as const, minute: '2-digit' as const, meridiem: false }), []);
+  const slotLabelFormat = useMemo(() => ({ hour: '2-digit' as const, minute: '2-digit' as const, meridiem: false }), []);
 
   const minDaySafe = useMemo(() => {
     const a = String(desde || '').trim();

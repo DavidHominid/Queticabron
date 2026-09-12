@@ -189,7 +189,7 @@ const FE_ESPECIALIDAD_FALLBACK: { value: string; label: string }[] = [
 
 export function ImportarExpedientePage() {
   const navigate = useNavigate();
-  const today = todayYmd();
+  const today = useMemo(() => todayYmd(), []);
   const { user } = useAuth();
   const { fetchPacientePorId, fetchCitasPaciente } = useData();
 
@@ -292,32 +292,39 @@ export function ImportarExpedientePage() {
     alergia: '',
     medicamento: '',
   });
-  const [confirmRecovered, setConfirmRecovered] = useState(false);
+  const confirmRef = useRef<{ hecho: boolean }>({ hecho: false });
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sending, setSending] = useState(false);
   const [showDedupeDialog, setShowDedupeDialog] = useState(false);
   const [duplicatePaciente, setDuplicatePaciente] = useState<Paciente | null>(null);
   const [mergeOverrideId, setMergeOverrideId] = useState<string | null>(null);
 
+  // 1-shot al montar: recuperación de borrador (useRef sin dependencias state, rompe loop 185).
   useEffect(() => {
+    if (confirmRef.current.hecho) return;
+    confirmRef.current.hecho = true;
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     try {
       JSON.parse(raw);
-      if (confirmRecovered) return;
+    } catch {
+      return;
+    }
+    // Desacoplamos interacción síncrona window.confirm con setTimeout(0) para
+    // evitar loops 185 cuando el browser integrado (TRAE) re-ejecuta StrictMode.
+    const idTimer = window.setTimeout(() => {
       const ok = window.confirm(
         'Se detectó un borrador anterior sin finalizar. ¿Deseas continuar con ese borrador? Si respondes "No" se empezará desde cero.'
       );
       if (!ok) {
-        localStorage.removeItem(STORAGE_KEY);
+        try { localStorage.removeItem(STORAGE_KEY); } catch {}
         setDraft(createEmptyDraft());
         setActiveCitaIdx(0);
       }
-      setConfirmRecovered(true);
-    } catch {
-      setConfirmRecovered(true);
-    }
-  }, [confirmRecovered]);
+    }, 0);
+    return () => { window.clearTimeout(idTimer); };
+  }, []);
 
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -767,12 +774,6 @@ export function ImportarExpedientePage() {
                         id="import-nombre"
                         value={draft.paciente.nombre}
                         onChange={(e) => onCambioNombre(e.target.value)}
-                        onInput={(e: any) => {
-                          const t = e.currentTarget?.value;
-                          if (typeof t === 'string' && t !== draft.paciente.nombre) {
-                            onCambioNombre(t);
-                          }
-                        }}
                         inputMode="text"
                         autoComplete="given-name"
                         placeholder="Ej. María de los Ángeles"
@@ -786,12 +787,6 @@ export function ImportarExpedientePage() {
                         id="import-apellido"
                         value={draft.paciente.apellido}
                         onChange={(e) => onCambioApellido(e.target.value)}
-                        onInput={(e: any) => {
-                          const t = e.currentTarget?.value;
-                          if (typeof t === 'string' && t !== draft.paciente.apellido) {
-                            onCambioApellido(t);
-                          }
-                        }}
                         inputMode="text"
                         autoComplete="family-name"
                         placeholder="Ej. Pérez González"

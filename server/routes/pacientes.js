@@ -1,6 +1,6 @@
 import express from 'express';
 import pool, { SCHEMA } from '../config/db.js';
-import { mapPaciente, recordAudit } from '../helpers/utils.js';
+import { mapPaciente, mapCita, recordAudit } from '../helpers/utils.js';
 
 const router = express.Router();
 
@@ -78,6 +78,80 @@ router.post('/', async (req, res) => {
     res.status(201).json(mapPaciente(result.rows[0]));
   } catch (err) {
     console.error('❌ Error al registrar paciente:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT * FROM "${SCHEMA}".paciente WHERE id_paciente = $1 LIMIT 1`,
+      [parseInt(id)],
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Paciente no encontrado' });
+    }
+    res.json(mapPaciente(result.rows[0]));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Todas las citas de un paciente (sin filtro de fecha — necesario para expedientes históricos)
+router.get('/:id/citas', async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Detectar referencia de tipo_cita igual que en citas.js
+    let joinTipo = '';
+    let precioCol = 'NULL';
+    let durCol = 'NULL';
+    let nombreCol = 'NULL';
+    try {
+      const fkRes = await pool.query(
+        `SELECT ccu.table_name AS ref_table
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.constraint_column_usage ccu
+           ON ccu.constraint_name = tc.constraint_name
+          AND ccu.table_schema = tc.table_schema
+         WHERE tc.table_schema = $1
+           AND tc.table_name = 'citas'
+           AND tc.constraint_type = 'FOREIGN KEY'
+           AND tc.constraint_name = 'citas_fk_tipo_cita'
+         LIMIT 1`,
+        [SCHEMA],
+      );
+      const t = String(fkRes.rows?.[0]?.ref_table || '').trim();
+      if (t === 'tipos_cita') {
+        joinTipo = `LEFT JOIN "${SCHEMA}".tipos_cita etc ON c.tipo_cita_id = etc.id`;
+        precioCol = 'etc.costo';
+        durCol = 'etc.duracion_minutos';
+        nombreCol = 'etc.nombre';
+      } else if (t === 'evento_tipo_cita') {
+        joinTipo = `LEFT JOIN "${SCHEMA}".evento_tipo_cita etc ON c.tipo_cita_id = etc.id`;
+        precioCol = 'etc.precio';
+        durCol = 'etc.duracion_minutos';
+        nombreCol = 'etc.nombre';
+      }
+    } catch {
+      // sin join de tipo_cita — columnas quedan como NULL
+    }
+
+    const query = `
+      SELECT c.*, t.id_triaje,
+             ${nombreCol} AS tipo_cita_nombre,
+             ${durCol} AS tipo_cita_duracion_minutos,
+             ${precioCol} AS tipo_cita_precio
+      FROM "${SCHEMA}".citas c
+      LEFT JOIN "${SCHEMA}".triaje t ON c.id_cita = t.id_cita
+      ${joinTipo}
+      WHERE c.id_paciente = $1
+      ORDER BY c.fecha_cita DESC, c.id_cita DESC
+    `;
+    const result = await pool.query(query, [parseInt(id)]);
+    res.json(result.rows.map(mapCita));
+  } catch (err) {
+    console.error('❌ Error en GET /api/pacientes/:id/citas:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

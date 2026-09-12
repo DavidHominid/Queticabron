@@ -235,3 +235,94 @@ export async function migratePacienteCleanDefaultsAndDropLegacy() {
     await pool.query(`ALTER TABLE "${SCHEMA}".paciente ALTER COLUMN ciudad SET DEFAULT 'Puerto Peñasco'::text`);
   } catch (_) {}
 }
+
+export async function migrateEventosNuevasColumnasEspecialidadYFlujo() {
+  if (await tableExists(SCHEMA, 'evento_especialidad')) {
+    await pool.query(
+      `ALTER TABLE "${SCHEMA}".evento_especialidad ADD COLUMN IF NOT EXISTS medico_usuario_ids TEXT[] NOT NULL DEFAULT '{}'`,
+    );
+    await pool.query(
+      `ALTER TABLE "${SCHEMA}".evento_especialidad ADD COLUMN IF NOT EXISTS intervalo_minutos_default INTEGER NOT NULL DEFAULT 30`,
+    );
+    await pool.query(
+      `ALTER TABLE "${SCHEMA}".evento_especialidad ADD COLUMN IF NOT EXISTS cupo_por_bloque_default INTEGER NOT NULL DEFAULT 8`,
+    );
+    await pool.query(
+      `ALTER TABLE "${SCHEMA}".evento_especialidad ADD COLUMN IF NOT EXISTS requiere_triage BOOLEAN NOT NULL DEFAULT true`,
+    );
+    try {
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS evento_especialidad_req_triage_idx ON "${SCHEMA}".evento_especialidad (requiere_triage)`,
+      );
+    } catch (_) {}
+  }
+
+  if (await tableExists(SCHEMA, 'citas')) {
+    await pool.query(`ALTER TABLE "${SCHEMA}".citas ADD COLUMN IF NOT EXISTS bloque_id TEXT`);
+    await pool.query(`ALTER TABLE "${SCHEMA}".citas ADD COLUMN IF NOT EXISTS hora_llegada TIMESTAMPTZ`);
+    await pool.query(`ALTER TABLE "${SCHEMA}".citas ADD COLUMN IF NOT EXISTS orden_llegada INTEGER`);
+    await pool.query(`ALTER TABLE "${SCHEMA}".citas ADD COLUMN IF NOT EXISTS prioridad_triage INTEGER DEFAULT 3`);
+    await pool.query(`ALTER TABLE "${SCHEMA}".citas ADD COLUMN IF NOT EXISTS hora_asignacion TIMESTAMPTZ`);
+    await pool.query(`ALTER TABLE "${SCHEMA}".citas ADD COLUMN IF NOT EXISTS medico_asignado_por TEXT`);
+    await pool.query(
+      `ALTER TABLE "${SCHEMA}".citas ADD COLUMN IF NOT EXISTS saltado_triage BOOLEAN NOT NULL DEFAULT false`,
+    );
+    try {
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS citas_evento_especialidad_estado_idx ON "${SCHEMA}".citas (evento_id, especialidad, estado)`,
+      );
+    } catch (_) {}
+    try {
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS citas_orden_llegada_idx ON "${SCHEMA}".citas (fecha, especialidad, orden_llegada) WHERE orden_llegada IS NOT NULL`,
+      );
+    } catch (_) {}
+    try {
+      await pool.query(
+        `CREATE INDEX IF NOT EXISTS citas_saltado_triage_idx ON "${SCHEMA}".citas (saltado_triage) WHERE saltado_triage = true`,
+      );
+    } catch (_) {}
+  }
+
+  if (await tableExists(SCHEMA, 'evento_especialidad')) {
+    await pool.query(
+      `UPDATE "${SCHEMA}".evento_especialidad ee
+       SET medico_usuario_ids =
+         CASE
+           WHEN medico_usuario_ids IS NULL OR cardinality(medico_usuario_ids) = 0 THEN
+             CASE WHEN ee.medico_usuario_id IS NOT NULL AND ee.medico_usuario_id::text <> '' THEN ARRAY[ee.medico_usuario_id::text] ELSE '{}'::text[] END
+           ELSE medico_usuario_ids
+         END
+       WHERE cardinality(medico_usuario_ids) = 0 OR medico_usuario_ids IS NULL`,
+    );
+  }
+
+  console.log(`✅ Columnas nuevas evento_especialidad + citas + índices migradas (flujo bloques N:M + triaje opcional).`);
+}
+
+export async function migrateTriajeUnificarDuplicadosOxigenacionGlucosa() {
+  if (await tableExists(SCHEMA, 'triaje')) {
+    const cols = await pool.query(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_schema = $1 AND table_name = 'triaje'`,
+      [SCHEMA],
+    );
+    const names = new Set((cols.rows || []).map((r) => String(r.column_name)));
+    if (names.has('oxigenacion') && names.has('saturacion_oxigeno')) {
+      await pool.query(
+        `UPDATE "${SCHEMA}".triaje
+         SET saturacion_oxigeno = oxigenacion
+         WHERE saturacion_oxigeno IS NULL AND oxigenacion IS NOT NULL`,
+      );
+    }
+    if (names.has('glucosa') && names.has('azucar_en_sangre')) {
+      await pool.query(
+        `UPDATE "${SCHEMA}".triaje
+         SET azucar_en_sangre = glucosa
+         WHERE azucar_en_sangre IS NULL AND glucosa IS NOT NULL`,
+      );
+    }
+  }
+  console.log(`✅ Triaje: unificados duplicados oxigenacion → saturacion_oxigeno y glucosa → azucar_en_sangre.`);
+}

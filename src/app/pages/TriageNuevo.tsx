@@ -48,7 +48,9 @@ export function TriageNuevo() {
   const [showModal, setShowModal] = useState(false);
   const [selectedPaciente, setSelectedPaciente] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [triageEnProceso, setTriageEnProceso] = useState<{ [key: string]: Partial<SignosVitales> }>({});
+  const [triageEnProceso, setTriageEnProceso] = useState<{
+    [key: string]: Partial<SignosVitales> & { razonConsulta?: string; observaciones?: string };
+  }>({});
 
 
 
@@ -64,6 +66,7 @@ export function TriageNuevo() {
   });
 
   const [observaciones, setObservaciones] = useState('');
+  const [razonConsulta, setRazonConsulta] = useState('');
 
   // Obtener el evento activo del usuario (simplificado: toma el primer evento activo)
   const ciudadesUsuario =
@@ -81,14 +84,21 @@ export function TriageNuevo() {
   // Tomamos solo los primeros 10 caracteres para evitar conversión UTC
   const normalizarFecha = (f: string | undefined) => (f ? String(f).substring(0, 10) : '');
 
-  // Filtramos por todas las citas del día aplicables
+  // Filtramos por todas las citas del día aplicables (estados nuevos incluidos)
   const citasHoy = citas.filter(
     (c) =>
       normalizarFecha(c.fecha) === hoy &&
-      (c.estado === 'programada' || c.estado === 'en_triage' || c.estado === 'en_consulta')
+      (c.estado === 'programada' ||
+        c.estado === 'llegada_registrada' ||
+        c.estado === 'en_triage' ||
+        c.estado === 'triage_completado' ||
+        c.estado === 'asignando_medico' ||
+        c.estado === 'en_consulta')
   );
 
   const citasVisibles = citasHoy.filter((c) => {
+    // NUEVO Etapa4: NUNCA mostrar citas que saltaron triaje (saltadoTriage=true) en este dashboard
+    if (c.saltadoTriage === true) return false;
     const eventoDeLaCita = c.eventoId === 'general' ? null : (eventos.find(e => e.id === c.eventoId) || null);
     return triageCanSeeCita(eventoDeLaCita, c, user);
   });
@@ -117,7 +127,7 @@ export function TriageNuevo() {
     })
     .filter((v): v is NonNullable<typeof v> => Boolean(v));
 
-  // Filtrar pacientes por búsqueda (mostrar todos, incluyendo completados) y ORDENAR POR HORA
+  // Filtrar pacientes por búsqueda y ORDENAR FIFO: prioridadTriage ASC → ordenLlegada ASC → horaLlegada ASC → hora ASC
   const pacientesFiltrados = pacientesDisponibles
     .filter(
       (p) =>
@@ -125,6 +135,15 @@ export function TriageNuevo() {
         p.numeroExpediente?.toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
+      const pA = Number.isFinite(Number(a.cita?.prioridadTriage)) ? Number(a.cita.prioridadTriage) : 3;
+      const pB = Number.isFinite(Number(b.cita?.prioridadTriage)) ? Number(b.cita.prioridadTriage) : 3;
+      if (pA !== pB) return pA - pB;
+      const olA = Number.isFinite(Number(a.cita?.ordenLlegada)) ? Number(a.cita.ordenLlegada) : 999999;
+      const olB = Number.isFinite(Number(b.cita?.ordenLlegada)) ? Number(b.cita.ordenLlegada) : 999999;
+      if (olA !== olB) return olA - olB;
+      const hlA = a.cita?.horaLlegada ? String(a.cita.horaLlegada) : '99:99';
+      const hlB = b.cita?.horaLlegada ? String(b.cita.horaLlegada) : '99:99';
+      if (hlA !== hlB) return hlA.localeCompare(hlB);
       const horaA = a.cita?.hora || '23:59';
       const horaB = b.cita?.hora || '23:59';
       return horaA.localeCompare(horaB);
@@ -146,9 +165,12 @@ export function TriageNuevo() {
         altura: datosEnProceso.altura,
         azucarEnSangre: datosEnProceso.azucarEnSangre,
       });
+      setRazonConsulta(datosEnProceso.razonConsulta || '');
+      setObservaciones(datosEnProceso.observaciones || '');
     } else if (paciente.triageCompletado) {
       // Si ya está completado, mostrar los datos
       setSignosForm(paciente.triageCompletado.signosVitales);
+      setRazonConsulta(paciente.triageCompletado.razonConsulta || '');
       setObservaciones(paciente.triageCompletado.observaciones || '');
     } else {
       resetForm();
@@ -164,7 +186,11 @@ export function TriageNuevo() {
 
     setTriageEnProceso({
       ...triageEnProceso,
-      [selectedPaciente.cita.id]: signosForm,
+      [selectedPaciente.cita.id]: {
+        ...signosForm,
+        razonConsulta: razonConsulta || undefined,
+        observaciones: observaciones || undefined,
+      },
     });
 
     updateCita(selectedPaciente.cita.id, { estado: 'en_triage' });
@@ -185,11 +211,14 @@ export function TriageNuevo() {
       fechaHora: nowIso(),
       signosVitales: signosForm,
       observaciones: observaciones || undefined,
+      razonConsulta: razonConsulta || undefined,
       realizadoPor: user?.nombre || '',
     };
 
     addRegistroTriage(nuevoRegistro);
-    updateCita(selectedPaciente.cita.id, { estado: 'en_consulta' });
+    // NUEVO Etapa4: flujo separado — triaje completado pasa a estado triage_completado.
+    // Posteriormente el área de recepción/asignación usa asignar-medico para pasar a en_consulta.
+    updateCita(selectedPaciente.cita.id, { estado: 'triage_completado' });
 
     // Limpiar datos en proceso si existen
     const nuevoTriageEnProceso = { ...triageEnProceso };
@@ -223,6 +252,7 @@ export function TriageNuevo() {
       altura: undefined as any,
       azucarEnSangre: undefined as any,
     });
+    setRazonConsulta('');
     setObservaciones('');
   };
 
@@ -715,6 +745,28 @@ export function TriageNuevo() {
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+
+                {/* Motivo / Razón de consulta */}
+                <div>
+                  <Label htmlFor="razonConsulta">
+                    Motivo / Razón de consulta (opcional)
+                  </Label>
+                  <Textarea
+                    id="razonConsulta"
+                    rows={2}
+                    maxLength={250}
+                    value={razonConsulta}
+                    onChange={(e) => setRazonConsulta(e.target.value.slice(0, 250))}
+                    placeholder="Describe brevemente el motivo por el que el paciente asiste hoy"
+                    disabled={selectedPaciente.estado === 'completado'}
+                    className="resize-none"
+                  />
+                  <div className="flex justify-end mt-1">
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      {razonConsulta.length}/250
+                    </span>
                   </div>
                 </div>
 

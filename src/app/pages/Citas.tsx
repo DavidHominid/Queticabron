@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { AgendaCitasDiaCalendar } from '../components/citas/AgendaCitasDiaCalendar';
 import { AgendarCitaDialog } from '../components/eventos/AgendarCitaDialog';
@@ -8,6 +8,15 @@ import { AgendarCitaGeneralDialog } from '../components/eventos/AgendarCitaGener
 import { DetalleCitasBloqueDialog } from '../components/eventos/DetalleCitasBloqueDialog';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
@@ -18,6 +27,7 @@ import { Cita, Especialidad, Evento, HorarioDisponible, Paciente, Seguimiento, T
 import { labelEspecialidad } from '../utils/especialidades';
 import { nowIso, todayYmd } from '../utils/clock';
 import { canAgendarCitaEnEvento } from '../utils/eventoEstado';
+import { toast } from 'sonner';
 
 const timeToMinutes = (t: string) => {
   const [hh, mm] = String(t || '').split(':').map((x) => Number(x));
@@ -355,15 +365,106 @@ export function Citas() {
     });
   };
 
+  const last30d = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().substring(0, 10);
+  }, []);
+
+  const buildExportParams = (scope: '30d' | '90d' | 'todas') => {
+    const params = new URLSearchParams();
+    // Filtros por ciudad (mismo criterio que eventosVisibles)
+    if (!canSeeAllCiudades) {
+      for (const ciudad of ciudadesUsuario) {
+        if (ciudad?.trim()) params.append('ciudad', ciudad);
+      }
+    }
+    if (scope === '30d' || scope === '90d') {
+      if (scope === '30d') params.set('fechaDesde', last30d);
+      else {
+        const d = new Date();
+        d.setDate(d.getDate() - 90);
+        params.set('fechaDesde', d.toISOString().substring(0, 10));
+      }
+      params.set('fechaHasta', hoy);
+    }
+    return params.toString();
+  };
+
+  const triggerDownload = (extension: 'xlsx' | 'csv', scope: '30d' | '90d' | 'todas') => {
+    const qs = buildExportParams(scope);
+    const url = `/api/export/citas.${extension}${qs ? `?${qs}` : ''}`;
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noreferrer noopener';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 200);
+    const label =
+      scope === '30d' ? 'últimos 30 días' : scope === '90d' ? 'últimos 90 días' : 'todas las visibles';
+    toast.success(`Descargando ${extension === 'xlsx' ? 'Excel' : 'CSV'} · ${label}…`);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">{t('citas.title')}</h1>
             <p className="mt-1 text-muted-foreground">
               {t('citas.subtitle')}
             </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">
+              {citasVisibles.length} {citasVisibles.length === 1 ? 'cita' : 'citas'}
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <Download className="w-3.5 h-3.5" />
+                  Exportar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Últimos 30 días</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => triggerDownload('xlsx', '30d')} className="gap-2 cursor-pointer">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    <span>Excel (.xlsx)</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => triggerDownload('csv', '30d')} className="gap-2 cursor-pointer">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span>CSV (.csv)</span>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Últimos 90 días</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => triggerDownload('xlsx', '90d')} className="gap-2 cursor-pointer">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    <span>Excel (.xlsx)</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => triggerDownload('csv', '90d')} className="gap-2 cursor-pointer">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span>CSV (.csv)</span>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Todas (ciudades visibles)</DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => triggerDownload('xlsx', 'todas')} className="gap-2 cursor-pointer">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                    <span>Excel completo</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => triggerDownload('csv', 'todas')} className="gap-2 cursor-pointer">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span>CSV completo</span>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

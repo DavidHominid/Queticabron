@@ -358,6 +358,11 @@ router.post('/expediente-captura', async (req, res) => {
       }
       return triajeColsCache.has(String(col)) ? String(col) : null;
     };
+    const safeColTriajeAlias = async (preferred, fallback) => {
+      const p = await safeColTriaje(preferred);
+      if (p) return p;
+      return safeColTriaje(fallback);
+    };
 
     for (let i = 0; i < citasPayload.length; i++) {
       const c = citasPayload[i];
@@ -422,6 +427,8 @@ router.post('/expediente-captura', async (req, res) => {
       await pushCita('evento_id', null);
       await pushCita('origen', 'captura_fisica');
       await pushCita('fecha_captura_cita', new Date());
+      await pushCita('especialidad_otra', especialidadOtra);
+      await pushCita('encargado_triaje', encargadoTriage);
       await pushCita('observaciones', citaObservacionesFinal);
 
       const citaPlaceholders = citaCols.map((_, idx) => `$${idx + 1}`).join(', ');
@@ -456,16 +463,18 @@ router.post('/expediente-captura', async (req, res) => {
           triajeIdx += 1;
         };
         await pushTriaje('id_cita', idCita);
+        await pushTriaje('id_paciente', idPaciente);
         await pushTriaje('temperatura', toNum(sv.temperatura));
         await pushTriaje('presion_arterial', truncateText(sv.presionArterial ?? null, 200));
         await pushTriaje('ritmo_cardiaco', toInt(sv.ritmoCardiaco));
-        await pushTriaje('frec_respiratoria', toInt(sv.frecuenciaRespiratoria));
+        await pushTriaje(
+          (await safeColTriajeAlias('frecuencia_respiratoria', 'frec_respiratoria')),
+          toInt(sv.frecuenciaRespiratoria),
+        );
         await pushTriaje('altura', toInt(sv.altura));
         await pushTriaje('peso', toNum(sv.peso));
-        await pushTriaje('oxigenacion', toNum(sv.saturacionOxigeno));
-        await pushTriaje('glucosa', toInt(sv.azucarEnSangre));
         await pushTriaje('saturacion_oxigeno', toNum(sv.saturacionOxigeno));
-        await pushTriaje('azucar_en_sangre', toNum(sv.azucarEnSangre));
+        await pushTriaje('azucar_en_sangre', toInt(sv.azucarEnSangre));
         await pushTriaje('razon_consulta', truncateText(motivoConsulta, 250) || null);
         await pushTriaje('observaciones', truncateText(observacionesHpi, 50000) || null);
         await pushTriaje('realizado_por', truncateText(encargadoTriage || 'Captura Histórica', 500));
@@ -614,6 +623,39 @@ router.post('/expediente-captura', async (req, res) => {
     });
   } finally {
     client.release();
+  }
+});
+
+router.post('/dedupe', async (req, res) => {
+  try {
+    const { nombre, apellido, fechaNacimiento } = req.body || {};
+    const n = String(nombre || '').trim().toLowerCase();
+    const a = String(apellido || '').trim().toLowerCase();
+    const fn = String(fechaNacimiento || '').trim();
+
+    if (!n || !a) {
+      return res.json({ duplicado: false });
+    }
+
+    const query = `
+      SELECT * FROM "${SCHEMA}".paciente
+      WHERE (LOWER(TRIM(nombre)) = $1 AND LOWER(TRIM(apellido)) = $2)
+        OR (fecha_de_nacimiento::text LIKE $3 AND LOWER(TRIM(nombre)) = $1)
+      LIMIT 1
+    `;
+    const result = await pool.query(query, [n, a, `${fn}%`]);
+
+    if (result.rows.length > 0) {
+      return res.json({
+        duplicado: true,
+        paciente: mapPaciente(result.rows[0]),
+      });
+    }
+
+    return res.json({ duplicado: false });
+  } catch (err) {
+    console.error('Error en dedupe pacientes:', err);
+    return res.json({ duplicado: false });
   }
 });
 

@@ -111,22 +111,46 @@ export const toFEEstado = (dbEstado) => {
     'cedida':     'cedida',
     'en_triage':  'en_triage',
     'en_consulta':'en_consulta',
+    'llegada_registrada': 'llegada_registrada',
+    'triage_completado':  'triage_completado',
+    'asignando_medico':   'asignando_medico',
   };
   return map[dbEstado] ?? dbEstado;
 };
 
 export const toDBEstado = (feEstado) => {
   const map = {
-    'programada':  'pendiente',
-    'en_triage':   'confirmada',
-    'en_consulta': 'confirmada',
-    'completada':  'completada',
-    'cancelada':   'cancelada',
-    'cancelado':   'cancelada',
-    'no_asistio':  'noshow',
-    'cedida':      'cedida',
+    'programada':       'pendiente',
+    'en_triage':        'confirmada',
+    'en_consulta':      'confirmada',
+    'completada':       'completada',
+    'cancelada':        'cancelada',
+    'cancelado':        'cancelada',
+    'no_asistio':       'noshow',
+    'cedida':           'cedida',
+    'llegada_registrada': 'llegada_registrada',
+    'triage_completado':  'triage_completado',
+    'asignando_medico':   'asignando_medico',
   };
   return map[feEstado] ?? 'pendiente';
+};
+
+export const calcularIntervaloEfectivo = (horarioIntervalo, espIntervaloDefault, fallback = 30) => {
+  const h = Number(horarioIntervalo);
+  if (Number.isFinite(h) && h >= 5) return Math.max(5, Math.round(h / 5) * 5);
+  const e = Number(espIntervaloDefault);
+  if (Number.isFinite(e) && e >= 5) return Math.max(5, Math.round(e / 5) * 5);
+  const f = Number(fallback);
+  return Number.isFinite(f) && f >= 5 ? Math.max(5, Math.round(f / 5) * 5) : 30;
+};
+
+export const calcularCupoEfectivo = (horarioCupo, espCupoDefault, fallback = 8) => {
+  const h = Number(horarioCupo);
+  if (Number.isFinite(h) && h >= 1) return Math.max(1, Math.floor(h));
+  const e = Number(espCupoDefault);
+  if (Number.isFinite(e) && e >= 1) return Math.max(1, Math.floor(e));
+  const f = Number(fallback);
+  return Number.isFinite(f) && f >= 1 ? Math.max(1, Math.floor(f)) : 8;
 };
 
 export const normalizeHora = (hora) => {
@@ -198,7 +222,16 @@ export const mapCita = (c) => {
     costoPagado: Number.isFinite(Number(c.costo_pagado)) ? Number(c.costo_pagado) : 0,
     origen: c.origen || 'sistema',
     fechaCapturaCita: safeIso(c.fecha_captura_cita),
+    especialidadOtra: c.especialidad_otra ?? c.especialidadOtra ?? null,
+    encargadoTriage: c.encargado_triaje ?? c.encargadoTriage ?? null,
     fechaCreacion,
+    bloqueId: c.bloque_id != null ? String(c.bloque_id) : null,
+    horaLlegada: safeIso(c.hora_llegada),
+    ordenLlegada: Number.isFinite(Number(c.orden_llegada)) ? Number(c.orden_llegada) : null,
+    prioridadTriage: Number.isFinite(Number(c.prioridad_triage)) ? Number(c.prioridad_triage) : null,
+    horaAsignacion: safeIso(c.hora_asignacion),
+    medicoAsignadoPor: c.medico_asignado_por ? String(c.medico_asignado_por) : null,
+    saltadoTriage: Boolean(c.saltado_triage),
   };
 };
 

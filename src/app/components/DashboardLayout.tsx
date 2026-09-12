@@ -53,13 +53,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const handleOpenNotif = () => {
     setNotifOpen((prev) => {
-      if (!prev) {
-        const ts = nowIso();
-        setLastSeen(ts);
-        localStorage.setItem('notif_last_seen', ts);
-      }
       return !prev;
     });
+    if (!notifOpen) {
+      const ts = nowIso();
+      setLastSeen(ts);
+      localStorage.setItem('notif_last_seen', ts);
+    }
   };
 
   useEffect(() => {

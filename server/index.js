@@ -15,6 +15,8 @@ import {
   migrateStaticNotifyTriggers,
   migrateAuditoriaPacienteId,
   migratePacienteCleanDefaultsAndDropLegacy,
+  migrateEventosNuevasColumnasEspecialidadYFlujo,
+  migrateTriajeUnificarDuplicadosOxigenacionGlucosa,
 } from './helpers/migrations.js';
 
 // Importación de rutas
@@ -36,6 +38,7 @@ import ciudadesRoutes from './routes/ciudades.js';
 import expedienteCitaRoutes from './routes/expediente-cita.js';
 import expedienteRoutes from './routes/expediente.js';
 import sedesRoutes from './routes/sedes.js';
+import exportRoutes from './routes/export.js';
 import { sseMiddleware } from './helpers/sse.js';
 import { startDbNotifyListener } from './helpers/db-notify.js';
 
@@ -98,6 +101,12 @@ migrateAuditoriaPacienteId().catch((err) => {
 migratePacienteCleanDefaultsAndDropLegacy().catch((err) => {
   console.error('❌ Error migrando paciente (clean defaults / legacy cols):', err.message);
 });
+migrateEventosNuevasColumnasEspecialidadYFlujo().catch((err) => {
+  console.error('❌ Error migrando cols nuevas evento_especialidad / citas:', err.message);
+});
+migrateTriajeUnificarDuplicadosOxigenacionGlucosa().catch((err) => {
+  console.error('❌ Error unificando triaje duplicados (oxigenacion/glucosa):', err.message);
+});
 startDbNotifyListener().catch((err) => {
   console.error('❌ Error iniciando LISTEN/NOTIFY:', err.message);
 });
@@ -126,6 +135,7 @@ app.use('/api/expediente-cita', expedienteCitaRoutes);
 app.use('/api/expediente', expedienteRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/sedes', sedesRoutes);
+app.use('/api/export', exportRoutes);
 
 // Caso especial para el login
 app.use('/api', usuariosRoutes);

@@ -1,0 +1,654 @@
+{
+  "startedAt": "2026-09-12T00:55:25.901Z",
+  "eventoId": "evt_demo_secciones_20260911",
+  "usuarios": {
+    "total": 11,
+    "medicos": [
+      {
+        "id": "72",
+        "nombre": "Julie - Captura",
+        "rol": "medico"
+      },
+      {
+        "id": "76",
+        "nombre": "Medico",
+        "rol": "medico"
+      }
+    ],
+    "triajes": [
+      {
+        "id": "73",
+        "nombre": "a",
+        "rol": "triage"
+      },
+      {
+        "id": "75",
+        "nombre": "triaje",
+        "rol": "triage"
+      }
+    ],
+    "admins": [
+      {
+        "id": "23",
+        "nombre": "Joshua kristof Quiroz Burgos",
+        "rol": "administrador"
+      },
+      {
+        "id": "37",
+        "nombre": "Julie Torres",
+        "rol": "administrador"
+      },
+      {
+        "id": "69",
+        "nombre": "David Becerra",
+        "rol": "administrador"
+      }
+    ],
+    "recepciones": [
+      {
+        "id": "42",
+        "nombre": "Pilar Sanchez",
+        "rol": "recepcion"
+      },
+      {
+        "id": "49",
+        "nombre": "Miguel Ramírez",
+        "rol": "recepcion"
+      },
+      {
+        "id": "52",
+        "nombre": "Jenny Sanabria",
+        "rol": "recepcion"
+      },
+      {
+        "id": "77",
+        "nombre": "Recepcion",
+        "rol": "recepcion"
+      }
+    ]
+  },
+  "eventoCreado": {
+    "reutilizado": true,
+    "status": 200,
+    "data": {
+      "id": "evt_demo_secciones_20260911",
+      "nombre": "Demo Secciones - Jornada Médica [Hoy]",
+      "ciudad": "puerto_penasco",
+      "fechaInicioInscripcion": "2026-01-01",
+      "fechaFinInscripcion": "2026-05-31",
+      "fechaInicio": "2026-06-01",
+      "fechaFin": "2026-12-31",
+      "fechaLimiteInscripcion": "2026-05-31",
+      "estado": "activo",
+      "especialidades": [
+        {
+          "especialidad": "General",
+          "medicoEncargado": "72",
+          "medicoUsuarioIds": [
+            "72"
+          ],
+          "intervaloMinutosDefault": 30,
+          "cupoPorBloqueDefault": 12,
+          "requiereTriage": true,
+          "practicantes": [],
+          "consultorio": "Consultorio 3",
+          "costo": 0,
+          "tiposCita": [],
+          "horarios": []
+        },
+        {
+          "especialidad": "dentista",
+          "medicoEncargado": "72",
+          "medicoUsuarioIds": [
+            "72"
+          ],
+          "intervaloMinutosDefault": 30,
+          "cupoPorBloqueDefault": 12,
+          "requiereTriage": true,
+          "practicantes": [],
+          "consultorio": "Consultorio 4",
+          "costo": 0,
+          "tiposCita": [],
+          "horarios": []
+        },
+        {
+          "especialidad": "medicina_familiar",
+          "medicoEncargado": "72",
+          "medicoUsuarioIds": [
+            "72"
+          ],
+          "intervaloMinutosDefault": 30,
+          "cupoPorBloqueDefault": 12,
+          "requiereTriage": true,
+          "practicantes": [],
+          "consultorio": "Consultorio 1",
+          "costo": 0,
+          "tiposCita": [],
+          "horarios": []
+        },
+        {
+          "especialidad": "pediatria",
+          "medicoEncargado": "72",
+          "medicoUsuarioIds": [
+            "72"
+          ],
+          "intervaloMinutosDefault": 30,
+          "cupoPorBloqueDefault": 12,
+          "requiereTriage": true,
+          "practicantes": [],
+          "consultorio": "Consultorio 2",
+          "costo": 0,
+          "tiposCita": [],
+          "horarios": []
+        }
+      ]
+    }
+  },
+  "pacientes": [
+    {
+      "numero": 1,
+      "locale": "en",
+      "id": 24,
+      "datos": {
+        "id": "24",
+        "nombre": "John Michael",
+        "apellido": "Smith",
+        "fechaNacimiento": "1985-03-12",
+        "sexo": "Masculino",
+        "telefono": "+1 (602) 555-0147",
+        "numeroExpediente": null,
+        "ciudad": "Puerto Peñasco",
+        "fechaRegistro": "2026-09-12",
+        "edad": 41,
+        "eliminado": false,
+        "eliminadoEn": null,
+        "eliminadoPor": null,
+        "origenExpediente": "sistema",
+        "fechaCapturaDigitalPaciente": null,
+        "capturadoPorUsuarioId": null,
+        "observacionesCaptura": {}
+      },
+      "infoMedica": {
+        "pacienteId": "24",
+        "alergias": [
+          "Penicillin",
+          "Peanuts"
+        ],
+        "medicamentosActuales": [
+          "Lisinopril 10mg daily",
+          "Atorvastatin 20mg at bedtime"
+        ],
+        "altaPresion": true,
+        "diabetes": false,
+        "enfermedadesCorazon": false,
+        "asma": false,
+        "cancer": false,
+        "enfermedadesHepaticas": false,
+        "enfermedadesRenales": false,
+        "embarazo": false,
+        "cirugiasPrevias": true,
+        "patologicos": "Diagnosed with primary hypertension in 2019, well controlled with Lisinopril. Appendectomy in 2002 without complications. No known transfusions.",
+        "familiares": "Father: myocardial infarction at 62 years old, sister with T2DM. Mother healthy, 2 siblings with HTN. No family history of cancer or bleeding disorders.",
+        "antecedentesPsicosociales": "Software engineer, non-smoker, 2-3 alcohol drinks per week. Married with 2 kids (ages 6 and 9), stable home environment. Works remotely, sedentary lifestyle — advised 150 min/week walking.",
+        "notas": "Prefers English for all medical communications. Patient requests copies of all reports via email. No religious or cultural considerations affecting care. Flu vaccine up to date (Oct 2025)."
+      },
+      "citasHistoricas": [
+        {
+          "citaId": 43,
+          "cita": {
+            "id": "43",
+            "pacienteId": "24",
+            "eventoId": "evt_demo_secciones_20260911",
+            "fecha": "2026-08-20",
+            "hora": "09:30",
+            "especialidad": "medicina_familiar",
+            "duracionMinutos": 30,
+            "medicoEncargado": null,
+            "consultorio": "Consultorio 1",
+            "estado": "programada",
+            "costoPagado": 0,
+            "origen": "sistema",
+            "fechaCapturaCita": null,
+            "especialidadOtra": null,
+            "encargadoTriage": null,
+            "fechaCreacion": "2026-08-20T09:00:00.000Z",
+            "bloqueId": null,
+            "horaLlegada": null,
+            "ordenLlegada": 0,
+            "prioridadTriage": 3,
+            "horaAsignacion": null,
+            "medicoAsignadoPor": null,
+            "saltadoTriage": false
+          },
+          "triaje": {
+            "id": "32",
+            "citaId": "43",
+            "pacienteId": "24",
+            "fechaHora": "2026-09-12T00:55:27.314Z",
+            "signosVitales": {
+              "temperatura": 36.7,
+              "presionArterial": "134/86",
+              "ritmoCardiaco": 76,
+              "frecuenciaRespiratoria": null,
+              "altura": 178,
+              "peso": 82,
+              "saturacionOxigeno": "98",
+              "azucarEnSangre": "94"
+            },
+            "observaciones": "Patient alert, oriented x3, in no apparent distress. Regular heart and breath sounds.",
+            "realizadoPor": "73",
+            "_meta": {
+              "saltadoTriage": false,
+              "requiereTriage": true,
+              "proximoEstado": "triage_completado"
+            }
+          },
+          "consulta": {
+            "error": "Cita en estado \"en_triage\": debe estar \"en_consulta\" para guardar la valoración.",
+            "_meta": {
+              "estadoActual": "en_triage",
+              "requiereEstado": "en_consulta"
+            }
+          },
+          "historica": true
+        },
+        {
+          "citaId": 44,
+          "cita": {
+            "id": "44",
+            "pacienteId": "24",
+            "eventoId": "evt_demo_secciones_20260911",
+            "fecha": "2026-09-05",
+            "hora": "11:00",
+            "especialidad": "medicina_familiar",
+            "duracionMinutos": 30,
+            "medicoEncargado": null,
+            "consultorio": "Consultorio 1",
+            "estado": "programada",
+            "costoPagado": 0,
+            "origen": "sistema",
+            "fechaCapturaCita": null,
+            "especialidadOtra": null,
+            "encargadoTriage": null,
+            "fechaCreacion": "2026-09-05T09:00:00.000Z",
+            "bloqueId": null,
+            "horaLlegada": null,
+            "ordenLlegada": 0,
+            "prioridadTriage": 3,
+            "horaAsignacion": null,
+            "medicoAsignadoPor": null,
+            "saltadoTriage": false
+          },
+          "triaje": {
+            "id": "33",
+            "citaId": "44",
+            "pacienteId": "24",
+            "fechaHora": "2026-09-12T00:55:28.202Z",
+            "signosVitales": {
+              "temperatura": 36.9,
+              "presionArterial": "130/82",
+              "ritmoCardiaco": 74,
+              "frecuenciaRespiratoria": null,
+              "altura": 178,
+              "peso": 82,
+              "saturacionOxigeno": "97",
+              "azucarEnSangre": "98"
+            },
+            "observaciones": "Patient alert, oriented x3, in no apparent distress. Regular heart and breath sounds.",
+            "realizadoPor": "73",
+            "_meta": {
+              "saltadoTriage": false,
+              "requiereTriage": true,
+              "proximoEstado": "triage_completado"
+            }
+          },
+          "consulta": {
+            "error": "Cita en estado \"en_triage\": debe estar \"en_consulta\" para guardar la valoración.",
+            "_meta": {
+              "estadoActual": "en_triage",
+              "requiereEstado": "en_consulta"
+            }
+          },
+          "historica": true
+        }
+      ],
+      "citaHoy": {
+        "id": "45",
+        "pacienteId": "24",
+        "eventoId": "evt_demo_secciones_20260911",
+        "fecha": "2026-09-11",
+        "hora": "10:30",
+        "especialidad": "medicina_familiar",
+        "duracionMinutos": 30,
+        "medicoEncargado": null,
+        "consultorio": "Consultorio 1",
+        "estado": "llegada_registrada",
+        "costoPagado": 0,
+        "origen": "sistema",
+        "fechaCapturaCita": null,
+        "especialidadOtra": null,
+        "encargadoTriage": null,
+        "fechaCreacion": "2026-09-11T09:00:00.000Z",
+        "bloqueId": null,
+        "horaLlegada": null,
+        "ordenLlegada": 0,
+        "prioridadTriage": 3,
+        "horaAsignacion": null,
+        "medicoAsignadoPor": null,
+        "saltadoTriage": false
+      },
+      "citaHoyEstado": "llegada_registrada → Cola Triage"
+    },
+    {
+      "numero": 2,
+      "locale": "es",
+      "id": 25,
+      "datos": {
+        "id": "25",
+        "nombre": "María Guadalupe",
+        "apellido": "Hernández López",
+        "fechaNacimiento": "1978-11-28",
+        "sexo": "Femenino",
+        "telefono": "+52 644 123 4567",
+        "numeroExpediente": null,
+        "ciudad": "Puerto Peñasco",
+        "fechaRegistro": "2026-09-12",
+        "edad": 47,
+        "eliminado": false,
+        "eliminadoEn": null,
+        "eliminadoPor": null,
+        "origenExpediente": "sistema",
+        "fechaCapturaDigitalPaciente": null,
+        "capturadoPorUsuarioId": null,
+        "observacionesCaptura": {}
+      },
+      "infoMedica": {
+        "pacienteId": "25",
+        "alergias": [
+          "Sulfas",
+          "Látex"
+        ],
+        "medicamentosActuales": [
+          "Metformina 850mg c/12h",
+          "Losartán 50mg diario",
+          "Atorvastatina 20mg nocturno"
+        ],
+        "altaPresion": true,
+        "diabetes": true,
+        "enfermedadesCorazon": false,
+        "asma": false,
+        "cancer": false,
+        "enfermedadesHepaticas": false,
+        "enfermedadesRenales": false,
+        "embarazo": false,
+        "cirugiasPrevias": true,
+        "patologicos": "Hipertensión arterial diagnosticada en 2015. Diabetes mellitus tipo 2 desde 2020, en manejo con metformina. Colecistectomía electiva en 2018 sin complicaciones postoperatorias. Dislipidemia desde 2021. No transfusiones previas.",
+        "familiares": "Madre: DM tipo 2 + HTA en tratamiento. Padre: fallecido por infarto agudo del miocardio a los 58 años. 2 hermanos con HTA, 1 hermano con DM. Hijos sanos, esposo sin padecimientos crónicos.",
+        "antecedentesPsicosociales": "Ama de casa, fumadora pasiva (esposo fumador 10 cigarrillos/día). Esposo labora como obrero de la construcción, 3 hijos en edad escolar (15, 12 y 9 años). Situación económica estable pero de escasos recursos. Vivienda propia con servicios básicos. Dieta alta en carbohidratos y grasas saturadas, sedentaria.",
+        "notas": "Paciente de escasos recursos — requiere recetas con medicamentos genéricos sencillos y recordatorios telefónicos para citas de control. Nivel educativo: primaria completa. Prefiere explicaciones verbales sencillas con ejemplos cotidianos, confía plenamente en el personal de salud. Acude acompañada de su esposo en la mayoría de visitas."
+      },
+      "citasHistoricas": [
+        {
+          "citaId": 46,
+          "cita": {
+            "id": "46",
+            "pacienteId": "25",
+            "eventoId": "evt_demo_secciones_20260911",
+            "fecha": "2026-06-14",
+            "hora": "09:00",
+            "especialidad": "medicina_familiar",
+            "duracionMinutos": 30,
+            "medicoEncargado": null,
+            "consultorio": "Consultorio 1",
+            "estado": "programada",
+            "costoPagado": 0,
+            "origen": "sistema",
+            "fechaCapturaCita": null,
+            "especialidadOtra": null,
+            "encargadoTriage": null,
+            "fechaCreacion": "2026-06-14T09:00:00.000Z",
+            "bloqueId": null,
+            "horaLlegada": null,
+            "ordenLlegada": 0,
+            "prioridadTriage": 3,
+            "horaAsignacion": null,
+            "medicoAsignadoPor": null,
+            "saltadoTriage": false
+          },
+          "triaje": {
+            "id": "34",
+            "citaId": "46",
+            "pacienteId": "25",
+            "fechaHora": "2026-09-12T00:55:29.504Z",
+            "signosVitales": {
+              "temperatura": 36.5,
+              "presionArterial": "146/92",
+              "ritmoCardiaco": 84,
+              "frecuenciaRespiratoria": null,
+              "altura": 158,
+              "peso": 77,
+              "saturacionOxigeno": "96",
+              "azucarEnSangre": "178"
+            },
+            "observaciones": "Paciente alerta, orientado en 3 esferas, sin dificultad respiratoria aparente. Ruidos cardíacos y pulmonares regulares.",
+            "realizadoPor": "73",
+            "_meta": {
+              "saltadoTriage": false,
+              "requiereTriage": true,
+              "proximoEstado": "triage_completado"
+            }
+          },
+          "consulta": {
+            "error": "Cita en estado \"en_triage\": debe estar \"en_consulta\" para guardar la valoración.",
+            "_meta": {
+              "estadoActual": "en_triage",
+              "requiereEstado": "en_consulta"
+            }
+          },
+          "historica": true
+        },
+        {
+          "citaId": 47,
+          "cita": {
+            "id": "47",
+            "pacienteId": "25",
+            "eventoId": "evt_demo_secciones_20260911",
+            "fecha": "2026-08-02",
+            "hora": "10:00",
+            "especialidad": "medicina_familiar",
+            "duracionMinutos": 30,
+            "medicoEncargado": null,
+            "consultorio": "Consultorio 1",
+            "estado": "programada",
+            "costoPagado": 0,
+            "origen": "sistema",
+            "fechaCapturaCita": null,
+            "especialidadOtra": null,
+            "encargadoTriage": null,
+            "fechaCreacion": "2026-08-02T09:00:00.000Z",
+            "bloqueId": null,
+            "horaLlegada": null,
+            "ordenLlegada": 0,
+            "prioridadTriage": 3,
+            "horaAsignacion": null,
+            "medicoAsignadoPor": null,
+            "saltadoTriage": false
+          },
+          "triaje": {
+            "id": "35",
+            "citaId": "47",
+            "pacienteId": "25",
+            "fechaHora": "2026-09-12T00:55:30.634Z",
+            "signosVitales": {
+              "temperatura": 36.6,
+              "presionArterial": "138/88",
+              "ritmoCardiaco": 80,
+              "frecuenciaRespiratoria": null,
+              "altura": 158,
+              "peso": 75,
+              "saturacionOxigeno": "97",
+              "azucarEnSangre": "142"
+            },
+            "observaciones": "Paciente alerta, orientado en 3 esferas, sin dificultad respiratoria aparente. Ruidos cardíacos y pulmonares regulares.",
+            "realizadoPor": "73",
+            "_meta": {
+              "saltadoTriage": false,
+              "requiereTriage": true,
+              "proximoEstado": "triage_completado"
+            }
+          },
+          "consulta": {
+            "error": "Cita en estado \"en_triage\": debe estar \"en_consulta\" para guardar la valoración.",
+            "_meta": {
+              "estadoActual": "en_triage",
+              "requiereEstado": "en_consulta"
+            }
+          },
+          "historica": true
+        }
+      ],
+      "citaHoy": {
+        "id": "48",
+        "pacienteId": "25",
+        "eventoId": "evt_demo_secciones_20260911",
+        "fecha": "2026-09-11",
+        "hora": "09:30",
+        "especialidad": "medicina_familiar",
+        "duracionMinutos": 30,
+        "medicoEncargado": null,
+        "consultorio": "Consultorio 1",
+        "estado": "programada",
+        "costoPagado": 0,
+        "origen": "sistema",
+        "fechaCapturaCita": null,
+        "especialidadOtra": null,
+        "encargadoTriage": null,
+        "fechaCreacion": "2026-09-11T09:00:00.000Z",
+        "bloqueId": null,
+        "horaLlegada": null,
+        "ordenLlegada": 0,
+        "prioridadTriage": 3,
+        "horaAsignacion": null,
+        "medicoAsignadoPor": null,
+        "saltadoTriage": false
+      },
+      "triajeHoy": {
+        "id": "36",
+        "citaId": "48",
+        "pacienteId": "25",
+        "fechaHora": "2026-09-12T00:55:31.703Z",
+        "signosVitales": {
+          "temperatura": 36.7,
+          "presionArterial": "132/84",
+          "ritmoCardiaco": 82,
+          "frecuenciaRespiratoria": null,
+          "altura": 158,
+          "peso": 74,
+          "saturacionOxigeno": "97",
+          "azucarEnSangre": "152"
+        },
+        "observaciones": "Paciente alerta, orientada. Tórax: campos pulmonares limpios. Ruidos cardíacos rítmicos sin soplos. Abdomen: blando, depresible, no doloroso. Extremidades sin edema. Refiere cumplimiento del 90% con medicamentos.",
+        "realizadoPor": "73",
+        "_meta": {
+          "saltadoTriage": false,
+          "requiereTriage": true,
+          "proximoEstado": "triage_completado"
+        }
+      },
+      "citaHoyEstado": "triage_completado → Cola Asignación Médica"
+    }
+  ],
+  "citas": [],
+  "errores": [],
+  "validacion": {
+    "eventoFinalStatus": 200,
+    "eventoFinalOk": true,
+    "eventoFinal": {
+      "id": "evt_demo_secciones_20260911",
+      "nombre": "Demo Secciones - Jornada Médica [Hoy]",
+      "ciudad": "puerto_penasco",
+      "fechaInicioInscripcion": "2026-01-01",
+      "fechaFinInscripcion": "2026-05-31",
+      "fechaInicio": "2026-06-01",
+      "fechaFin": "2026-12-31",
+      "fechaLimiteInscripcion": "2026-05-31",
+      "estado": "activo",
+      "especialidades": [
+        {
+          "especialidad": "General",
+          "medicoEncargado": "72",
+          "medicoUsuarioIds": [
+            "72"
+          ],
+          "intervaloMinutosDefault": 30,
+          "cupoPorBloqueDefault": 12,
+          "requiereTriage": true,
+          "practicantes": [],
+          "consultorio": "Consultorio 3",
+          "costo": 0,
+          "tiposCita": [],
+          "horarios": []
+        },
+        {
+          "especialidad": "dentista",
+          "medicoEncargado": "72",
+          "medicoUsuarioIds": [
+            "72"
+          ],
+          "intervaloMinutosDefault": 30,
+          "cupoPorBloqueDefault": 12,
+          "requiereTriage": true,
+          "practicantes": [],
+          "consultorio": "Consultorio 4",
+          "costo": 0,
+          "tiposCita": [],
+          "horarios": []
+        },
+        {
+          "especialidad": "medicina_familiar",
+          "medicoEncargado": "72",
+          "medicoUsuarioIds": [
+            "72"
+          ],
+          "intervaloMinutosDefault": 30,
+          "cupoPorBloqueDefault": 12,
+          "requiereTriage": true,
+          "practicantes": [],
+          "consultorio": "Consultorio 1",
+          "costo": 0,
+          "tiposCita": [],
+          "horarios": []
+        },
+        {
+          "especialidad": "pediatria",
+          "medicoEncargado": "72",
+          "medicoUsuarioIds": [
+            "72"
+          ],
+          "intervaloMinutosDefault": 30,
+          "cupoPorBloqueDefault": 12,
+          "requiereTriage": true,
+          "practicantes": [],
+          "consultorio": "Consultorio 2",
+          "costo": 0,
+          "tiposCita": [],
+          "horarios": []
+        }
+      ]
+    },
+    "citasEventoStatus": 200,
+    "citasEventoOk": true,
+    "totalCitasEvento": 20
+  },
+  "finishedAt": "2026-09-12T00:55:31.984Z",
+  "resumen": {
+    "medicosEnPool": 2,
+    "totalUsuariosTriage": 2,
+    "totalPacientesCreados": 2,
+    "totalCitasHistoricas": 4,
+    "citasHoy": 2,
+    "citaHoyP1_estado": "llegada_registrada (cola triaje)",
+    "citaHoyP2_estado": "triage_completado (cola asignación médico)",
+    "errores": 0
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useLanguage } from '../context/LanguageContext';
@@ -29,11 +29,15 @@ import {
   Eye,
   Printer,
   FileOutput,
+  ArrowRight,
 } from 'lucide-react';
 import { DetalleCitaCompleta } from '../components/expediente/DetalleCitaCompleta';
-import { ConsultaMedica } from '../types';
+import { ConsultaMedica, InformacionMedica, Paciente } from '../types';
 import { now, nowIso, todayYmd } from '../utils/clock';
 import { labelEspecialidad } from '../utils/especialidades';
+import { FEATURES } from '../utils/featureFlags';
+import { DatosGeneralesPacienteEditor } from '../components/medico/DatosGeneralesPacienteEditor';
+import { InfoMedicaEditor } from '../components/medico/InfoMedicaEditor';
 
 const listDaysInclusive = (start: string, end: string) => {
   if (!start || !end) return [] as string[];
@@ -52,6 +56,29 @@ const listDaysInclusive = (start: string, end: string) => {
 const slotKeyForHorario = (h: { horaInicio: string; horaFin: string; intervalo?: number; tipoCitaId?: string }) => {
   const intervalo = Number.isFinite(Number(h.intervalo)) ? Math.max(1, Math.floor(Number(h.intervalo))) : 60;
   return `${h.horaInicio}|${h.horaFin}|${intervalo}|${h.tipoCitaId || ''}`;
+};
+
+const parseFallbackMedicamentos = (consulta: any): string[] => {
+  if (consulta?.medicamentosRecetados && Array.isArray(consulta.medicamentosRecetados) && consulta.medicamentosRecetados.length > 0) {
+    return consulta.medicamentosRecetados
+      .filter((m: any) => m?.nombre?.trim() || m?.dosis?.trim())
+      .map((m: any) => {
+        const parts = [m.nombre || '', m.dosis || '', m.frecuencia || '', m.duracion || ''].filter(Boolean);
+        return parts.join(' · ').trim();
+      })
+      .filter(Boolean);
+  }
+  const raw = String(consulta?.medicamentos || consulta?.medicamentosTexto || '').trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map(String).map((s) => s.trim()).filter(Boolean);
+    }
+  } catch {
+    /* ignore JSON parse error, fallthrough to text split */
+  }
+  return raw.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean);
 };
 
 export function Medico() {
@@ -279,6 +306,22 @@ export function Medico() {
     if (!id) return null;
     return expedienteDatosPorCita.get(id) || null;
   }, [expedienteCitaId, expedienteDatosPorCita]);
+
+  // Callbacks estables para editores paciente. Previenen re-renders innecesarios
+  // (inline arrow creaban ref nueva cada render y en combinación con 185 loop).
+  const onDatosGeneralesSaved = useCallback((pActualizado: Paciente) => {
+    setSelectedCita((sc) => {
+      if (!sc) return sc;
+      return { ...sc, paciente: { ...(sc.paciente || pActualizado), ...pActualizado } as any };
+    });
+  }, []);
+
+  const onInfoMedicaSaved = useCallback((imActualizada: InformacionMedica) => {
+    setSelectedCita((sc) => {
+      if (!sc) return sc;
+      return { ...sc, infoMedica: imActualizada as any };
+    });
+  }, []);
 
   const agregarMedicamento = () => {
     setConsultaForm({
@@ -562,10 +605,11 @@ export function Medico() {
             </div>
 
             <div className="space-y-6">
-              <Card className="border border-border">
+              {/* Header badges persistente: Num. Expediente, Edad, Sexo, Sin triaje */}
+              <Card className="border border-border shadow-sm">
                 <CardHeader className="bg-muted/20 p-3">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold">{t('medico.form.patient_data')}</h3>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Detalle de cita</h3>
                     <div className="flex flex-wrap items-center gap-2">
                       {selectedCita.paciente?.numeroExpediente ? <Badge variant="outline">{selectedCita.paciente.numeroExpediente}</Badge> : null}
                       {selectedCita.paciente?.edad ? (
@@ -578,146 +622,134 @@ export function Medico() {
                           {selectedCita.paciente.sexo}
                         </Badge>
                       ) : null}
+                      {selectedCita.saltadoTriage === true ? (
+                        <Badge variant="outline" className="gap-1 text-xs border-[color:var(--chart-2)] text-[color:var(--chart-2)] bg-[color:var(--chart-2)]/10">
+                          <ArrowRight className="w-3 h-3" /> Sin triaje
+                        </Badge>
+                      ) : null}
+                      <Badge variant="outline" className="text-xs">
+                        <Clock className="mr-1 h-3 w-3" /> {selectedCita.hora || t('medico.form.no_type')}
+                      </Badge>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4 p-3 text-sm">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="sm:col-span-2 lg:col-span-4">
-                      <p className="text-muted-foreground">{t('medico.form.patient')}</p>
-                      <p className="font-medium">{selectedCita.paciente?.nombre || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">{t('medico.form.phone')}</p>
-                      <p className="font-medium">{selectedCita.paciente?.telefono || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Fecha de nacimiento</p>
-                      <p className="font-medium">{formatDateSafe(selectedCita.paciente?.fechaNacimiento) || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Identificación</p>
-                      <p className="font-medium">{selectedCita.paciente?.identificacion || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Ciudad</p>
-                      <p className="font-medium capitalize">{String(selectedCita.paciente?.ciudad || '-').replace('_', ' ')}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Fecha de registro</p>
-                      <p className="font-medium">{formatDateSafe(selectedCita.paciente?.fechaRegistro) || '-'}</p>
-                    </div>
-                  </div>
-
-                  {selectedCita.triage && (
-                    <div className="border-t border-border pt-4">
-                      <h3 className="flex items-center gap-2 text-sm font-semibold">
-                        <Activity className="h-4 w-4" />
-                        {t('medico.form.vitals')}
-                      </h3>
-                      <div className="mt-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                          <div className="rounded-md border border-border bg-muted/10 p-2">
-                            <p className="text-muted-foreground">{t('medico.form.vitals.temp')}</p>
-                            <p className="font-semibold">{selectedCita.triage.signosVitales.temperatura}°C</p>
-                          </div>
-                          <div className="rounded-md border border-border bg-muted/10 p-2">
-                            <p className="text-muted-foreground">{t('medico.form.vitals.bp')}</p>
-                            <p className="font-semibold">{selectedCita.triage.signosVitales.presionArterial}</p>
-                          </div>
-                          <div className="rounded-md border border-border bg-muted/10 p-2">
-                            <p className="text-muted-foreground">{t('medico.form.vitals.hr')}</p>
-                            <p className="font-semibold">{selectedCita.triage.signosVitales.ritmoCardiaco} bpm</p>
-                          </div>
-                          <div className="rounded-md border border-border bg-muted/10 p-2">
-                            <p className="text-muted-foreground">{t('medico.form.vitals.rr')}</p>
-                            <p className="font-semibold">{selectedCita.triage.signosVitales.frecuenciaRespiratoria} rpm</p>
-                          </div>
+                <CardContent className="p-0">
+                  {FEATURES.EDITABLE_INFO_MEDICA && pacienteActual ? (
+                    <div className="grid grid-cols-1 gap-0 xl:grid-cols-[480px_1fr]">
+                      {/* ============= COLUMNA IZQUIERDA: 480px · Editores INDEPENDIENTES ============= */}
+                      <div className="border-b border-border p-5 xl:border-b-0 xl:border-r">
+                        <div className="space-y-6">
+                          <DatosGeneralesPacienteEditor
+                            paciente={pacienteActual}
+                            usuario={user}
+                            onSaved={onDatosGeneralesSaved}
+                          />
+                          <div className="h-px w-full bg-border" />
+                          <InfoMedicaEditor
+                            pacienteId={String(pacienteActual.id)}
+                            initialInfoMedica={selectedCita.infoMedica as InformacionMedica | null | undefined}
+                            usuario={user}
+                            onSaved={onInfoMedicaSaved}
+                          />
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                          <div className="rounded-md border border-border bg-muted/10 p-2">
-                            <p className="text-muted-foreground">{t('medico.form.vitals.o2')}</p>
-                            <p className="font-semibold">
-                              {Number.isFinite(Number(selectedCita.triage.signosVitales.saturacionOxigeno))
-                                ? `${selectedCita.triage.signosVitales.saturacionOxigeno}%`
-                                : 'N/A'}
-                            </p>
-                          </div>
-                          <div className="rounded-md border border-border bg-muted/10 p-2">
-                            <p className="text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
-                            <p className="font-semibold">
-                              {Number.isFinite(Number(selectedCita.triage.signosVitales.azucarEnSangre))
-                                ? `${selectedCita.triage.signosVitales.azucarEnSangre}`
-                                : 'N/A'}
-                            </p>
-                          </div>
-                          <div className="rounded-md border border-border bg-muted/10 p-2">
-                            <p className="text-muted-foreground">{t('medico.form.vitals.weight')}</p>
-                            <p className="font-semibold">{selectedCita.triage.signosVitales.peso} kg</p>
-                          </div>
-                          <div className="rounded-md border border-border bg-muted/10 p-2">
-                            <p className="text-muted-foreground">{t('medico.form.vitals.height')}</p>
-                            <p className="font-semibold">{selectedCita.triage.signosVitales.altura} cm</p>
-                          </div>
-                        </div>
-                        {(selectedCita.triage.observaciones || selectedCita.triage.realizadoPor) && (
-                          <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                            {selectedCita.triage.observaciones ? (
-                              <div className="rounded-md border border-border bg-muted/10 p-2 sm:col-span-2">
-                                <p className="text-muted-foreground">Observaciones</p>
-                                <p className="font-medium">{selectedCita.triage.observaciones}</p>
-                              </div>
-                            ) : null}
-                            {selectedCita.triage.realizadoPor ? (
-                              <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-muted-foreground">Realizado por</p>
-                                <p className="font-medium">{selectedCita.triage.realizadoPor}</p>
-                              </div>
-                            ) : null}
-                            {selectedCita.triage.fechaHora ? (
-                              <div className="rounded-md border border-border bg-muted/10 p-2">
-                                <p className="text-muted-foreground">Fecha</p>
-                                <p className="font-medium">{formatDateSafe(String(selectedCita.triage.fechaHora).substring(0, 10))}</p>
-                              </div>
-                            ) : null}
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  )}
 
-                  {selectedCita.infoMedica && (
-                    <div className="border-t border-border pt-4">
-                      <h3 className="flex items-center gap-2 text-sm font-semibold">
-                        <AlertCircle className="h-4 w-4" />
-                        {t('medico.form.medical_info')}
-                      </h3>
-                      <div className="mt-3 space-y-2">
-                        {selectedCita.infoMedica.alergias.length > 0 && (
-                          <div>
-                            <p className="font-medium text-muted-foreground">{t('medico.form.allergies')}</p>
-                            <div className="mt-1 flex flex-wrap gap-1">
-                              {selectedCita.infoMedica.alergias.map((alergia: string, idx: number) => (
-                                <Badge key={idx} variant="destructive" className="text-xs">
-                                  {alergia}
-                                </Badge>
-                              ))}
+                      {/* ============= COLUMNA DERECHA: Triage + Valoración ============= */}
+                      <div className="space-y-5 p-5">
+                        {/* --- Bloque Triage o Placeholder Sin Triaje --- */}
+                        {!selectedCita.triage && selectedCita.saltadoTriage === true ? (
+                          <div className="rounded-lg border-2 border-dashed border-[color:var(--chart-2)]/40 bg-[color:var(--chart-2)]/5 px-4 py-6 flex flex-col items-center text-center gap-2">
+                            <div className="w-12 h-12 rounded-xl bg-[color:var(--chart-2)]/10 flex items-center justify-center text-[color:var(--chart-2)]">
+                              <ArrowRight className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-foreground">Sin triaje · Flujo directo a consulta</p>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Esta especialidad ({labelEspecialidad(selectedCita.especialidad, especialidadesCatalogo)}) está configurada como <b>no requiere triaje</b>. El paciente pasó directamente de check-in a asignación médica.
+                              </p>
                             </div>
                           </div>
-                        )}
-                        {selectedCita.infoMedica.antecedentesMedicos && (
-                          <div>
-                            <p className="font-medium text-muted-foreground">{t('medico.form.background')}</p>
-                            <p className="text-xs">{selectedCita.infoMedica.antecedentesMedicos}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        ) : selectedCita.triage ? (
+                          <Card className="border border-border shadow-sm">
+                            <CardHeader className="border-b border-border bg-muted/10 p-4">
+                              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                                <Activity className="h-4 w-4" />
+                                {t('medico.form.vitals')}
+                              </h3>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-3">
+                              <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                                <div className="rounded-md border border-border bg-muted/10 p-2">
+                                  <p className="text-muted-foreground">{t('medico.form.vitals.temp')}</p>
+                                  <p className="font-semibold">{selectedCita.triage.signosVitales.temperatura}°C</p>
+                                </div>
+                                <div className="rounded-md border border-border bg-muted/10 p-2">
+                                  <p className="text-muted-foreground">{t('medico.form.vitals.bp')}</p>
+                                  <p className="font-semibold">{selectedCita.triage.signosVitales.presionArterial}</p>
+                                </div>
+                                <div className="rounded-md border border-border bg-muted/10 p-2">
+                                  <p className="text-muted-foreground">{t('medico.form.vitals.hr')}</p>
+                                  <p className="font-semibold">{selectedCita.triage.signosVitales.ritmoCardiaco} bpm</p>
+                                </div>
+                                <div className="rounded-md border border-border bg-muted/10 p-2">
+                                  <p className="text-muted-foreground">{t('medico.form.vitals.rr')}</p>
+                                  <p className="font-semibold">{selectedCita.triage.signosVitales.frecuenciaRespiratoria} rpm</p>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                                <div className="rounded-md border border-border bg-muted/10 p-2">
+                                  <p className="text-muted-foreground">{t('medico.form.vitals.o2')}</p>
+                                  <p className="font-semibold">
+                                    {Number.isFinite(Number(selectedCita.triage.signosVitales.saturacionOxigeno))
+                                      ? `${selectedCita.triage.signosVitales.saturacionOxigeno}%`
+                                      : 'N/A'}
+                                  </p>
+                                </div>
+                                <div className="rounded-md border border-border bg-muted/10 p-2">
+                                  <p className="text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
+                                  <p className="font-semibold">
+                                    {Number.isFinite(Number(selectedCita.triage.signosVitales.azucarEnSangre))
+                                      ? `${selectedCita.triage.signosVitales.azucarEnSangre}`
+                                      : 'N/A'}
+                                  </p>
+                                </div>
+                                <div className="rounded-md border border-border bg-muted/10 p-2">
+                                  <p className="text-muted-foreground">{t('medico.form.vitals.weight')}</p>
+                                  <p className="font-semibold">{selectedCita.triage.signosVitales.peso} kg</p>
+                                </div>
+                                <div className="rounded-md border border-border bg-muted/10 p-2">
+                                  <p className="text-muted-foreground">{t('medico.form.vitals.height')}</p>
+                                  <p className="font-semibold">{selectedCita.triage.signosVitales.altura} cm</p>
+                                </div>
+                              </div>
+                              {(selectedCita.triage.observaciones || selectedCita.triage.realizadoPor) && (
+                                <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                                  {selectedCita.triage.observaciones ? (
+                                    <div className="rounded-md border border-border bg-muted/10 p-2 sm:col-span-2">
+                                      <p className="text-muted-foreground">Observaciones</p>
+                                      <p className="font-medium">{selectedCita.triage.observaciones}</p>
+                                    </div>
+                                  ) : null}
+                                  {selectedCita.triage.realizadoPor ? (
+                                    <div className="rounded-md border border-border bg-muted/10 p-2">
+                                      <p className="text-muted-foreground">Realizado por</p>
+                                      <p className="font-medium">{selectedCita.triage.realizadoPor}</p>
+                                    </div>
+                                  ) : null}
+                                  {selectedCita.triage.fechaHora ? (
+                                    <div className="rounded-md border border-border bg-muted/10 p-2">
+                                      <p className="text-muted-foreground">Fecha</p>
+                                      <p className="font-medium">{formatDateSafe(String(selectedCita.triage.fechaHora).substring(0, 10))}</p>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ) : null}
 
-              {expedienteCitaId ? (
+                        {/* --- Tabs Valoración + Expediente --- */}
+                        {expedienteCitaId ? (
                 <div className="space-y-4">
                   {pacienteActual && expedienteCitaSeleccionada ? (
                     <DetalleCitaCompleta
@@ -1143,6 +1175,92 @@ export function Medico() {
                     </CardContent>
                   </Card>
 
+                  <details className="group rounded-xl border border-border bg-muted/20">
+                    <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3 text-sm font-medium text-foreground select-none">
+                      <FileText className="h-4 w-4 text-[color:var(--brand-secondary-strong)]" />
+                      Datos históricos / Importación (solo lectura)
+                      <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90" />
+                    </summary>
+                    <div className="px-4 pb-4 pt-2 space-y-3 text-sm">
+                      {(() => {
+                        const consultaHist = selectedCita ? consultasMedicas.find((c) => c.citaId === selectedCita.id) : null;
+                        const triaje = selectedCita?.triage || null;
+                        const obsHpi = String(
+                          consultaHist?.observaciones ||
+                          triaje?.observaciones ||
+                          consultaHist?.razonConsulta ||
+                          triaje?.razonConsulta ||
+                          '',
+                        ).trim();
+                        const plan = String(consultaHist?.planTratamiento || '').trim();
+                        const trat = String(consultaHist?.tratamiento || '').trim();
+                        const mostrarPlan = plan && plan !== trat && plan.length > 0;
+                        const medsFall = parseFallbackMedicamentos(consultaHist);
+                        const doctor = String(
+                          consultaHist?.idDoctor ||
+                          consultaHist?.medicoUsuarioId ||
+                          consultaHist?.medicoEncargado ||
+                          '',
+                        ).trim();
+                        const hayNada = !obsHpi && !mostrarPlan && medsFall.length === 0 && !doctor;
+                        if (hayNada) {
+                          return (
+                            <p className="text-muted-foreground">
+                              No hay datos históricos o de importación física asociados a esta cita.
+                            </p>
+                          );
+                        }
+                        return (
+                          <div className="space-y-3">
+                            {obsHpi && (
+                              <div className="rounded-lg border border-border bg-card p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                                  Observaciones / HPI
+                                </p>
+                                <p className="whitespace-pre-wrap text-foreground">{obsHpi.slice(0, 2000)}</p>
+                              </div>
+                            )}
+                            {mostrarPlan && (
+                              <div className="rounded-lg border border-border bg-card p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                                  Plan y Seguimiento
+                                </p>
+                                <p className="whitespace-pre-wrap text-foreground">{plan.slice(0, 2000)}</p>
+                              </div>
+                            )}
+                            {medsFall.length > 0 && (
+                              <div className="rounded-lg border border-border bg-card p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                                  Medicamentos (histórico)
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {medsFall.map((med, idx) => (
+                                    <Badge
+                                      key={idx}
+                                      variant="outline"
+                                      className="text-xs border-amber-300 bg-amber-50 text-amber-800"
+                                    >
+                                      <Pill className="w-3 h-3 mr-1" />
+                                      {med}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {doctor && (
+                              <div className="rounded-lg border border-border bg-card p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                                  Doctor / Proveedor (histórico)
+                                </p>
+                                <p className="text-foreground">{doctor}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </details>
+
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                     <Button
                       type="button"
@@ -1240,7 +1358,43 @@ export function Medico() {
                   </TabsContent>
                 </Tabs>
               )}
-            </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-5 p-5">
+                        {pacienteActual ? (
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+                            <div className="sm:col-span-2 lg:col-span-4">
+                              <p className="text-muted-foreground">{t('medico.form.patient')}</p>
+                              <p className="font-medium">{pacienteActual.nombre} {pacienteActual.apellido || ''}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">{t('medico.form.phone')}</p>
+                              <p className="font-medium">{pacienteActual.telefono || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Fecha de nacimiento</p>
+                              <p className="font-medium">{formatDateSafe(pacienteActual.fechaNacimiento) || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Identificación</p>
+                              <p className="font-medium">{(pacienteActual as any).identificacion || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Ciudad</p>
+                              <p className="font-medium capitalize">{String(pacienteActual.ciudad || '-').replace(/_/g, ' ')}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Fecha de registro</p>
+                              <p className="font-medium">{formatDateSafe(pacienteActual.fechaRegistro) || '-'}</p>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
           </>
         ) : (
           <>
@@ -1477,22 +1631,29 @@ export function Medico() {
                                 <p className="mt-1 text-sm text-muted-foreground">
                                   <strong>Diagnóstico:</strong> {consulta?.diagnostico}
                                 </p>
-                                {consulta?.medicamentosRecetados &&
-                                  consulta.medicamentosRecetados.length > 0 && (
+                                {(() => {
+                                  const medsFallback = parseFallbackMedicamentos(consulta);
+                                  if (medsFallback.length === 0) return null;
+                                  return (
                                     <div className="mt-2">
                                       <p className="text-sm text-muted-foreground">
                                         <strong>Medicamentos:</strong>
                                       </p>
                                       <div className="flex flex-wrap gap-2 mt-1">
-                                        {consulta.medicamentosRecetados.map((med, idx) => (
-                                          <Badge key={idx} variant="outline" className="text-xs">
+                                        {medsFallback.map((med, idx) => (
+                                          <Badge
+                                            key={idx}
+                                            variant="outline"
+                                            className="text-xs border-amber-300 bg-amber-50 text-amber-800"
+                                          >
                                             <Pill className="w-3 h-3 mr-1" />
-                                            {med.nombre} - {med.dosis} ({med.frecuencia} x {med.duracion})
+                                            {med}
                                           </Badge>
                                         ))}
                                       </div>
                                     </div>
-                                  )}
+                                  );
+                                })()}
                               </div>
                               <Badge variant="secondary">Completada</Badge>
                             </div>
@@ -1549,8 +1710,11 @@ export function Medico() {
                 onClick={() => {
                   setShowDuplicateSurgeryDialog(false);
                   pendingSubmitRef.current = null;
-                  // Save the consultation WITHOUT creating a new surgery
-                  ejecutarGuardadoConsulta(false);
+                  setConsultaForm((prev) => ({ ...prev, requiereCirugia: false }));
+                  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                  setTimeout(() => {
+                    handleSubmitConsulta(fakeEvent);
+                  }, 0);
                 }}
                 className="w-full sm:w-auto rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >

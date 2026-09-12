@@ -1,0 +1,96 @@
+﻿{
+    "eventoId":  "evt_demo_secciones_20260911",
+    "timestamp":  "2026-09-11T18:07:41.6594717-07:00",
+    "validacion":  {
+                       "cola_asignacion_count":  1,
+                       "cola_triage_count":  1,
+                       "cola_triage_primer_elemento":  {
+                                                           "id":  "51",
+                                                           "paciente":  {
+                                                                            "id":  "24",
+                                                                            "nombre":  "John Michael",
+                                                                            "apellido":  "Smith",
+                                                                            "numeroExpediente":  null,
+                                                                            "telefono":  "+1 (602) 555-0147",
+                                                                            "fechaNacimiento":  "1985-03-12",
+                                                                            "sexo":  "Masculino"
+                                                                        },
+                                                           "eventoId":  "evt_demo_secciones_20260911",
+                                                           "especialidad":  "medicina_familiar",
+                                                           "fecha":  "2026-09-11",
+                                                           "hora":  "10:30",
+                                                           "estado":  "llegada_registrada",
+                                                           "consultorio":  "Consultorio 1",
+                                                           "medicoEncargado":  null,
+                                                           "bloqueId":  null,
+                                                           "horaLlegada":  null,
+                                                           "ordenLlegada":  0,
+                                                           "prioridadTriage":  3,
+                                                           "horaAsignacion":  null,
+                                                           "medicoAsignadoPor":  null,
+                                                           "saltadoTriage":  false,
+                                                           "origen":  "sistema",
+                                                           "fechaCapturaCita":  null,
+                                                           "duracionMinutos":  30,
+                                                           "costoPagado":  0,
+                                                           "especialidadOtra":  null,
+                                                           "encargadoTriage":  null,
+                                                           "medicoUsuarioIds":  [
+                                                                                    "72"
+                                                                                ],
+                                                           "requiereTriage":  true,
+                                                           "triaje":  null
+                                                       },
+                       "cola_triage_ok":  true,
+                       "fixes_aplicados":  [
+                                               "S6_fecha_triaje",
+                                               "S7_especialidad_otra_encargado_triaje_columnas_inexistentes",
+                                               "S8_filtros_estado_colas_separadas"
+                                           ],
+                       "cola_asignacion_primer_elemento":  {
+                                                               "id":  "54",
+                                                               "paciente":  {
+                                                                                "id":  "25",
+                                                                                "nombre":  "MarÃ­a Guadalupe",
+                                                                                "apellido":  "HernÃ¡ndez LÃ³pez",
+                                                                                "numeroExpediente":  null,
+                                                                                "telefono":  "+52 644 123 4567",
+                                                                                "fechaNacimiento":  "1978-11-28",
+                                                                                "sexo":  "Femenino"
+                                                                            },
+                                                               "eventoId":  "evt_demo_secciones_20260911",
+                                                               "especialidad":  "medicina_familiar",
+                                                               "fecha":  "2026-09-11",
+                                                               "hora":  "09:30",
+                                                               "estado":  "triage_completado",
+                                                               "consultorio":  "Consultorio 1",
+                                                               "medicoEncargado":  null,
+                                                               "bloqueId":  null,
+                                                               "horaLlegada":  "2026-09-12T00:58:44.632Z",
+                                                               "ordenLlegada":  1,
+                                                               "prioridadTriage":  3,
+                                                               "horaAsignacion":  null,
+                                                               "medicoAsignadoPor":  null,
+                                                               "saltadoTriage":  false,
+                                                               "origen":  "sistema",
+                                                               "fechaCapturaCita":  null,
+                                                               "duracionMinutos":  30,
+                                                               "costoPagado":  0,
+                                                               "especialidadOtra":  null,
+                                                               "encargadoTriage":  null,
+                                                               "medicoUsuarioIds":  [
+                                                                                        "72"
+                                                                                    ],
+                                                               "requiereTriage":  true,
+                                                               "triaje":  {
+                                                                              "id":  "41",
+                                                                              "temperatura":  36.7,
+                                                                              "presionArterial":  "132/84",
+                                                                              "ritmoCardiaco":  82,
+                                                                              "saturacionOxigeno":  97,
+                                                                              "azucarEnSangre":  152
+                                                                          }
+                                                           },
+                       "cola_asignacion_ok":  true
+                   }
+}

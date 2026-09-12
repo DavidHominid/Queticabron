@@ -29,6 +29,10 @@ const SELECT_EVENTOS = `
     ee.id AS evento_especialidad_id,
     ee.especialidad,
     ee.medico_usuario_id,
+    ee.medico_usuario_ids,
+    ee.intervalo_minutos_default,
+    ee.cupo_por_bloque_default,
+    ee.requiere_triage,
     ee.consultorio,
     ee.costo,
     etc.id AS tipo_cita_id,
@@ -54,6 +58,34 @@ const SELECT_EVENTOS = `
   LEFT JOIN "${SCHEMA}".evento_horario eh
     ON eh.evento_especialidad_id = ee.id
 `;
+
+const mapEventoEspecialidadRow = (row) => {
+  const legacy = row?.medico_usuario_id ? String(row.medico_usuario_id) : '';
+  const rawArr = Array.isArray(row?.medico_usuario_ids)
+    ? row.medico_usuario_ids
+    : typeof row?.medico_usuario_ids === 'string'
+      ? row.medico_usuario_ids
+        .replace(/^\{/, '')
+        .replace(/\}$/, '')
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean)
+      : [];
+  let pool = rawArr.map((x) => String(x)).filter(Boolean);
+  if (pool.length === 0 && legacy) pool = [legacy];
+
+  return {
+    medicoEncargado: legacy || (pool.length ? pool[0] : ''),
+    medicoUsuarioIds: pool,
+    intervaloMinutosDefault: Number.isFinite(Number(row?.intervalo_minutos_default))
+      ? Math.max(1, Math.floor(Number(row.intervalo_minutos_default)))
+      : 30,
+    cupoPorBloqueDefault: Number.isFinite(Number(row?.cupo_por_bloque_default))
+      ? Math.max(1, Math.floor(Number(row.cupo_por_bloque_default)))
+      : 8,
+    requiereTriage: !(row?.requiere_triage === false || row?.requiere_triage === 'false' || row?.requiere_triage === 0 || row?.requiere_triage === 'f'),
+  };
+};
 
 const parseMetadata = (raw) => {
   try {
@@ -93,9 +125,14 @@ const mapRowsToEventos = (rows) => {
     }
 
     if (!evento._especialidadesMap.has(row.evento_especialidad_id)) {
+      const mapped = mapEventoEspecialidadRow(row);
       const especialidad = {
         especialidad: row.especialidad || '',
-        medicoEncargado: row.medico_usuario_id || '',
+        medicoEncargado: mapped.medicoEncargado,
+        medicoUsuarioIds: mapped.medicoUsuarioIds,
+        intervaloMinutosDefault: mapped.intervaloMinutosDefault,
+        cupoPorBloqueDefault: mapped.cupoPorBloqueDefault,
+        requiereTriage: mapped.requiereTriage,
         practicantes: [],
         consultorio: row.consultorio || '',
         costo: Number.isFinite(Number(row.costo)) ? Number(row.costo) : 0,
@@ -159,6 +196,10 @@ const mapRowsToEventos = (rows) => {
     especialidades: evento.especialidades.map((esp) => ({
       especialidad: esp.especialidad,
       medicoEncargado: esp.medicoEncargado,
+      medicoUsuarioIds: esp.medicoUsuarioIds,
+      intervaloMinutosDefault: esp.intervaloMinutosDefault,
+      cupoPorBloqueDefault: esp.cupoPorBloqueDefault,
+      requiereTriage: esp.requiereTriage,
       practicantes: esp.practicantes,
       consultorio: esp.consultorio,
       costo: esp.costo,
@@ -275,15 +316,39 @@ const persistEspecialidades = async (client, eventId, especialidades) => {
 
   for (const esp of especialidades || []) {
     const medicoEncargado = String(esp?.medicoEncargado || '').trim();
+    const poolFromPayload = Array.isArray(esp?.medicoUsuarioIds)
+      ? esp.medicoUsuarioIds.map((x) => String(x || '').trim()).filter(Boolean)
+      : [];
+    const pool =
+      poolFromPayload.length > 0
+        ? poolFromPayload
+        : medicoEncargado
+          ? [medicoEncargado]
+          : [];
+    const poolExisting = pool.filter((u) => existingUserIds.has(u));
+
     const medicoUsuarioId =
-      existingUserIds.has(medicoEncargado) && medicoEspecialidades.size > 0 && medicoEspecialidades.has(`${medicoEncargado}|${String(esp?.especialidad || '')}`)
+      existingUserIds.has(medicoEncargado) &&
+      medicoEspecialidades.size > 0 &&
+      medicoEspecialidades.has(`${medicoEncargado}|${String(esp?.especialidad || '')}`)
         ? medicoEncargado
-        : null;
+        : poolExisting.find((u) =>
+            medicoEspecialidades.size === 0 ||
+            medicoEspecialidades.has(`${u}|${String(esp?.especialidad || '')}`),
+          ) || null;
+
+    const intervaloDefault = Number.isFinite(Number(esp?.intervaloMinutosDefault))
+      ? Math.max(1, Math.floor(Number(esp.intervaloMinutosDefault)))
+      : 30;
+    const cupoDefault = Number.isFinite(Number(esp?.cupoPorBloqueDefault))
+      ? Math.max(1, Math.floor(Number(esp.cupoPorBloqueDefault)))
+      : 8;
+    const requiereTriage = !(esp?.requiereTriage === false || esp?.requiereTriage === 'false');
 
     const insertEspecialidad = await client.query(
       `INSERT INTO "${SCHEMA}".evento_especialidad
-        (evento_id, especialidad, medico_usuario_id, consultorio, costo)
-       VALUES ($1, $2, $3, $4, $5)
+        (evento_id, especialidad, medico_usuario_id, consultorio, costo, medico_usuario_ids, intervalo_minutos_default, cupo_por_bloque_default, requiere_triage)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id`,
       [
         eventId,
@@ -291,6 +356,10 @@ const persistEspecialidades = async (client, eventId, especialidades) => {
         medicoUsuarioId,
         esp?.consultorio || null,
         Number.isFinite(Number(esp?.costo)) ? Number(esp.costo) : 0,
+        poolExisting,
+        intervaloDefault,
+        cupoDefault,
+        requiereTriage,
       ],
     );
 

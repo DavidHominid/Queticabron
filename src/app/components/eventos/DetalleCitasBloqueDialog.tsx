@@ -175,8 +175,47 @@ export function DetalleCitasBloqueDialog({
                         {seleccionada.fecha} · {seleccionada.hora}
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">ID: {seleccionada.id}</div>
-                      <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
                         <Badge {...estadoBadge(seleccionada.estado)}>{estadoLabel(seleccionada.estado)}</Badge>
+                        {String(seleccionada.origen || 'sistema') === 'captura_fisica' ? (
+                          <Badge variant="outline" className="border-amber-500/40 text-amber-700 bg-amber-500/10 text-[10px]">
+                            Histórico
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">Sistema</Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border p-4">
+                      <div className="text-sm font-medium text-foreground">Campos históricos / Importación</div>
+                      <div className="mt-2 grid grid-cols-1 gap-2 text-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground text-xs">Duración</span>
+                          <span className="font-medium tabular-nums">
+                            {Number.isFinite(Number(seleccionada.duracionMinutos)) ? `${seleccionada.duracionMinutos} min` : '—'}
+                          </span>
+                        </div>
+                        {seleccionada.fechaCapturaCita ? (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground text-xs">Fecha captura</span>
+                            <span className="font-medium tabular-nums text-xs">
+                              {new Date(seleccionada.fechaCapturaCita).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                          </div>
+                        ) : null}
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground text-xs">Costo pagado</span>
+                          <span className="font-medium tabular-nums">
+                            ${Number.isFinite(Number(seleccionada.costoPagado)) ? Number(seleccionada.costoPagado).toFixed(2) : '0.00'}
+                          </span>
+                        </div>
+                        {seleccionada.encargadoTriage ? (
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-muted-foreground text-xs shrink-0">Encargado triaje</span>
+                            <span className="font-medium text-right text-xs">{seleccionada.encargadoTriage}</span>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -196,6 +235,9 @@ export function DetalleCitasBloqueDialog({
                       </div>
                       <div className="mt-2 text-sm text-foreground font-semibold">{medicoNombre || '—'}</div>
                       <div className="mt-1 text-xs text-muted-foreground">Especialidad: {seleccionada.especialidad.replace('_', ' ')}</div>
+                      {seleccionada.especialidadOtra ? (
+                        <div className="mt-1 text-xs text-muted-foreground italic">{seleccionada.especialidadOtra}</div>
+                      ) : null}
                     </div>
                   </div>
 

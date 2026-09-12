@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "dev": "concurrently -k -n \"FRONTEND,BACKEND\" -c \"cyan,green\" \"vite\" \"node --watch server/index.js\"",
     "frontend": "vite",
     "backend": "node server/index.js"
@@ -78,14 +79,18 @@
     "sonner": "2.0.3",
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
-    "vaul": "1.1.2"
+    "vaul": "1.1.2",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
     "@types/node": "^25.9.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "4.7.0",
     "concurrently": "^9.2.1",
     "tailwindcss": "4.1.12",
+    "typescript": "^7.0.2",
     "vite": "^6.4.1"
   },
   "peerDependencies": {

@@ -598,7 +598,7 @@ export function Variables() {
                                                   <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive" onClick={async () => {
                                                     if (!confirm(t('var.sedes.delete_period_confirm'))) return;
                                                     await deletePeriodoSede(p.id);
-                                                    await fetchPeriodoSede(sede.id);
+                                                    await fetchPeriodosSede(sede.id);
                                                   }}>
                                                     <X className="h-3.5 w-3.5" />
                                                   </Button>

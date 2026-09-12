@@ -468,10 +468,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const data = await res.json().catch(() => []);
       const citasPac: Cita[] = Array.isArray(data) ? (data as Cita[]) : [];
       setCitas((prev) => {
-        const idsPrev = new Set(prev.map((c) => String(c.id)));
-        const paraAgregar = citasPac.filter((c) => !idsPrev.has(String(c.id)));
-        if (!paraAgregar.length) return prev;
-        return [...paraAgregar, ...prev];
+        const mapa = new Map(prev.map((c) => [String(c.id), c]));
+        // Actualizar o insertar todas las citas del paciente
+        for (const c of citasPac) {
+          mapa.set(String(c.id), c);
+        }
+        return Array.from(mapa.values());
       });
       return citasPac;
     } catch (err) {
