@@ -58,20 +58,22 @@ export function CrearPacienteDialog({
   const [telefono, setTelefono] = useState('');
   const [sexo, setSexo] = useState<'Masculino' | 'Femenino'>('Masculino');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
+  const [numeroExpediente, setNumeroExpediente] = useState('');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
-
-  const numeroExpediente = useMemo(() => {
-    const año = now().getFullYear();
-    const numeroSecuencial = String((pacientes || []).length + 1).padStart(3, '0');
-    return `EXP-${año}-${numeroSecuencial}`;
-  }, [pacientes]);
+  
+  //const numeroExpediente = useMemo(() => {
+ //   const año = now().getFullYear();
+  //  const numeroSecuencial = String((pacientes || []).length + 1).padStart(3, '0');
+  //  return `EXP-${año}-${numeroSecuencial}`;
+  //}, [pacientes]);
 
   const reset = () => {
     setNombre('');
     setApellido('');
     setTelefono('');
     setSexo('Masculino');
+    setNumeroExpediente('');
     setFechaNacimiento('');
     setError('');
     setGuardando(false);
@@ -82,6 +84,7 @@ export function CrearPacienteDialog({
     const a = String(apellido || '').trim();
     const t = String(telefono || '').trim();
     const fn = String(fechaNacimiento || '').trim();
+    const ne = String(numeroExpediente || '').trim();
     if (!n) {
       setError('Ingresa el/los Nombre(s).');
       return;
@@ -99,11 +102,25 @@ export function CrearPacienteDialog({
       return;
     }
 
+    let finalExpediente = ne;
+    if (!finalExpediente) {
+      const nombreCompleto = `${n} ${a}`.trim();
+      // fn viene como "yyyy-mm-dd" → convertir a "dd/mm/yyyy"
+      let fechaFormato = '';
+      if (fn && /^\d{4}-\d{2}-\d{2}$/.test(fn)) {
+        const [yyyy, mm, dd] = fn.split('-');
+        fechaFormato = `${dd}/${mm}/${yyyy}`;
+      }
+      finalExpediente = nombreCompleto && fechaFormato
+        ? `${nombreCompleto} ${fechaFormato}`
+        : nombreCompleto || fechaFormato || `EXP-${now().getFullYear()}-${String((pacientes || []).length + 1).padStart(3, '0')}`;
+    }
+
     setError('');
     setGuardando(true);
     const nuevoPaciente: any = {
       id: `pac${Date.now()}`,
-      numeroExpediente,
+      numeroExpediente: finalExpediente,
       nombre: n,
       apellido: a,
       edad: calcularEdad(fn),
@@ -141,7 +158,7 @@ export function CrearPacienteDialog({
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Registrar paciente</DialogTitle>
-          <DialogDescription>Se creará un expediente automáticamente: {numeroExpediente}</DialogDescription>
+          <DialogDescription>Ingresa los datos del paciente. Si dejas el expediente vacío, se generará automáticamente.</DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -162,6 +179,16 @@ export function CrearPacienteDialog({
               placeholder="Ej. López O'Connor"
               value={apellido}
               onChange={(e) => setApellido(sanitizeTitleNombre(e.target.value))}
+            />
+          </div>
+
+          <div className="sm:col-span-1">
+            <Label htmlFor="nuevoPacienteExpediente">Número de expediente</Label>
+            <Input
+              id="nuevoPacienteExpediente"
+              placeholder="Dejar vacío para auto-generar"
+              value={numeroExpediente}
+              onChange={(e) => setNumeroExpediente(e.target.value)}
             />
           </div>
 

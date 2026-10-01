@@ -48,6 +48,7 @@ export function Pacientes() {
     'Puerto Peñasco';
   const initialFormData: Partial<Paciente> = {
     nombre: '',
+    numeroExpediente: '',
     fechaNacimiento: '',
     sexo: 'Masculino',
     telefono: '',
@@ -100,22 +101,77 @@ export function Pacientes() {
 
     setSaving(true);
 
-    // Generar número de expediente
-    const año = now().getFullYear();
-    const numeroSecuencial = String(pacientes.length + 1).padStart(3, '0');
-    const numeroExpediente = `EXP-${año}-${numeroSecuencial}`;
+    // Este formulario usa un solo campo "nombre" con el nombre completo.
+    // El backend espera nombre y apellido separados → los separamos aquí
+    
+const nombreRaw = (formData.nombre || '').trim();
+const palabras = nombreRaw ? nombreRaw.split(/\s+/) : [];
+
+let nombreParte = '';
+let apellidoParte = '';
+
+if (palabras.length === 4) {
+  // Caso de 4 palabras (Ej: "Juan Carlos Pérez Gómez")
+  // Primeros dos = Nombres, Últimos dos = Apellidos
+  nombreParte = palabras.slice(0, 2).join(' ');
+  apellidoParte = palabras.slice(2).join(' ');
+
+} else if (palabras.length === 3) {
+  // Caso de 3 palabras (Ej: "María López García" o "John David Smith")
+  // Tomamos la primera palabra como Nombre y las otras dos como Apellido
+  nombreParte = palabras[0];
+  apellidoParte = palabras.slice(1).join(' ');
+
+} else if (palabras.length === 2) {
+  // Caso de 2 palabras (Ej: "Ana Torres" o "John Smith")
+  nombreParte = palabras[0];
+  apellidoParte = palabras[1];
+
+} else {
+  // Caso de 1 sola palabra o cadena vacía
+  nombreParte = nombreRaw;
+  apellidoParte = '';
+}
+
+    // Generar número de expediente si no se proporcionó:
+    // formato por defecto → "Nombre Completo dd/mm/yyyy" fue una correccion a la version anterior
+    // donde se creia que el expediente se registraba como "EXP-YYYY-NNN" pero ahora se hace con el nombre y fecha de nacimiento
+    let numeroExpediente = formData.numeroExpediente?.trim();
+    if (!numeroExpediente) {
+      const fn = formData.fechaNacimiento || '';
+      // fn viene como "yyyy-mm-dd" → convertir a "dd/mm/yyyy"
+      let fechaFormato = '';
+      if (fn && /^\d{4}-\d{2}-\d{2}$/.test(fn)) {
+        const [yyyy, mm, dd] = fn.split('-');
+        fechaFormato = `${dd}/${mm}/${yyyy}`;
+      }
+      numeroExpediente = nombreRaw && fechaFormato
+        ? `${nombreRaw} ${fechaFormato}`
+        : nombreRaw || fechaFormato || `EXP-${now().getFullYear()}-${String(pacientes.length + 1).padStart(3, '0')}`;
+    }
+
+    const expedienteDuplicado = pacientes.some((p) => 
+  p.numeroExpediente?.trim().toLowerCase() === numeroExpediente.toLowerCase() &&
+  p.id !== selectedPaciente?.id // Permite guardar si sólo estás editando el mismo paciente
+);
+
+if (expedienteDuplicado) {
+  alert(`El número de expediente "${numeroExpediente}" ya está registrado.`);
+  return; // Detiene la ejecución sin activar setSaving
+}
 
     const nuevoPaciente: Paciente = {
       id: `pac${Date.now()}`,
       numeroExpediente,
-      nombre: formData.nombre || '',
+      nombre: nombreParte,
+      apellido: apellidoParte,
       edad: calcularEdad(formData.fechaNacimiento || ''),
       fechaNacimiento: formData.fechaNacimiento || '',
       sexo: formData.sexo || 'Masculino',
       telefono: formData.telefono || '',
       ciudad: (formData.ciudad as Ciudad) || user?.ciudad || 'Puerto Peñasco',
       fechaRegistro: todayYmd(),
-    };
+    } as any;
 
     let res;
     if (selectedPaciente) {
@@ -376,6 +432,16 @@ export function Pacientes() {
                     onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                     placeholder="Ej: María González López"
                     required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="numeroExpediente">Número de Expediente (Físico)</Label>
+                  <Input
+                    id="numeroExpediente"
+                    value={formData.numeroExpediente || ''}
+                    onChange={(e) => setFormData({ ...formData, numeroExpediente: e.target.value })}
+                    placeholder="Ej: EXP-2023-001 (Dejar vacío para auto-generar)"
                   />
                 </div>
 
