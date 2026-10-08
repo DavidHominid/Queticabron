@@ -90,6 +90,7 @@ export function Medico() {
     pacientes,
     consultasMedicas,
     registrosTriage,
+    expedientesCita,
     informacionMedica,
     especialidadesCatalogo,
     addConsultaMedica,
@@ -189,12 +190,11 @@ export function Medico() {
   }, [consultaForm.requiereSeguimiento]);
 
   // Obtener citas en consulta para el médico
-  // Nota: el usuario medico NO tiene campo especialidad en la BD,
-  // por lo que mostramos todas las citas en_consulta sin filtrar por especialidad.
+  // Incluye en_consulta, en_triage y citas con triaje completado asignadas al médico
   const citasEnConsulta = citas
     .filter(
       (c) =>
-        (c.estado === 'en_consulta' || c.estado === 'en_triage') &&
+        (c.estado === 'en_consulta' || c.estado === 'en_triage' || c.estado === 'triage_completado') &&
         (user?.rol === 'administrador' ||
           (user?.rol === 'medico'
             ? (especialidadesUsuario.length ? especialidadesUsuario.includes(c.especialidad) : true) && isCitaDelMedico(c)
@@ -212,13 +212,34 @@ export function Medico() {
   );
 
   const iniciarConsulta = (cita: any) => {
-    const paciente = pacientes.find((p) => p.id === cita.pacienteId);
-    const triage = registrosTriage.find((t) => t.citaId === cita.id);
-    const infoMedica = informacionMedica.find((i) => i.pacienteId === cita.pacienteId);
+    const cid = String(cita.id || '').trim();
+    const pid = String(cita.pacienteId || '').trim();
+    const fechaCita = String(cita.fecha || '').substring(0, 10);
+
+    const paciente = pacientes.find((p) => String(p.id) === pid);
+    const triage =
+      (registrosTriage || []).find((t) => String(t.citaId || '').trim() === cid) ||
+      (registrosTriage || []).find(
+        (t) =>
+          String(t.pacienteId || '').trim() === pid &&
+          String(t.fechaHora || '').substring(0, 10) === fechaCita,
+      );
+    const infoMedica = informacionMedica.find((i) => String(i.pacienteId) === pid);
+
+    if (cita.estado === 'triage_completado' || cita.estado === 'en_triage') {
+      updateCita(cita.id, { estado: 'en_consulta' });
+    }
 
     setSelectedCita({ ...cita, paciente, triage, infoMedica });
     setTabConsulta('consulta');
     resetForm();
+
+    if (triage?.razonConsulta) {
+      setConsultaForm((prev) => ({
+        ...prev,
+        motivoConsulta: triage.razonConsulta || prev.motivoConsulta,
+      }));
+    }
   };
 
   const pacienteActual = useMemo(() => {
@@ -250,6 +271,70 @@ export function Medico() {
     if (!pid) return null;
     return (informacionMedica || []).find((i) => String(i.pacienteId) === pid) || null;
   }, [informacionMedica, pacienteActual?.id]);
+
+  const triageActual = useMemo(() => {
+    if (!selectedCita) return null;
+    const cid = String(selectedCita.id || '').trim();
+    const pid = String(selectedCita.pacienteId || selectedCita.paciente?.id || '').trim();
+    const fechaCita = String(selectedCita.fecha || '').substring(0, 10);
+
+    // 1. Buscar coincidencia por citaId en registrosTriage
+    if (cid) {
+      const match = (registrosTriage || []).find((t) => String(t.citaId || '').trim() === cid);
+      if (match) return match;
+    }
+
+    // 2. Buscar por pacienteId y misma fecha en registrosTriage
+    if (pid && fechaCita) {
+      const matchFecha = (registrosTriage || [])
+        .filter(
+          (t) =>
+            String(t.pacienteId || '').trim() === pid &&
+            String(t.fechaHora || '').substring(0, 10) === fechaCita,
+        )
+        .sort((a, b) => String(b.fechaHora || '').localeCompare(String(a.fechaHora || '')))[0];
+      if (matchFecha) return matchFecha;
+    }
+
+    // 3. Fallback a selectedCita.triage previo
+    if (selectedCita.triage) return selectedCita.triage;
+
+    // 4. Fallback a expedientesCita si existe
+    if (cid) {
+      const exp = (expedientesCita || []).find((e) => String(e.citaId || '').trim() === cid);
+      if (exp?.triageData) {
+        return {
+          id: String(exp.id || ''),
+          citaId: cid,
+          pacienteId: pid,
+          fechaHora: exp.createdAt || '',
+          signosVitales: exp.triageData,
+          observaciones: (exp.triageData as any)?.observaciones || '',
+          razonConsulta: (exp.triageData as any)?.razonConsulta || '',
+          realizadoPor: (exp.triageData as any)?.realizadoPor || 'Enfermería',
+        };
+      }
+    }
+
+    // 5. Último triaje registrado del paciente
+    if (pid) {
+      const matchUltimo = (registrosTriage || [])
+        .filter((t) => String(t.pacienteId || '').trim() === pid)
+        .sort((a, b) => String(b.fechaHora || '').localeCompare(String(a.fechaHora || '')))[0];
+      if (matchUltimo) return matchUltimo;
+    }
+
+    return null;
+  }, [selectedCita, registrosTriage, expedientesCita]);
+
+  useEffect(() => {
+    if (triageActual?.razonConsulta && !consultaForm.motivoConsulta) {
+      setConsultaForm((prev) => ({
+        ...prev,
+        motivoConsulta: triageActual.razonConsulta || '',
+      }));
+    }
+  }, [triageActual?.razonConsulta]);
 
   const [expedienteCitaId, setExpedienteCitaId] = useState<string | null>(null);
 
@@ -657,7 +742,8 @@ export function Medico() {
                       {/* ============= COLUMNA DERECHA: Triage + Valoración ============= */}
                       <div className="space-y-5 p-5">
                         {/* --- Bloque Triage o Placeholder Sin Triaje --- */}
-                        {!selectedCita.triage && selectedCita.saltadoTriage === true ? (
+                        {/* --- Bloque Triage o Placeholder Sin Triaje --- */}
+                        {!triageActual && selectedCita.saltadoTriage === true ? (
                           <div className="rounded-lg border-2 border-dashed border-[color:var(--chart-2)]/40 bg-[color:var(--chart-2)]/5 px-4 py-6 flex flex-col items-center text-center gap-2">
                             <div className="w-12 h-12 rounded-xl bg-[color:var(--chart-2)]/10 flex items-center justify-center text-[color:var(--chart-2)]">
                               <ArrowRight className="w-6 h-6" />
@@ -669,84 +755,125 @@ export function Medico() {
                               </p>
                             </div>
                           </div>
-                        ) : selectedCita.triage ? (
+                        ) : triageActual ? (
                           <Card className="border border-border shadow-sm">
                             <CardHeader className="border-b border-border bg-muted/10 p-4">
-                              <h3 className="flex items-center gap-2 text-sm font-semibold">
-                                <Activity className="h-4 w-4" />
-                                {t('medico.form.vitals')}
-                              </h3>
+                              <div className="flex items-center justify-between">
+                                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                                  <Activity className="h-4 w-4 text-[color:var(--brand-primary-strong)]" />
+                                  {t('medico.form.vitals')}
+                                </h3>
+                                {triageActual.fechaHora ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatDateSafe(String(triageActual.fechaHora).substring(0, 10))}
+                                  </span>
+                                ) : null}
+                              </div>
                             </CardHeader>
                             <CardContent className="p-4 space-y-3">
+                              {triageActual.razonConsulta ? (
+                                <div className="rounded-md border border-[color:var(--brand-secondary-strong)]/20 bg-[color:var(--brand-secondary-strong)]/5 p-3">
+                                  <p className="text-xs font-semibold text-[color:var(--brand-secondary-strong)] flex items-center gap-1.5">
+                                    <FileText className="w-3.5 h-3.5" />
+                                    Motivo / Razón de consulta (capturado en triaje):
+                                  </p>
+                                  <p className="text-sm font-medium text-foreground mt-1">
+                                    {triageActual.razonConsulta}
+                                  </p>
+                                </div>
+                              ) : null}
+
                               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                                 <div className="rounded-md border border-border bg-muted/10 p-2">
                                   <p className="text-muted-foreground">{t('medico.form.vitals.temp')}</p>
-                                  <p className="font-semibold">{selectedCita.triage.signosVitales.temperatura}°C</p>
+                                  <p className="font-semibold">
+                                    {triageActual.signosVitales?.temperatura ? `${triageActual.signosVitales.temperatura}°C` : 'N/A'}
+                                  </p>
                                 </div>
                                 <div className="rounded-md border border-border bg-muted/10 p-2">
                                   <p className="text-muted-foreground">{t('medico.form.vitals.bp')}</p>
-                                  <p className="font-semibold">{selectedCita.triage.signosVitales.presionArterial}</p>
+                                  <p className="font-semibold">
+                                    {triageActual.signosVitales?.presionArterial || 'N/A'}
+                                  </p>
                                 </div>
                                 <div className="rounded-md border border-border bg-muted/10 p-2">
                                   <p className="text-muted-foreground">{t('medico.form.vitals.hr')}</p>
-                                  <p className="font-semibold">{selectedCita.triage.signosVitales.ritmoCardiaco} bpm</p>
+                                  <p className="font-semibold">
+                                    {triageActual.signosVitales?.ritmoCardiaco ? `${triageActual.signosVitales.ritmoCardiaco} bpm` : 'N/A'}
+                                  </p>
                                 </div>
                                 <div className="rounded-md border border-border bg-muted/10 p-2">
                                   <p className="text-muted-foreground">{t('medico.form.vitals.rr')}</p>
-                                  <p className="font-semibold">{selectedCita.triage.signosVitales.frecuenciaRespiratoria} rpm</p>
+                                  <p className="font-semibold">
+                                    {triageActual.signosVitales?.frecuenciaRespiratoria ? `${triageActual.signosVitales.frecuenciaRespiratoria} rpm` : 'N/A'}
+                                  </p>
                                 </div>
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
                                 <div className="rounded-md border border-border bg-muted/10 p-2">
                                   <p className="text-muted-foreground">{t('medico.form.vitals.o2')}</p>
                                   <p className="font-semibold">
-                                    {Number.isFinite(Number(selectedCita.triage.signosVitales.saturacionOxigeno))
-                                      ? `${selectedCita.triage.signosVitales.saturacionOxigeno}%`
+                                    {Number.isFinite(Number(triageActual.signosVitales?.saturacionOxigeno))
+                                      ? `${triageActual.signosVitales.saturacionOxigeno}%`
                                       : 'N/A'}
                                   </p>
                                 </div>
                                 <div className="rounded-md border border-border bg-muted/10 p-2">
                                   <p className="text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
                                   <p className="font-semibold">
-                                    {Number.isFinite(Number(selectedCita.triage.signosVitales.azucarEnSangre))
-                                      ? `${selectedCita.triage.signosVitales.azucarEnSangre}`
+                                    {Number.isFinite(Number(triageActual.signosVitales?.azucarEnSangre))
+                                      ? `${triageActual.signosVitales.azucarEnSangre} mg/dL`
                                       : 'N/A'}
                                   </p>
                                 </div>
                                 <div className="rounded-md border border-border bg-muted/10 p-2">
                                   <p className="text-muted-foreground">{t('medico.form.vitals.weight')}</p>
-                                  <p className="font-semibold">{selectedCita.triage.signosVitales.peso} kg</p>
+                                  <p className="font-semibold">
+                                    {triageActual.signosVitales?.peso ? `${triageActual.signosVitales.peso} kg` : 'N/A'}
+                                  </p>
                                 </div>
                                 <div className="rounded-md border border-border bg-muted/10 p-2">
                                   <p className="text-muted-foreground">{t('medico.form.vitals.height')}</p>
-                                  <p className="font-semibold">{selectedCita.triage.signosVitales.altura} cm</p>
+                                  <p className="font-semibold">
+                                    {triageActual.signosVitales?.altura ? `${triageActual.signosVitales.altura} cm` : 'N/A'}
+                                  </p>
                                 </div>
                               </div>
-                              {(selectedCita.triage.observaciones || selectedCita.triage.realizadoPor) && (
+                              {(triageActual.observaciones || triageActual.realizadoPor) && (
                                 <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                                  {selectedCita.triage.observaciones ? (
+                                  {triageActual.observaciones ? (
                                     <div className="rounded-md border border-border bg-muted/10 p-2 sm:col-span-2">
-                                      <p className="text-muted-foreground">Observaciones</p>
-                                      <p className="font-medium">{selectedCita.triage.observaciones}</p>
+                                      <p className="text-muted-foreground">Observaciones de triaje</p>
+                                      <p className="font-medium">{triageActual.observaciones}</p>
                                     </div>
                                   ) : null}
-                                  {selectedCita.triage.realizadoPor ? (
+                                  {triageActual.realizadoPor ? (
                                     <div className="rounded-md border border-border bg-muted/10 p-2">
                                       <p className="text-muted-foreground">Realizado por</p>
-                                      <p className="font-medium">{selectedCita.triage.realizadoPor}</p>
+                                      <p className="font-medium">{triageActual.realizadoPor}</p>
                                     </div>
                                   ) : null}
-                                  {selectedCita.triage.fechaHora ? (
+                                  {triageActual.fechaHora ? (
                                     <div className="rounded-md border border-border bg-muted/10 p-2">
-                                      <p className="text-muted-foreground">Fecha</p>
-                                      <p className="font-medium">{formatDateSafe(String(selectedCita.triage.fechaHora).substring(0, 10))}</p>
+                                      <p className="text-muted-foreground">Fecha y hora</p>
+                                      <p className="font-medium">{formatDateSafe(String(triageActual.fechaHora).substring(0, 10))}</p>
                                     </div>
                                   ) : null}
                                 </div>
                               )}
                             </CardContent>
                           </Card>
-                        ) : null}
+                        ) : (
+                          <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 flex items-center gap-3 text-muted-foreground text-sm">
+                            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                            <div>
+                              <p className="font-medium text-foreground">Sin datos de triaje registrados para esta cita</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                No se encontraron signos vitales capturados en triaje para este paciente.
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
                         {/* --- Tabs Valoración + Expediente --- */}
                         {expedienteCitaId ? (
@@ -1490,8 +1617,17 @@ export function Medico() {
               <CardContent className="p-6">
                 <div className="space-y-3">
                   {citasEnConsulta.map((cita) => {
-                    const paciente = pacientes.find((p) => p.id === cita.pacienteId);
-                    const triage = registrosTriage.find((t) => t.citaId === cita.id);
+                    const cid = String(cita.id || '').trim();
+                    const pid = String(cita.pacienteId || '').trim();
+                    const fechaCita = String(cita.fecha || '').substring(0, 10);
+                    const paciente = pacientes.find((p) => String(p.id) === pid);
+                    const triage =
+                      (registrosTriage || []).find((t) => String(t.citaId || '').trim() === cid) ||
+                      (registrosTriage || []).find(
+                        (t) =>
+                          String(t.pacienteId || '').trim() === pid &&
+                          String(t.fechaHora || '').substring(0, 10) === fechaCita,
+                      );
 
                     let stateClasses = "border-border";
                     let clockColor = "text-muted-foreground";
@@ -1533,6 +1669,11 @@ export function Medico() {
                                     <span>{paciente?.edad} {t('medico.form.years')}</span>
                                     <span>•</span>
                                     <span>{paciente?.sexo}</span>
+                                    {cita.estado === 'triage_completado' ? (
+                                      <Badge variant="secondary" className="text-xs bg-emerald-100 text-emerald-800 border-emerald-300">
+                                        Triaje completado
+                                      </Badge>
+                                    ) : null}
                                   </div>
                                   <div className="flex flex-wrap items-center gap-2 mt-2">
                                     <Badge variant="secondary">
@@ -1552,34 +1693,42 @@ export function Medico() {
                               </div>
 
                               {/* Signos vitales del triage */}
-                              {triage && (
-                                <div className="grid grid-cols-4 gap-3 mt-3">
-                                  <div className="rounded-md border border-border bg-muted/10 p-2">
-                                    <p className="text-xs text-muted-foreground">{t('medico.form.vitals.temp')}</p>
-                                    <p className="text-sm font-semibold text-foreground">
-                                      {triage.signosVitales.temperatura}°C
-                                    </p>
-                                  </div>
-                                  <div className="rounded-md border border-border bg-muted/10 p-2">
-                                    <p className="text-xs text-muted-foreground">{t('medico.form.vitals.bp')}</p>
-                                    <p className="text-sm font-semibold text-foreground">
-                                      {triage.signosVitales.presionArterial}
-                                    </p>
-                                  </div>
-                                  <div className="rounded-md border border-border bg-muted/10 p-2">
-                                    <p className="text-xs text-muted-foreground">{t('medico.form.vitals.hr')}</p>
-                                    <p className="text-sm font-semibold text-foreground">
-                                      {triage.signosVitales.ritmoCardiaco} bpm
-                                    </p>
-                                  </div>
-                                  <div className="rounded-md border border-border bg-muted/10 p-2">
-                                    <p className="text-xs text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
-                                    <p className="text-sm font-semibold text-foreground">
-                                      {triage.signosVitales.azucarEnSangre || 'N/A'}
-                                    </p>
+                              {triage ? (
+                                <div className="mt-3 space-y-2">
+                                  {triage.razonConsulta ? (
+                                    <div className="text-xs bg-muted/30 border border-border/60 rounded px-2.5 py-1.5 text-foreground">
+                                      <span className="font-semibold text-muted-foreground">Motivo triaje: </span>
+                                      {triage.razonConsulta}
+                                    </div>
+                                  ) : null}
+                                  <div className="grid grid-cols-4 gap-3">
+                                    <div className="rounded-md border border-border bg-muted/10 p-2">
+                                      <p className="text-xs text-muted-foreground">{t('medico.form.vitals.temp')}</p>
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {triage.signosVitales?.temperatura ? `${triage.signosVitales.temperatura}°C` : 'N/A'}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-md border border-border bg-muted/10 p-2">
+                                      <p className="text-xs text-muted-foreground">{t('medico.form.vitals.bp')}</p>
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {triage.signosVitales?.presionArterial || 'N/A'}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-md border border-border bg-muted/10 p-2">
+                                      <p className="text-xs text-muted-foreground">{t('medico.form.vitals.hr')}</p>
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {triage.signosVitales?.ritmoCardiaco ? `${triage.signosVitales.ritmoCardiaco} bpm` : 'N/A'}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-md border border-border bg-muted/10 p-2">
+                                      <p className="text-xs text-muted-foreground">{t('medico.form.vitals.glucose')}</p>
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {triage.signosVitales?.azucarEnSangre ? `${triage.signosVitales.azucarEnSangre} mg/dL` : 'N/A'}
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
-                              )}
+                              ) : null}
 
                               <div className="flex gap-2 mt-4">
                                 <Button

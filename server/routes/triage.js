@@ -169,6 +169,7 @@ router.post('/', async (req, res) => {
       const payload = {
         ...triageMapped,
         observaciones: triageMapped.observaciones || t.observaciones || '',
+        razonConsulta: triageMapped.razonConsulta || motivo || '',
       };
       try {
         await pool.query(

@@ -538,7 +538,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const nuevo = await res.json();
-        setRegistrosTriage([...registrosTriage, nuevo]);
+        setRegistrosTriage((prev) => {
+          const filtered = prev.filter(
+            (t) => String(t.id) !== String(nuevo.id) && String(t.citaId) !== String(nuevo.citaId),
+          );
+          return [...filtered, nuevo];
+        });
       }
     } catch (err) {
     }

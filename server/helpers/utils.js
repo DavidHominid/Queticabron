@@ -251,6 +251,7 @@ export const mapTriage = (t) => ({
     azucarEnSangre: t?.azucar_en_sangre ?? t?.glucosa ?? null,
   },
   observaciones: t?.observaciones ?? null,
+  razonConsulta: t?.razon_consulta ?? null,
   realizadoPor: t?.realizado_por ?? t?.encargado_triaje ?? 'Sistema',
 });
 
