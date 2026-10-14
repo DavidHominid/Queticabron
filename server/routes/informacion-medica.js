@@ -25,6 +25,27 @@ const extraeAuditMeta = (req) => {
   };
 };
 
+// [CAMBIO]: Ruta GET / para obtener todos los registros de 'infomed'.
+// Permite que DataContext cargue la información médica de los pacientes en el inicio del sistema.
+router.get('/', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id_paciente, descripcion FROM "${SCHEMA}".antecedentes WHERE tipo = 'infomed'`
+    );
+    const list = result.rows.map((row) => {
+      try {
+        const data = JSON.parse(row.descripcion);
+        return { ...data, pacienteId: String(row.id_paciente) };
+      } catch {
+        return null;
+      }
+    }).filter(Boolean);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:pacienteId', async (req, res) => {
   const { pacienteId } = req.params;
   try {

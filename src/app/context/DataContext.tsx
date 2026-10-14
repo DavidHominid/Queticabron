@@ -44,7 +44,8 @@ interface DataContextType {
   // Información Médica
   informacionMedica: InformacionMedica[];
   addInformacionMedica: (info: InformacionMedica) => void;
-  updateInformacionMedica: (pacienteId: string, info: Partial<InformacionMedica>) => void;
+  updateInformacionMedica: (pacienteId: string, info: Partial<InformacionMedica>) => Promise<{ success: boolean; data?: any; error?: string }>;
+  fetchInformacionMedica: (pacienteId: string) => Promise<InformacionMedica | null>;
 
   // Información Médica Dental
   informacionMedicaDental: InformacionMedicaDental[];
@@ -212,7 +213,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         safeFetch('sedes', setSedesQuirurgicas),
         safeFetch('usuarios', setUsuarios),
         safeFetch('estudios', setEstudios),
-        safeFetch('auditoria', setRegistrosAuditoria)
+        safeFetch('auditoria', setRegistrosAuditoria),
+        // [CAMBIO]: Carga inicial de antecedentes médicos generales para sincronizar expedientes
+        safeFetch('informacion-medica', setInformacionMedica)
       ]);
     } catch (err) {
     }
@@ -508,6 +511,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // [CAMBIO]: Función para obtener/refrescar la información médica general de un paciente bajo demanda
+  const fetchInformacionMedica = async (pacienteId: string): Promise<InformacionMedica | null> => {
+    const pid = String(pacienteId || '').trim();
+    if (!pid) return null;
+    try {
+      const res = await fetch(`/api/informacion-medica/${pid}`);
+      if (!res.ok) return null;
+      const data = await res.json().catch(() => null);
+      if (data && typeof data === 'object') {
+        setInformacionMedica((prev) => {
+          const exists = prev.some((i) => String(i.pacienteId) === pid);
+          if (exists) {
+            return prev.map((i) => (String(i.pacienteId) === pid ? data : i));
+          }
+          return [...prev, data];
+        });
+        return data;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  // [CAMBIO]: Actualización de información médica con sincronización inmediata en estado local
   const updateInformacionMedica = async (pacienteId: string, infoUpdate: Partial<InformacionMedica>) => {
     try {
       const res = await fetch(`/api/informacion-medica/${pacienteId}`, {
@@ -517,11 +545,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
       });
       if (res.ok) {
         const actualizado = await res.json();
-        setInformacionMedica(
-          informacionMedica.map((i) => (i.pacienteId === pacienteId ? actualizado : i))
-        );
+        setInformacionMedica((prev) => {
+          const exists = prev.some((i) => String(i.pacienteId) === String(pacienteId));
+          if (exists) {
+            return prev.map((i) => (String(i.pacienteId) === String(pacienteId) ? actualizado : i));
+          }
+          return [...prev, actualizado];
+        });
+        return { success: true, data: actualizado };
       }
-    } catch (err) {
+      const errData = await res.json().catch(() => ({}));
+      return { success: false, error: errData?.error || 'Error al actualizar información médica' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Error de red' };
     }
   };
 
@@ -909,6 +945,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         informacionMedica,
         addInformacionMedica,
         updateInformacionMedica,
+        fetchInformacionMedica,
         informacionMedicaDental,
         addInformacionMedicaDental,
         registrosTriage,
