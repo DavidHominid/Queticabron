@@ -17,17 +17,7 @@ const normalizePracticantes = (value: EspecialidadEvento): string[] => {
   return [];
 };
 
-const consultorioOptions = [
-  'Consultorio 1',
-  'Consultorio 2',
-  'Consultorio 3',
-  'Consultorio 4',
-  'Consultorio 5',
-  'Consultorio 6',
-  'Consultorio 7',
-  'Consultorio 8',
-  'Dentista',
-];
+
 
 const tipoPalette = [
   'var(--primary)',
@@ -137,10 +127,7 @@ export function EspecialidadCardEditor({
     return list.includes(value.especialidad);
   };
   const medicosRecomendados = medicos.filter(medicoMatchesEspecialidad);
-  const triageUsers = usuarios.filter((u) => u.rol === 'triage').filter(esActivoEfectivo);
-  const practicantesActual = practicantesList
-    .map((idOrName) => findUsuario(usuarios, idOrName))
-    .filter(Boolean) as Usuario[];
+
   const cuposRegistrados = (value.horarios || []).reduce((acc, horario) => {
     const cupo = Number.isFinite(Number(horario.cupoTotal)) ? Math.max(1, Math.floor(Number(horario.cupoTotal))) : 1;
     return acc + cupo;
@@ -208,22 +195,7 @@ export function EspecialidadCardEditor({
 
       {modo === 'config' ? (
         <div className="space-y-5 p-6">
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-foreground">Consultorio</label>
-            <select
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
-              value={value.consultorio || ''}
-              onChange={(e) => onChange({ ...value, consultorio: e.target.value })}
-            >
-              <option value="">Selecciona un consultorio</option>
-              {value.consultorio && !consultorioOptions.includes(value.consultorio) && <option value={value.consultorio}>Actual: {value.consultorio}</option>}
-              {consultorioOptions.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
+
 
           <div className="space-y-3 rounded-xl border border-border p-4">
             <div className="flex items-center justify-between gap-3">
@@ -671,32 +643,7 @@ export function EspecialidadCardEditor({
             </label>
           </div>
 
-          <div className="space-y-3 rounded-xl border border-border p-4">
-            <div className="text-sm font-medium text-foreground">Practicantes</div>
-            <div className="max-h-56 space-y-2 overflow-auto pr-1">
-              {triageUsers.map((u) => {
-                const checked = practicantesList.includes(u.id);
-                return (
-                  <label key={u.id} className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(next) => {
-                        const isOn = Boolean(next);
-                        const base = practicantesList.filter(Boolean);
-                        const updated = isOn ? Array.from(new Set([...base, u.id])) : base.filter((id) => id !== u.id);
-                        onChange({ ...value, practicantes: updated });
-                      }}
-                    />
-                    <span className="truncate">{labelUsuario(u)}</span>
-                  </label>
-                );
-              })}
-              {triageUsers.length === 0 && <div className="text-sm text-muted-foreground">No hay usuarios de triage.</div>}
-            </div>
-            {practicantesActual.length > 0 && (
-              <div className="text-xs text-muted-foreground/70">Seleccionados: {practicantesActual.map((p) => p.nombre).join(', ')}</div>
-            )}
-          </div>
+
         </div>
       ) : (
         <div className="space-y-4 p-6">

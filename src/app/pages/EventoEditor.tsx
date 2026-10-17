@@ -301,7 +301,6 @@ export function EventoEditor() {
     if (!form.especialidades.length) return 'Debes agregar al menos una especialidad.';
 
     for (const esp of form.especialidades) {
-      if (!esp.consultorio.trim()) return `Falta consultorio en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
       const tipos = Array.isArray((esp as any).tiposCita) ? ((esp as any).tiposCita as any[]) : [];
       if (!tipos.length) return `Debes agregar al menos un tipo de cita en ${labelEspecialidad(esp.especialidad, especialidadesCatalogo)}.`;
       for (const t of tipos) {
@@ -524,7 +523,7 @@ export function EventoEditor() {
                         ))}
                     </select>
                   </div>
-                  <div className="text-sm text-muted-foreground">Selecciona especialidades y define consultorio, tipos de cita y practicantes.</div>
+                  <div className="text-sm text-muted-foreground">Selecciona especialidades y define tipos de cita.</div>
                 </div>
 
                 {form.especialidades.length > 0 ? (
@@ -559,7 +558,7 @@ export function EventoEditor() {
                   </Tabs>
                 ) : (
                   <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-                    Agrega una especialidad para comenzar a configurar consultorio, tipos de cita y practicantes.
+                    Agrega una especialidad para comenzar a configurar tipos de cita y médicos.
                   </div>
                 )}
               </div>

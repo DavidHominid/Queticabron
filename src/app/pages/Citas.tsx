@@ -102,17 +102,9 @@ export function Citas() {
     return t('citas.not_active');
   };
 
-  const canSeeAllCiudades = user?.rol === 'administrador';
-  const ciudadesUsuario = useMemo(() => {
-    const ciudades = Array.isArray((user as any)?.ciudades) ? ((user as any).ciudades as string[]) : [];
-    if (ciudades.length) return ciudades;
-    return user?.ciudad ? [user.ciudad] : [];
-  }, [user?.ciudad, (user as any)?.ciudades]);
-
   const eventosVisibles = useMemo(() => {
-    const base = canSeeAllCiudades ? eventos : eventos.filter((e) => ciudadesUsuario.includes(e.ciudad));
-    return [...base].sort((a, b) => (b.fechaInicio || '').localeCompare(a.fechaInicio || ''));
-  }, [canSeeAllCiudades, ciudadesUsuario, eventos]);
+    return [...eventos].sort((a, b) => (b.fechaInicio || '').localeCompare(a.fechaInicio || ''));
+  }, [eventos]);
 
   const eventoById = useMemo(() => {
     const map = new Map<string, Evento>();
@@ -373,12 +365,6 @@ export function Citas() {
 
   const buildExportParams = (scope: '30d' | '90d' | 'todas') => {
     const params = new URLSearchParams();
-    // Filtros por ciudad (mismo criterio que eventosVisibles)
-    if (!canSeeAllCiudades) {
-      for (const ciudad of ciudadesUsuario) {
-        if (ciudad?.trim()) params.append('ciudad', ciudad);
-      }
-    }
     if (scope === '30d' || scope === '90d') {
       if (scope === '30d') params.set('fechaDesde', last30d);
       else {

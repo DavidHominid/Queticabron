@@ -75,20 +75,6 @@ export function Usuarios() {
       alert(t('usuarios.select_at_least_one_specialty'));
       return;
     }
-    const rawCiudades = Array.isArray(formData.ciudades)
-      ? formData.ciudades
-      : formData.ciudad
-        ? [formData.ciudad]
-        : [];
-    const ciudades = Array.from(new Set(rawCiudades.map((x) => String(x || '').trim()).filter(Boolean)));
-    if (formData.rol === 'recepcion' && !ciudades[0]) {
-      alert(t('usuarios.select_at_least_one_city'));
-      return;
-    }
-    if ((formData.rol === 'medico' || formData.rol === 'triage') && ciudades.length === 0) {
-      alert(t('usuarios.select_at_least_one_city'));
-      return;
-    }
     if (formData.rol === 'triage') {
       if (vigenciaHabilitada) {
         if (!formData.activoDesde || !formData.activoHasta) {
@@ -639,100 +625,34 @@ export function Usuarios() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="rol">{t('usuarios.role_label')} *</Label>
-                    <select
-                      id="rol"
-                      className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
-                      value={formData.rol}
-                      onChange={(e) => {
-                        const nuevoRol = e.target.value as Rol;
-                        const firstEsp = (especialidadesCatalogo || []).find((x) => x.activa)?.codigo;
-                        const firstCiudad = (ciudadesCatalogo || []).find((x) => x.activa)?.codigo || ciudadDefault;
-                        const nextVigencia = nuevoRol === 'triage' ? vigenciaHabilitada : false;
-                        setFormData({
-                          ...formData,
-                          rol: nuevoRol,
-                          especialidades: nuevoRol === 'medico' && firstEsp ? [firstEsp] : [],
-                          especialidad: nuevoRol === 'medico' && firstEsp ? (firstEsp as Especialidad) : undefined,
-                          ciudad: firstCiudad as any,
-                          ciudades:
-                            nuevoRol === 'medico' || nuevoRol === 'triage'
-                              ? ([firstCiudad] as any)
-                              : nuevoRol === 'recepcion'
-                                ? ([firstCiudad] as any)
-                                : ([] as any),
-                          activo: formData.activo ?? true,
-                          activoDesde: nuevoRol === 'triage' && nextVigencia ? formData.activoDesde : null,
-                          activoHasta: nuevoRol === 'triage' && nextVigencia ? formData.activoHasta : null,
-                        });
-                        setVigenciaHabilitada(nuevoRol === 'triage' ? nextVigencia : false);
-                      }}
-                      required
-                    >
-                      <option value="administrador">{t('usuarios.role_admin')}</option>
-                      <option value="recepcion">{t('usuarios.role_reception')}</option>
-                      <option value="triage">{t('usuarios.role_triage')}</option>
-                      <option value="medico">{t('usuarios.role_doctor')}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label>{t('usuarios.city_label')}</Label>
-                    {formData.rol === 'recepcion' && (
-                      <select
-                        id="ciudad"
-                        className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
-                        value={formData.ciudad}
-                        onChange={(e) => setFormData({ ...formData, ciudad: e.target.value as Ciudad, ciudades: [e.target.value as any] })}
-                        required
-                      >
-                        {(ciudadesCatalogo || [])
-                          .filter((c) => c.activa)
-                          .map((c) => (
-                            <option key={c.codigo} value={c.codigo}>
-                              {c.nombre}
-                            </option>
-                          ))}
-                      </select>
-                    )}
-
-                    {(formData.rol === 'medico' || formData.rol === 'triage') && (
-                      <div className="rounded-lg border border-border bg-muted/20 p-3">
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                          {(ciudadesCatalogo || [])
-                            .filter((c) => c.activa)
-                            .map((c) => {
-                              const base = Array.isArray((formData as any).ciudades) ? ((formData as any).ciudades as any[]) : [];
-                              const selected = base.includes(c.codigo);
-                              return (
-                                <label key={c.codigo} className="flex items-center gap-2 text-sm text-foreground">
-                                  <Checkbox
-                                    checked={selected}
-                                    onCheckedChange={(next) => {
-                                      const isOn = Boolean(next);
-                                      const updated = isOn ? Array.from(new Set([...base, c.codigo])) : base.filter((x) => x !== c.codigo);
-                                      setFormData({
-                                        ...formData,
-                                        ciudades: updated as any,
-                                        ciudad: (updated[0] as any) || '',
-                                      });
-                                    }}
-                                  />
-                                  <span>{c.nombre}</span>
-                                </label>
-                              );
-                            })}
-                        </div>
-                        {Array.isArray((formData as any).ciudades) && (formData as any).ciudades.length === 0 && (
-                          <div className="mt-2 text-sm text-destructive">{t('usuarios.select_at_least_one_city')}</div>
-                        )}
-                      </div>
-                    )}
-
-                    {formData.rol === 'administrador' && <div className="mt-2 text-sm text-muted-foreground">{t('usuarios.city_not_apply')}</div>}
-                  </div>
+                <div className="w-full">
+                  <Label htmlFor="rol">{t('usuarios.role_label')} *</Label>
+                  <select
+                    id="rol"
+                    className="w-full px-3 py-2 border border-input bg-background text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring"
+                    value={formData.rol}
+                    onChange={(e) => {
+                      const nuevoRol = e.target.value as Rol;
+                      const firstEsp = (especialidadesCatalogo || []).find((x) => x.activa)?.codigo;
+                      const nextVigencia = nuevoRol === 'triage' ? vigenciaHabilitada : false;
+                      setFormData({
+                        ...formData,
+                        rol: nuevoRol,
+                        especialidades: nuevoRol === 'medico' && firstEsp ? [firstEsp] : [],
+                        especialidad: nuevoRol === 'medico' && firstEsp ? (firstEsp as Especialidad) : undefined,
+                        activo: formData.activo ?? true,
+                        activoDesde: nuevoRol === 'triage' && nextVigencia ? formData.activoDesde : null,
+                        activoHasta: nuevoRol === 'triage' && nextVigencia ? formData.activoHasta : null,
+                      });
+                      setVigenciaHabilitada(nuevoRol === 'triage' ? nextVigencia : false);
+                    }}
+                    required
+                  >
+                    <option value="administrador">{t('usuarios.role_admin')}</option>
+                    <option value="recepcion">{t('usuarios.role_reception')}</option>
+                    <option value="triage">{t('usuarios.role_triage')}</option>
+                    <option value="medico">{t('usuarios.role_doctor')}</option>
+                  </select>
                 </div>
 
                 {formData.rol === 'medico' && (

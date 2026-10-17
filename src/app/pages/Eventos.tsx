@@ -66,17 +66,12 @@ export function Eventos() {
   const sortedEventos = useMemo(
     () =>
       [...eventos]
-        .filter((e) => {
-          if (user?.rol === 'administrador') return true;
-          if (ciudadesUsuario.length === 0) return false;
-          return ciudadesUsuario.includes(normCiudad(e.ciudad));
-        })
         .sort((a, b) => {
-        const dateA = a.fechaInicio || '';
-        const dateB = b.fechaInicio || '';
-        return dateB.localeCompare(dateA);
+          const dateA = a.fechaInicio || '';
+          const dateB = b.fechaInicio || '';
+          return dateB.localeCompare(dateA);
         }),
-    [ciudadesUsuario, eventos, user?.rol],
+    [eventos],
   );
 
   return (
@@ -106,13 +101,7 @@ export function Eventos() {
           </Card>
         )}
 
-        {isInitialized && user?.rol !== 'administrador' && ciudadesUsuario.length === 0 && (
-          <Card className="shadow-sm">
-            <CardContent className="p-4 text-sm text-muted-foreground border border-border bg-muted/20 rounded-2xl">
-              {t('eventos.no_city_msg')}
-            </CardContent>
-          </Card>
-        )}
+
 
         {isInitialized && sortedEventos.length === 0 && (
           <Card className="shadow-sm">

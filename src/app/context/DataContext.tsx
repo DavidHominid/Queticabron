@@ -19,6 +19,7 @@ import {
   ExpedienteCita,
 } from '../types';
 import { SedeQuirurgica, PeriodoDisponibilidad } from '../types';
+import { useAuth } from './AuthContext';
 
 interface DataContextType {
   // Eventos
@@ -117,6 +118,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export function DataProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
@@ -248,6 +250,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   // ── Tiempo real: SSE + fallback polling ──────────────────────────────────
   useEffect(() => {
+    if (!user) {
+      setIsInitialized(false);
+      return;
+    }
+
     let isMounted = true;
     let es: EventSource | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -306,7 +313,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       es?.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
-  }, []);
+  }, [user?.id]);
 
   const addEvento = async (evento: Evento) => {
     const res = await fetch('/api/eventos', {

@@ -688,18 +688,12 @@ export function EventoDetalle() {
                                 <div className="text-muted-foreground">Médico encargado</div>
                                 <div className="font-medium text-foreground">{nombreUsuario(esp.medicoEncargado)}</div>
                               </div>
-                              <div>
-                                <div className="text-muted-foreground">Practicantes</div>
-                                <div className="font-medium text-foreground">
-                                  {(esp.practicantes || []).length
-                                    ? esp.practicantes.map((p) => nombreUsuario(p)).join(', ')
-                                    : 'Sin asignar'}
+                              {Boolean(String(esp.consultorio || '').trim()) && (
+                                <div>
+                                  <div className="text-muted-foreground">Consultorio</div>
+                                  <div className="font-medium text-foreground">{String(esp.consultorio).trim()}</div>
                                 </div>
-                              </div>
-                              <div>
-                                <div className="text-muted-foreground">Consultorio</div>
-                                <div className="font-medium text-foreground">{String(esp.consultorio || '').trim() || 'Sin asignar'}</div>
-                              </div>
+                              )}
                             </div>
 
                             <div className="space-y-4 text-sm">

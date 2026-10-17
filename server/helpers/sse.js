@@ -12,8 +12,8 @@
  *   broadcast('operacional');    // recarga citas + triage + consultas + cirugias + seguimientos
  */
 
-/** @type {Set<import('express').Response>} */
-const clients = new Set();
+/** @type {Map<import('express').Response, () => void>} */
+const clients = new Map();
 
 /**
  * Middleware Express: abre una conexión SSE persistente con el cliente.
@@ -34,23 +34,30 @@ export function sseMiddleware(req, res) {
   // Ping inicial para confirmar la conexión
   res.write('event: connected\ndata: ok\n\n');
 
-  clients.add(res);
-  console.log(`📡 SSE: cliente conectado. Total: ${clients.size}`);
-
-  // Ping cada 25s para mantener la conexión viva a través de proxies
-  const keepAlive = setInterval(() => {
-    try {
-      res.write(': ping\n\n');
-    } catch (_) {
-      // si falla, el cleanup del evento 'close' ya lo eliminará
-    }
-  }, 25_000);
-
-  req.on('close', () => {
+  let cleanedUp = false;
+  let keepAlive;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
     clearInterval(keepAlive);
     clients.delete(res);
     console.log(`📡 SSE: cliente desconectado. Total: ${clients.size}`);
-  });
+  };
+
+  clients.set(res, cleanup);
+  console.log(`📡 SSE: cliente conectado. Total: ${clients.size}`);
+
+  // Ping cada 25s para mantener la conexión viva a través de proxies
+  keepAlive = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+    } catch (_) {
+      cleanup();
+    }
+  }, 25_000);
+
+  res.on('close', cleanup);
+  res.on('error', cleanup);
 }
 
 /**
@@ -62,11 +69,11 @@ export function sseMiddleware(req, res) {
 export function broadcast(eventName, data = {}) {
   const payload = `event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`;
   let removed = 0;
-  for (const client of clients) {
+  for (const [client, cleanup] of clients) {
     try {
       client.write(payload);
     } catch (_) {
-      clients.delete(client);
+      cleanup();
       removed++;
     }
   }

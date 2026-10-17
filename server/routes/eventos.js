@@ -274,7 +274,7 @@ const countCitasInWindow = (citas, day, start, end) => {
   }).length;
 };
 
-const persistEspecialidades = async (client, eventId, especialidades) => {
+const syncEspecialidades = async (client, eventId, especialidades) => {
   const allIds = new Set();
   for (const esp of especialidades || []) {
     if (esp?.medicoEncargado) allIds.add(String(esp.medicoEncargado));
@@ -314,7 +314,22 @@ const persistEspecialidades = async (client, eventId, especialidades) => {
     }
   }
 
+  // 1. Mapear especialidades existentes en la BD para este evento
+  const existingEspRes = await client.query(
+    `SELECT id, especialidad FROM "${SCHEMA}".evento_especialidad WHERE evento_id = $1`,
+    [eventId],
+  );
+  const existingEspMap = new Map();
+  for (const row of existingEspRes.rows || []) {
+    existingEspMap.set(String(row.especialidad), row.id);
+  }
+
+  const processedEspIds = new Set();
+
   for (const esp of especialidades || []) {
+    const especialidadCodigo = esp?.especialidad || '';
+    if (!especialidadCodigo) continue;
+
     const medicoEncargado = String(esp?.medicoEncargado || '').trim();
     const poolFromPayload = Array.isArray(esp?.medicoUsuarioIds)
       ? esp.medicoUsuarioIds.map((x) => String(x || '').trim()).filter(Boolean)
@@ -345,26 +360,57 @@ const persistEspecialidades = async (client, eventId, especialidades) => {
       : 8;
     const requiereTriage = !(esp?.requiereTriage === false || esp?.requiereTriage === 'false');
 
-    const insertEspecialidad = await client.query(
-      `INSERT INTO "${SCHEMA}".evento_especialidad
-        (evento_id, especialidad, medico_usuario_id, consultorio, costo, medico_usuario_ids, intervalo_minutos_default, cupo_por_bloque_default, requiere_triage)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING id`,
-      [
-        eventId,
-        esp?.especialidad || '',
-        medicoUsuarioId,
-        esp?.consultorio || null,
-        Number.isFinite(Number(esp?.costo)) ? Number(esp.costo) : 0,
-        poolExisting,
-        intervaloDefault,
-        cupoDefault,
-        requiereTriage,
-      ],
+    let eventoEspecialidadId;
+    if (existingEspMap.has(especialidadCodigo)) {
+      eventoEspecialidadId = existingEspMap.get(especialidadCodigo);
+      await client.query(
+        `UPDATE "${SCHEMA}".evento_especialidad
+         SET medico_usuario_id = $1,
+             consultorio = $2,
+             costo = $3,
+             medico_usuario_ids = $4,
+             intervalo_minutos_default = $5,
+             cupo_por_bloque_default = $6,
+             requiere_triage = $7
+         WHERE id = $8`,
+        [
+          medicoUsuarioId,
+          esp?.consultorio || null,
+          Number.isFinite(Number(esp?.costo)) ? Number(esp.costo) : 0,
+          poolExisting,
+          intervaloDefault,
+          cupoDefault,
+          requiereTriage,
+          eventoEspecialidadId,
+        ],
+      );
+    } else {
+      const insertEspecialidad = await client.query(
+        `INSERT INTO "${SCHEMA}".evento_especialidad
+          (evento_id, especialidad, medico_usuario_id, consultorio, costo, medico_usuario_ids, intervalo_minutos_default, cupo_por_bloque_default, requiere_triage)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING id`,
+        [
+          eventId,
+          especialidadCodigo,
+          medicoUsuarioId,
+          esp?.consultorio || null,
+          Number.isFinite(Number(esp?.costo)) ? Number(esp.costo) : 0,
+          poolExisting,
+          intervaloDefault,
+          cupoDefault,
+          requiereTriage,
+        ],
+      );
+      eventoEspecialidadId = insertEspecialidad.rows[0].id;
+    }
+    processedEspIds.add(eventoEspecialidadId);
+
+    // Practicantes: recrear para este eventoEspecialidadId
+    await client.query(
+      `DELETE FROM "${SCHEMA}".evento_especialidad_practicante WHERE evento_especialidad_id = $1`,
+      [eventoEspecialidadId],
     );
-
-    const eventoEspecialidadId = insertEspecialidad.rows[0].id;
-
     for (const practicante of Array.isArray(esp?.practicantes) ? esp.practicantes : []) {
       const usuarioId = String(practicante || '').trim();
       if (!existingUserIds.has(usuarioId)) continue;
@@ -376,33 +422,83 @@ const persistEspecialidades = async (client, eventId, especialidades) => {
       );
     }
 
+    // Tipos de cita:
+    const existingTiposRes = await client.query(
+      `SELECT id, nombre FROM "${SCHEMA}".evento_tipo_cita WHERE evento_especialidad_id = $1`,
+      [eventoEspecialidadId],
+    );
+    const existingTipoMap = new Map();
+    for (const row of existingTiposRes.rows || []) {
+      existingTipoMap.set(Number(row.id), row.nombre);
+    }
+
     const tipoIdMap = new Map();
+    const keptTipoIds = new Set();
+
     for (const tipo of Array.isArray(esp?.tiposCita) ? esp.tiposCita : []) {
       const nombre = String(tipo?.nombre || '').trim();
       if (!nombre) continue;
       const clientTipoId = String(tipo?.id || '').trim();
+      const numId = Number(clientTipoId);
+      const isExisting = Number.isInteger(numId) && existingTipoMap.has(numId);
+
       const medicoEncargado = String(tipo?.medicoEncargado || '').trim();
       const medicoUsuarioId =
-        existingUserIds.has(medicoEncargado) && medicoEspecialidades.size > 0 && medicoEspecialidades.has(`${medicoEncargado}|${String(esp?.especialidad || '')}`)
+        existingUserIds.has(medicoEncargado) &&
+        medicoEspecialidades.size > 0 &&
+        medicoEspecialidades.has(`${medicoEncargado}|${String(esp?.especialidad || '')}`)
           ? medicoEncargado
           : null;
-      const inserted = await client.query(
-        `INSERT INTO "${SCHEMA}".evento_tipo_cita
-          (evento_especialidad_id, nombre, duracion_minutos, precio, medico_usuario_id)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id`,
-        [
-          eventoEspecialidadId,
-          nombre,
-          Number.isFinite(Number(tipo?.duracionMinutos)) ? Math.max(5, Math.floor(Number(tipo.duracionMinutos))) : 60,
-          Number.isFinite(Number(tipo?.precio)) ? Number(tipo.precio) : 0,
-          medicoUsuarioId,
-        ],
-      );
-      const newId = inserted.rows?.[0]?.id;
-      if (clientTipoId && newId) tipoIdMap.set(clientTipoId, Number(newId));
+      const duracion = Number.isFinite(Number(tipo?.duracionMinutos))
+        ? Math.max(5, Math.floor(Number(tipo.duracionMinutos)))
+        : 60;
+      const precio = Number.isFinite(Number(tipo?.precio)) ? Number(tipo.precio) : 0;
+
+      if (isExisting) {
+        await client.query(
+          `UPDATE "${SCHEMA}".evento_tipo_cita
+           SET nombre = $1, duracion_minutos = $2, precio = $3, medico_usuario_id = $4
+           WHERE id = $5`,
+          [nombre, duracion, precio, medicoUsuarioId, numId],
+        );
+        tipoIdMap.set(clientTipoId, numId);
+        keptTipoIds.add(numId);
+      } else {
+        const inserted = await client.query(
+          `INSERT INTO "${SCHEMA}".evento_tipo_cita
+            (evento_especialidad_id, nombre, duracion_minutos, precio, medico_usuario_id)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id`,
+          [eventoEspecialidadId, nombre, duracion, precio, medicoUsuarioId],
+        );
+        const newId = inserted.rows?.[0]?.id;
+        if (clientTipoId && newId) tipoIdMap.set(clientTipoId, Number(newId));
+        if (newId) keptTipoIds.add(Number(newId));
+      }
     }
 
+    // Limpiar tipos de cita removidos por el usuario si no tienen citas agendadas
+    for (const [oldId, oldNombre] of existingTipoMap.entries()) {
+      if (!keptTipoIds.has(oldId)) {
+        const checkCitas = await client.query(
+          `SELECT count(*) FROM "${SCHEMA}".citas WHERE tipo_cita_id = $1 AND estado != 'cancelada'`,
+          [oldId],
+        );
+        const count = Number(checkCitas.rows?.[0]?.count || 0);
+        if (count > 0) {
+          throw new Error(
+            `No puedes eliminar el tipo de cita "${oldNombre}" porque tiene ${count} cita(s) activa(s) agendada(s).`,
+          );
+        }
+        await client.query(`DELETE FROM "${SCHEMA}".evento_tipo_cita WHERE id = $1`, [oldId]);
+      }
+    }
+
+    // Horarios: reemplazar horarios de esta especialidad mapeando al tipo_cita_id preservado
+    await client.query(
+      `DELETE FROM "${SCHEMA}".evento_horario WHERE evento_especialidad_id = $1`,
+      [eventoEspecialidadId],
+    );
     for (const horario of Array.isArray(esp?.horarios) ? esp.horarios : []) {
       const diaValue = String(horario?.dia || '').trim();
       const key = String(horario?.tipoCitaId || '').trim();
@@ -425,7 +521,26 @@ const persistEspecialidades = async (client, eventId, especialidades) => {
       );
     }
   }
+
+  // Especialidades removidas del evento en el payload
+  for (const [espCodigo, espId] of existingEspMap.entries()) {
+    if (!processedEspIds.has(espId)) {
+      const checkCitas = await client.query(
+        `SELECT count(*) FROM "${SCHEMA}".citas WHERE evento_id = $1 AND especialidad = $2 AND estado != 'cancelada'`,
+        [eventId, espCodigo],
+      );
+      const count = Number(checkCitas.rows?.[0]?.count || 0);
+      if (count > 0) {
+        throw new Error(
+          `No puedes eliminar la especialidad "${espCodigo}" porque tiene ${count} cita(s) agendada(s).`,
+        );
+      }
+      await client.query(`DELETE FROM "${SCHEMA}".evento_especialidad WHERE id = $1`, [espId]);
+    }
+  }
 };
+
+const persistEspecialidades = syncEspecialidades;
 
 router.post('/', async (req, res) => {
   const e = req.body;
@@ -619,8 +734,7 @@ router.put('/:id', async (req, res) => {
     }
 
     if (Array.isArray(e?.especialidades)) {
-      await client.query(`DELETE FROM "${SCHEMA}".evento_especialidad WHERE evento_id = $1`, [id]);
-      await persistEspecialidades(client, id, merged.especialidades || []);
+      await syncEspecialidades(client, id, merged.especialidades || []);
     }
     await client.query('COMMIT');
 
@@ -629,7 +743,7 @@ router.put('/:id', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Error en PUT /api/eventos:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   } finally {
     client.release();
   }
