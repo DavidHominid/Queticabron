@@ -11,6 +11,7 @@ import { formatDateSafe } from './ui/utils';
 
 // Sub-components
 import { ExpedienteHeader } from './expediente/ExpedienteHeader';
+import { ExpedienteDatosGeneralesMedicos } from './expediente/ExpedienteDatosGeneralesMedicos';
 import { ExpedientePersonalInfo } from './expediente/ExpedientePersonalInfo';
 import { ExpedienteVitalSigns } from './expediente/ExpedienteVitalSigns';
 import { ExpedienteMedicalInfo } from './expediente/ExpedienteMedicalInfo';
@@ -201,267 +202,20 @@ export function ExpedienteCompleto({ paciente, onClose }: ExpedienteCompletoProp
               </TabsList>
             </div>
 
+            {/* [NOTA / CAMBIO]: En la pestaña paciente se muestra ExpedienteDatosGeneralesMedicos sin signos vitales ni auditoría */}
             <TabsContent value="paciente">
               <div className="space-y-6">
-                <div>
-                  <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-                    <div>
-                      <h2 className="text-2xl font-bold text-foreground">
-                        Datos del paciente e información médica
-                      </h2>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Información que se registra una sola vez por expediente.
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      1 sola vez
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                    <Card className="rounded-xl">
-                      <CardHeader className="pb-2 border-b flex flex-row items-center justify-between gap-2">
-                        <CardTitle className="text-lg flex items-center gap-2 text-foreground">
-                          <User className="w-5 h-5 text-[color:var(--brand-primary-strong)]" />
-                          Datos Generales del Paciente
-                        </CardTitle>
-                        <Badge className="bg-red-600 hover:bg-red-700 text-white text-[11px]">
-                          Obligatorios
-                        </Badge>
-                      </CardHeader>
-                      <CardContent className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Nombre(s)</p>
-                          <p className="mt-1 text-base font-medium text-foreground">
-                            {String(paciente.nombre || '').trim() || <span className="text-muted-foreground italic">Sin capturar</span>}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Apellidos</p>
-                          <p className="mt-1 text-base font-medium text-foreground">
-                            {String(paciente.apellido || '').trim() || <span className="text-muted-foreground italic">Sin capturar</span>}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Fecha de nacimiento</p>
-                          <p className="mt-1 text-base font-medium text-foreground tabular-nums">
-                            {formatDateSafe(paciente.fechaNacimiento)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sexo</p>
-                          <p className="mt-1 text-base font-medium text-foreground capitalize">
-                            {String(paciente.sexo || '').trim() ? String(paciente.sexo).toLowerCase() : <span className="text-muted-foreground italic">Sin capturar</span>}
-                          </p>
-                        </div>
-                        <div className="md:col-span-1">
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Teléfono</p>
-                          <p className="mt-1 text-base font-medium text-foreground tabular-nums">
-                            {String(paciente.telefono || '').trim() || <span className="text-muted-foreground italic">Sin capturar</span>}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="rounded-xl">
-                      <CardHeader className="pb-2 border-b flex flex-row items-center justify-between gap-2">
-                        <CardTitle className="text-lg flex items-center gap-2 text-foreground">
-                          <Heart className="w-5 h-5 text-rose-500" />
-                          Información Médica General
-                        </CardTitle>
-                        <Badge variant="outline" className="text-[11px] text-muted-foreground">
-                          Opcional · 1 sola vez
-                        </Badge>
-                      </CardHeader>
-                      <CardContent className="p-5 space-y-5">
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">Alergias conocidas</p>
-                          {infoMedica?.alergias && infoMedica.alergias.length > 0 ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {infoMedica.alergias.map((a: string, idx: number) => (
-                                <Badge key={idx} className="bg-red-100 text-red-700 border-red-200">
-                                  {a}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="mt-2 text-sm text-muted-foreground italic">Sin alergias registradas.</p>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                            <Pill className="w-4 h-4 text-muted-foreground" />
-                            Medicamentos actuales
-                          </p>
-                          {infoMedica?.medicamentosActuales && infoMedica.medicamentosActuales.length > 0 ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {infoMedica.medicamentosActuales.map((m: string, idx: number) => (
-                                <Badge
-                                  key={idx}
-                                  variant="outline"
-                                  className="border-amber-300 bg-amber-50 text-amber-800"
-                                >
-                                  {m}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="mt-2 text-sm text-muted-foreground italic">Sin medicamentos registrados.</p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <Card className="rounded-xl">
-                    <CardHeader className="pb-2 border-b flex flex-row items-center justify-between gap-2">
-                      <CardTitle className="text-lg flex items-center gap-2 text-foreground">
-                        <ClipboardList className="w-5 h-5 text-[color:var(--brand-secondary-strong)]" />
-                        Antecedentes Patológicos y Familiares
-                      </CardTitle>
-                      <Badge variant="outline" className="text-[11px] text-muted-foreground">
-                        Opcional · 1 sola vez por paciente
-                      </Badge>
-                    </CardHeader>
-                    <CardContent className="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                            <FileText className="w-4 h-4 text-muted-foreground" />
-                            Antecedentes Patológicos
-                          </p>
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            Texto libre
-                          </Badge>
-                        </div>
-                        <Textarea
-                          rows={5}
-                          disabled
-                          readOnly
-                          value={infoMedica?.antecedentes?.patologicos?.trim() || ''}
-                          placeholder="Sin antecedentes patológicos registrados."
-                          className="resize-none text-xs bg-gray-50 leading-relaxed"
-                        />
-                        <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-                          Incluye enfermedades crónicas, padecimientos diagnosticados, cirugías previas, transfusiones, alergias documentadas, hospitalizaciones.
-                        </p>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                            <Heart className="w-4 h-4 text-muted-foreground" />
-                            Antecedentes Familiares
-                          </p>
-                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                            Texto libre
-                          </Badge>
-                        </div>
-                        <Textarea
-                          rows={5}
-                          disabled
-                          readOnly
-                          value={infoMedica?.antecedentes?.familiares?.trim() || ''}
-                          placeholder="Sin antecedentes familiares registrados."
-                          className="resize-none text-xs bg-gray-50 leading-relaxed"
-                        />
-                        <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-                          Incluye padecimientos de padres, abuelos, hermanos y causa de muerte de familiares directos. Factor hereditario, enfermedades genéticas.
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground mb-1.5">Antecedentes Psicosociales</p>
-                        <Textarea
-                          rows={4}
-                          disabled
-                          readOnly
-                          value={infoMedica?.antecedentesPsicosociales?.trim() || ''}
-                          placeholder="Sin antecedentes psicosociales registrados."
-                          className="resize-none text-xs bg-gray-50 leading-relaxed"
-                        />
-                        <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-                          Historial familiar, hábitos, tabaquismo, alcoholismo, situaciones psicosociales, estado civil, ocupación, escolaridad, vivienda, etc.
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground mb-1.5">Notas adicionales / Observaciones generales del expediente</p>
-                        <Textarea
-                          rows={4}
-                          disabled
-                          readOnly
-                          value={infoMedica?.notas?.trim() || ''}
-                          placeholder="Sin notas adicionales."
-                          className="resize-none text-xs bg-gray-50 leading-relaxed"
-                        />
-                        <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
-                          Cualquier dato adicional relevante del expediente físico, contexto, aclaraciones de lectura...
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <ExpedienteVitalSigns 
-                  triages={triagesPaciente} 
-                  calcularIMC={calcularIMC} 
+                <ExpedienteDatosGeneralesMedicos
+                  paciente={paciente}
+                  infoMedica={infoMedica}
                 />
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {cirugiasPaciente.length > 0 && (
                   <ExpedienteSurgeryHistory 
                     cirugias={cirugiasPaciente}
                     onVerDetalle={setCirugiaSeleccionadaId}
                   />
-
-                  <Card className="shadow-sm">
-                    <CardHeader className="bg-gray-50/50 border-b">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <ClipboardList className="w-5 h-5 text-blue-600" />
-                        Historial de Cambios y Registro
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="divide-y max-h-[420px] overflow-y-auto">
-                        {auditoriaPaciente.map((log) => (
-                            <div 
-                              key={log.id} 
-                              className={`p-4 transition-colors ${isLogClickable(log) ? 'cursor-pointer hover:bg-blue-50 relative group' : 'hover:bg-gray-50'}`}
-                              onClick={() => handleLogClick(log)}
-                            >
-                              {isLogClickable(log) && (
-                                <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200">Ver Detalles</Badge>
-                                </div>
-                              )}
-                              <div className="flex justify-between items-start gap-2 pr-24">
-                                <div>
-                                  <p className="text-sm font-medium text-gray-900">{log.accion}</p>
-                                  <p className="text-xs text-gray-600 mt-0.5">{log.detalles}</p>
-                                </div>
-                                <Badge variant="outline" className="text-[10px] uppercase">
-                                  {log.rol}
-                                </Badge>
-                              </div>
-                              <div className="flex justify-between items-center mt-2">
-                                <p className="text-[10px] text-gray-500 italic">Por: {log.nombreUsuario}</p>
-                                <p className="text-[10px] text-gray-400">
-                                  {new Date(log.fechaHora).toLocaleString('es-MX', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        {auditoriaPaciente.length === 0 && (
-                          <div className="p-8 text-center text-gray-400 text-sm italic">
-                            {cargandoAuditoria ? 'Cargando registros...' : 'No hay registros de auditoría para este paciente.'}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                )}
               </div>
             </TabsContent>
 
