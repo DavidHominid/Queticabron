@@ -71,6 +71,8 @@ export function Usuarios() {
     e.preventDefault();
     const raw = Array.isArray(formData.especialidades) ? formData.especialidades : [];
     const especialidades = Array.from(new Set(raw.map((x) => String(x || '').trim()).filter(Boolean)));
+    const rawCiudades = Array.isArray(formData.ciudades) ? formData.ciudades : [];
+    const ciudades = Array.from(new Set(rawCiudades.map((x) => String(x || '').trim()).filter(Boolean)));
     if (formData.rol === 'medico' && especialidades.length === 0) {
       alert(t('usuarios.select_at_least_one_specialty'));
       return;

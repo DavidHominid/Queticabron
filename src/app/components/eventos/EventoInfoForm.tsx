@@ -80,21 +80,6 @@ export function EventoInfoForm({
           />
         </div>
 
-
-
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-900">Estado</label>
-          <select
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={value.estado}
-            disabled
-          >
-            <option value="activo">Activo</option>
-            <option value="finalizado">Finalizado</option>
-            <option value="cancelado">Cancelado</option>
-          </select>
-        </div>
-
         <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-2 sm:flex-row">
